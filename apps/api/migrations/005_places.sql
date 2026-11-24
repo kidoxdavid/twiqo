@@ -1,0 +1,48 @@
+-- Canadian places used to resolve city names to coarse points (no street addresses are ever stored publicly)
+CREATE TABLE places (
+  id serial PRIMARY KEY,
+  city text NOT NULL,
+  province char(2) NOT NULL,
+  location geography(Point,4326) NOT NULL,
+  UNIQUE (city, province)
+);
+CREATE INDEX places_loc_idx ON places USING gist(location);
+CREATE INDEX places_city_trgm ON places USING gin(city gin_trgm_ops);
+INSERT INTO places(city,province,location) VALUES
+('Toronto','ON',ST_SetSRID(ST_MakePoint(-79.3832,43.6532),4326)::geography),
+('Ottawa','ON',ST_SetSRID(ST_MakePoint(-75.6972,45.4215),4326)::geography),
+('Mississauga','ON',ST_SetSRID(ST_MakePoint(-79.6441,43.589),4326)::geography),
+('Hamilton','ON',ST_SetSRID(ST_MakePoint(-79.8711,43.2557),4326)::geography),
+('London','ON',ST_SetSRID(ST_MakePoint(-81.2453,42.9849),4326)::geography),
+('Kitchener','ON',ST_SetSRID(ST_MakePoint(-80.4925,43.4516),4326)::geography),
+('Windsor','ON',ST_SetSRID(ST_MakePoint(-83.0364,42.3149),4326)::geography),
+('Thunder Bay','ON',ST_SetSRID(ST_MakePoint(-89.2477,48.3809),4326)::geography),
+('Montreal','QC',ST_SetSRID(ST_MakePoint(-73.5673,45.5017),4326)::geography),
+('Quebec City','QC',ST_SetSRID(ST_MakePoint(-71.208,46.8139),4326)::geography),
+('Laval','QC',ST_SetSRID(ST_MakePoint(-73.7124,45.6066),4326)::geography),
+('Gatineau','QC',ST_SetSRID(ST_MakePoint(-75.7013,45.4765),4326)::geography),
+('Vancouver','BC',ST_SetSRID(ST_MakePoint(-123.1207,49.2827),4326)::geography),
+('Victoria','BC',ST_SetSRID(ST_MakePoint(-123.3656,48.4284),4326)::geography),
+('Surrey','BC',ST_SetSRID(ST_MakePoint(-122.849,49.1913),4326)::geography),
+('Kelowna','BC',ST_SetSRID(ST_MakePoint(-119.496,49.888),4326)::geography),
+('Kamloops','BC',ST_SetSRID(ST_MakePoint(-120.3273,50.6745),4326)::geography),
+('Calgary','AB',ST_SetSRID(ST_MakePoint(-114.0719,51.0447),4326)::geography),
+('Edmonton','AB',ST_SetSRID(ST_MakePoint(-113.4938,53.5461),4326)::geography),
+('Red Deer','AB',ST_SetSRID(ST_MakePoint(-113.8112,52.2681),4326)::geography),
+('Lethbridge','AB',ST_SetSRID(ST_MakePoint(-112.8418,49.6935),4326)::geography),
+('Airdrie','AB',ST_SetSRID(ST_MakePoint(-114.0144,51.2917),4326)::geography),
+('Medicine Hat','AB',ST_SetSRID(ST_MakePoint(-110.6764,50.0405),4326)::geography),
+('Banff','AB',ST_SetSRID(ST_MakePoint(-115.5708,51.1784),4326)::geography),
+('Winnipeg','MB',ST_SetSRID(ST_MakePoint(-97.1384,49.8951),4326)::geography),
+('Brandon','MB',ST_SetSRID(ST_MakePoint(-99.9501,49.8485),4326)::geography),
+('Saskatoon','SK',ST_SetSRID(ST_MakePoint(-106.67,52.1332),4326)::geography),
+('Regina','SK',ST_SetSRID(ST_MakePoint(-104.6189,50.4452),4326)::geography),
+('Halifax','NS',ST_SetSRID(ST_MakePoint(-63.5752,44.6488),4326)::geography),
+('Moncton','NB',ST_SetSRID(ST_MakePoint(-64.7782,46.0878),4326)::geography),
+('Fredericton','NB',ST_SetSRID(ST_MakePoint(-66.6431,45.9636),4326)::geography),
+('Saint John','NB',ST_SetSRID(ST_MakePoint(-66.0633,45.2733),4326)::geography),
+('Charlottetown','PE',ST_SetSRID(ST_MakePoint(-63.1311,46.2382),4326)::geography),
+('St. John''s','NL',ST_SetSRID(ST_MakePoint(-52.7126,47.5615),4326)::geography),
+('Whitehorse','YT',ST_SetSRID(ST_MakePoint(-135.0568,60.7212),4326)::geography),
+('Yellowknife','NT',ST_SetSRID(ST_MakePoint(-114.3718,62.454),4326)::geography),
+('Iqaluit','NU',ST_SetSRID(ST_MakePoint(-68.517,63.7467),4326)::geography);
