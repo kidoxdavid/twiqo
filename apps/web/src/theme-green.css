@@ -1,0 +1,92 @@
+/* twiqo "green" theme: a light touch on the existing design.
+   1. Green becomes the primary colour. Every place that used --blue (buttons, active tabs, links, hearts, rings) turns green.
+   2. Blue stays where it means something: the logo's first tick, info pills, route maps and Move.
+   3. A few small layout tweaks so it reads less like a generic social feed (segmented feed tabs, inset post cards, a dock-style nav, squarer stories). */
+
+:root{
+  --blue:#087F5B;            /* primary (name kept so existing components pick it up) */
+  --green:#087F5B;
+  --green-deep:#066B4B;
+  --mint:#DDF3E8;
+  --azure:#1D5FE6;           /* the old blue, kept for Move, info and the logo */
+  --azure-tint:#E1EBFF;
+  --cloud:#F4F8F5;
+  --line:#E2EBE5;
+  --shadow:0 8px 24px rgba(8,60,40,.08);
+}
+:focus-visible{outline-color:rgba(8,127,91,.5)}
+
+/* ---- where blue stays blue ---- */
+.pill.b{background:var(--azure-tint);color:var(--azure)}
+.vf{color:var(--azure)}                       /* verified tick keeps the logo blue */
+
+/* ---- colours that were hard-coded blue-grey ---- */
+.btn.soft{background:#E4EFE8}
+.btn.teal{background:#087F5B}
+.pill.t{background:var(--mint);color:var(--green-deep)}
+.noimg{background:linear-gradient(135deg,#E6F4EC,#CDE9DA)}
+.hero,.pc .img,.gallery img,.upl .tile,.attach .th{background:#EAF3EE}
+.skel{background:linear-gradient(90deg,#e8f1ec,#f4f9f6,#e8f1ec);background-size:200% 100%}
+.convs a:hover,.act:hover,.menu button:hover{background:var(--cloud)}
+.msg.out{background:var(--green)}
+.unread{background:var(--green)}
+.pc .p{color:var(--green-deep)}
+.pc .p small{color:var(--green-deep)}
+.cover{background:linear-gradient(135deg,var(--navy),var(--green) 62%,var(--teal))}
+.av{background:linear-gradient(135deg,var(--green),var(--teal))}
+
+/* ---- top bar: icons become outlined circles, brand stays ---- */
+.iconbtn{box-shadow:inset 0 0 0 1.5px var(--line);background:#fff}
+.iconbtn:hover{background:var(--mint)}
+.top .in{padding-top:8px;padding-bottom:8px}
+
+/* ---- navigation: a rounded dock instead of an edge-to-edge bar (mobile) ---- */
+.nav a{color:var(--ink2)}
+.nav a.active{color:var(--green-deep)}
+.nav .plus span:first-child{background:linear-gradient(135deg,var(--green),var(--teal));box-shadow:0 6px 14px rgba(8,127,91,.35)}
+@media(max-width:899px){
+  .nav{left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom));border:1px solid var(--line);border-radius:26px;box-shadow:0 10px 28px rgba(8,60,40,.16);padding:7px 8px}
+  .nav a.active span,.nav a.active{ }
+  .nav a.active:not(.plus){background:var(--mint);border-radius:18px}
+  .main{padding-bottom:128px}
+}
+@media(min-width:900px){.nav a.active{background:var(--mint)}.nav .plus{background:linear-gradient(135deg,var(--green),var(--teal))}}
+
+/* ---- feed tabs: a segmented control instead of loose pills ---- */
+.tabs[role=tablist]{background:#E4EFE8;border-radius:22px;padding:4px;margin:4px 16px 12px;gap:2px;overflow:hidden}
+.tabs[role=tablist] .tab{flex:1;text-align:center;background:transparent;padding:8px 6px;color:var(--ink2)}
+.tabs[role=tablist] .tab.on{background:#fff;color:var(--green-deep);box-shadow:0 2px 8px rgba(8,60,40,.12)}
+nav.tabs .tab.on,.tab.on{background:var(--green);color:#fff}
+.tabs[role=tablist] .tab.on{background:#fff;color:var(--green-deep)}
+.chip.on{background:var(--green);border-color:var(--green)}
+
+/* ---- posts become inset cards on mobile (no full-bleed grey separators) ---- */
+@media(max-width:719px){
+  .post{border-top:0;margin:0 12px 12px;border-radius:22px;box-shadow:0 0 0 1px var(--line)}
+}
+.post .who b{font-size:14.5px}
+.act.on{color:var(--red-text)}.act.saved{color:var(--green)}.act.saved svg{fill:var(--green)}
+.heart.on{color:var(--green)}.heart.on svg{fill:var(--green)}
+.attach{border-radius:18px;background:var(--cloud)}
+
+/* ---- stories: rounded squares with a green ring instead of circles ---- */
+.chips[aria-label=Stories] .av{border-radius:18px !important}
+.chips[aria-label=Stories] button>span,.chips[aria-label=Stories] button>span>span{border-radius:22px !important}
+
+/* ---- market: bigger rounded photos, price in green ---- */
+.pc .img{border-radius:22px}
+.tagover{background:rgba(255,255,255,.96);color:var(--green-deep)}
+.price{color:var(--green-deep)}
+.thumbs img.on{border-color:var(--green)}
+
+/* ---- a friendly greeting row on Home (location chip + hello) ---- */
+.hello{display:flex;align-items:center;gap:10px;padding:2px 16px 10px}
+.hello small{display:block;color:var(--ink2);font-size:12.5px;font-weight:600}
+.hello b{font-size:20px;letter-spacing:-.4px}
+.hello .loc{margin-left:auto;display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:16px;background:var(--mint);color:var(--green-deep);font-size:12.5px;font-weight:800}
+.hello .loc svg{width:15px;height:15px}
+
+/* ---- sheets and tiles ---- */
+.cg a,.cg button{border-radius:22px}
+.sheet{border-radius:30px 30px 0 0}
+.card{border:1px solid var(--line);box-shadow:0 6px 18px rgba(8,60,40,.05)}
