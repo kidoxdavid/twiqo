@@ -17,10 +17,11 @@ export function computeFee(rule: FeeRule | null | undefined, amountCents: number
 // ---------------------------------------------------------------------------------------------- provider interface
 export interface NormalizedEvent {
   id: string;
-  type: 'subscription.updated' | 'payment.succeeded' | 'payment.failed' | 'refund.updated' | 'account.updated' | 'payout.updated' | 'card_dispute.created' | 'ignored';
+  type: 'identity.updated' | 'subscription.updated' | 'payment.succeeded' | 'payment.failed' | 'refund.updated' | 'account.updated' | 'payout.updated' | 'card_dispute.created' | 'ignored';
   paymentId?: string; chargeId?: string; failureReason?: string;
   refundId?: string; refundStatus?: 'pending' | 'succeeded' | 'failed'; refundAmount?: number;
   accountId?: string;
+  identity?: { sessionId: string; userId?: string; status: 'verified' | 'processing' | 'requires_input' | 'canceled' };
   subscription?: { id: string; customerId: string; userId?: string; status: 'incomplete' | 'active' | 'past_due' | 'canceled'; periodEnd?: string; cancelAtPeriodEnd: boolean };
   payout?: { id: string; amount: number; status: string; arrival?: string; currency?: string };
 }
@@ -42,6 +43,8 @@ export interface PaymentProvider {
   /** Business Pro (recurring) billing: hosted checkout page and customer portal. */
   createSubscriptionCheckout(i: { userId: string; email: string; customerId?: string | null; successUrl: string; cancelUrl: string }): Promise<{ url: string }>;
   subscriptionPortal(customerId: string, returnUrl: string): Promise<string | null>;
+  /** Government-ID + selfie check (Stripe Identity). The result arrives as an `identity.updated` webhook event. */
+  createIdentitySession(i: { userId: string; returnUrl: string }): Promise<{ id: string; url: string }>;
   parseWebhook(rawBody: Buffer, headers: Record<string, string | string[] | undefined>): NormalizedEvent;
 }
 
@@ -77,6 +80,7 @@ export class FakePaymentProvider implements PaymentProvider {
   }
   async createSubscriptionCheckout(i: { successUrl: string }) { return { url: `${i.successUrl}${i.successUrl.includes('?') ? '&' : '?'}fake_subscription=1` }; }
   async subscriptionPortal() { return null; }
+  async createIdentitySession(i: { userId: string; returnUrl: string }) { const id = `vs_fake_${crypto.randomBytes(8).toString('hex')}`; return { id, url: `${i.returnUrl}${i.returnUrl.includes('?') ? '&' : '?'}fake_identity=${id}` }; }
   parseWebhook(raw: Buffer, headers: Record<string, string | string[] | undefined>): NormalizedEvent {
     const sig = hdr(headers, 'x-fake-signature');
     if (!sig || sig.length !== FAKE_WEBHOOK_SECRET.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(FAKE_WEBHOOK_SECRET))) throw new Error('Invalid webhook signature');
@@ -136,6 +140,12 @@ export class StripePaymentProvider implements PaymentProvider {
     if (!s.url) throw new Error('Stripe returned no checkout URL');
     return { url: s.url };
   }
+  async createIdentitySession(i: { userId: string; returnUrl: string }) {
+    const s = await this.stripe.identity.verificationSessions.create({ type: 'document', metadata: { twiqo_user_id: i.userId }, return_url: i.returnUrl,
+      options: { document: { require_matching_selfie: true, require_live_capture: true, allowed_types: ['driving_license', 'passport', 'id_card'] } } });
+    if (!s.url) throw new Error('Stripe returned no verification URL');
+    return { id: s.id, url: s.url };
+  }
   async subscriptionPortal(customerId: string, returnUrl: string) { return (await this.stripe.billingPortal.sessions.create({ customer: customerId, return_url: returnUrl })).url; }
   parseWebhook(raw: Buffer, headers: Record<string, string | string[] | undefined>): NormalizedEvent {
     const sig = hdr(headers, 'stripe-signature'); if (!sig) throw new Error('Missing Stripe signature');
@@ -156,6 +166,9 @@ export class StripePaymentProvider implements PaymentProvider {
         return { id: ev.id, type: 'subscription.updated', subscription: { id: o.id, customerId: typeof o.customer === 'string' ? o.customer : o.customer?.id, userId: o.metadata?.twiqo_user_id,
           status: ev.type === 'customer.subscription.deleted' || st === 'canceled' || st === 'incomplete_expired' ? 'canceled' : st === 'active' || st === 'trialing' ? 'active' : st === 'past_due' || st === 'unpaid' ? 'past_due' : 'incomplete',
           periodEnd: end ? new Date(end * 1000).toISOString() : undefined, cancelAtPeriodEnd: !!o.cancel_at_period_end } };
+      }
+      case 'identity.verification_session.verified': case 'identity.verification_session.requires_input': case 'identity.verification_session.canceled': case 'identity.verification_session.processing': {
+        const st = ev.type.split('.').pop()!; return { id: ev.id, type: 'identity.updated', identity: { sessionId: o.id, userId: o.metadata?.twiqo_user_id, status: st as 'verified' | 'processing' | 'requires_input' | 'canceled' } };
       }
       case 'charge.dispute.created': return { id: ev.id, type: 'card_dispute.created', paymentId: typeof o.payment_intent === 'string' ? o.payment_intent : o.payment_intent?.id };
       default: return { id: ev.id, type: 'ignored' };

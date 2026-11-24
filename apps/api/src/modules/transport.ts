@@ -1,3 +1,4 @@
+import { assertDriverAllowed, isTrustedDriver } from './trust.js';
 import { queueSearchMatch } from './notifications.js';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -210,7 +211,7 @@ const journeySchema = z.object({
   max_length_cm: z.number().int().min(1).max(2000).optional(), max_width_cm: z.number().int().min(1).max(500).optional(), max_height_cm: z.number().int().min(1).max(500).optional(),
   item_restrictions: z.array(z.enum(RESTRICTIONS)).default([]), price_cents: z.number().int().min(0).max(10_000_000), price_type: z.enum(['fixed', 'negotiable']).default('negotiable'),
   pickup_preferences: z.string().max(500).optional(), delivery_preferences: z.string().max(500).optional(), helps_loading: z.boolean().default(false),
-  description: z.string().max(4000).default(''), business_id: uuid.optional(),
+  description: z.string().max(4000).default(''), business_id: uuid.optional(), instant_book: z.boolean().default(false),
 });
 
 transport.post('/transport/journeys', requireAuth, wrap(async (req, res) => {
@@ -218,6 +219,8 @@ transport.post('/transport/journeys', requireAuth, wrap(async (req, res) => {
   if (new Date(b.departure_at).getTime() < Date.now()) throw badRequest('Departure must be in the future');
   if (b.arrival_at && new Date(b.arrival_at) <= new Date(b.departure_at)) throw badRequest('Arrival must be after departure');
   await checkText(b.description);
+  await assertDriverAllowed(uid);
+  if (b.instant_book && !(await isTrustedDriver(uid))) throw new HttpError(422, 'Instant book is available once your identity is verified, or after enough successful deliveries.', 'not_trusted');
   const id = await tx(async (c) => {
     const o = await requirePlace(b.origin_city, b.origin_province, c); const d = await requirePlace(b.dest_city, b.dest_province, c);
     const wps = []; for (const w of b.waypoints) wps.push(await requirePlace(w.city, w.province, c));
@@ -227,12 +230,12 @@ transport.post('/transport/journeys', requireAuth, wrap(async (req, res) => {
     const wkt = `LINESTRING(${pts.map((p) => `${p.lng} ${p.lat}`).join(', ')})`;
     const r = await c.query(
       `INSERT INTO journeys(driver_id,business_id,description,origin_city,origin_province,origin,dest_city,dest_province,dest,waypoints,route,distance_km,max_detour_km,departure_at,arrival_at,vehicle_type,
-         capacity_kg,capacity_m3,remaining_kg,remaining_m3,max_length_cm,max_width_cm,max_height_cm,item_restrictions,price_cents,price_type,pickup_preferences,delivery_preferences,helps_loading)
+         capacity_kg,capacity_m3,remaining_kg,remaining_m3,max_length_cm,max_width_cm,max_height_cm,item_restrictions,price_cents,price_type,pickup_preferences,delivery_preferences,helps_loading,instant_book)
        VALUES ($1,$2,$3,$4,$5,ST_SetSRID(ST_MakePoint($6,$7),4326)::geography,$8,$9,ST_SetSRID(ST_MakePoint($10,$11),4326)::geography,$12,ST_GeogFromText($13),
-         round(ST_Length(ST_GeogFromText($13))/1000),$14,$15,$16,$17,$18,$19,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28) RETURNING id`,
+         round(ST_Length(ST_GeogFromText($13))/1000),$14,$15,$16,$17,$18,$19,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29) RETURNING id`,
       [uid, b.business_id ?? null, b.description, o.city, o.province, o.lng, o.lat, d.city, d.province, d.lng, d.lat, JSON.stringify(wps.map((w) => ({ city: w.city, province: w.province, lat: w.lat, lng: w.lng }))), `SRID=4326;${wkt}`,
         b.max_detour_km, b.departure_at, b.arrival_at ?? null, b.vehicle_type, b.capacity_kg, b.capacity_m3 ?? null, b.max_length_cm ?? null, b.max_width_cm ?? null, b.max_height_cm ?? null,
-        b.item_restrictions, b.price_cents, b.price_type, b.pickup_preferences ?? null, b.delivery_preferences ?? null, b.helps_loading]);
+        b.item_restrictions, b.price_cents, b.price_type, b.pickup_preferences ?? null, b.delivery_preferences ?? null, b.helps_loading, b.instant_book]);
     await syncFeed(c, 'journey', r.rows[0].id, uid, b.business_id ?? null, 'public', true, `(SELECT origin FROM journeys WHERE id='${r.rows[0].id}')`);
     return r.rows[0].id as string;
   });
@@ -275,7 +278,7 @@ transport.get('/transport/journeys', optionalAuth, wrap(async (req, res) => {
 
 transport.patch('/transport/journeys/:id', requireAuth, wrap(async (req, res) => {
   const id = uuid.parse(req.params.id);
-  const b = patchOf(journeySchema.pick({ description: true, price_cents: true, price_type: true, max_detour_km: true, item_restrictions: true, pickup_preferences: true, delivery_preferences: true, helps_loading: true, capacity_kg: true, arrival_at: true, departure_at: true })).parse(req.body);
+  const b = patchOf(journeySchema.pick({ description: true, price_cents: true, price_type: true, max_detour_km: true, item_restrictions: true, pickup_preferences: true, delivery_preferences: true, instant_book: true, helps_loading: true, capacity_kg: true, arrival_at: true, departure_at: true })).parse(req.body);
   await checkText(b.description);
   await tx(async (c) => {
     const j = (await c.query('SELECT * FROM journeys WHERE id=$1 FOR NO KEY UPDATE', [id])).rows[0];
@@ -284,6 +287,7 @@ transport.patch('/transport/journeys/:id', requireAuth, wrap(async (req, res) =>
     const booked = (await c.query(`SELECT count(*)::int n FROM bookings WHERE journey_id=$1 AND status <> 'cancelled'`, [id])).rows[0].n;
     if (b.departure_at && booked) throw new HttpError(409, 'Departure time cannot change once there are bookings', 'conflict');
     const sets: string[] = []; const vals: unknown[] = [id]; const set = (k: string, v: unknown) => { vals.push(v); sets.push(`${k}=$${vals.length}`); };
+    if (b.instant_book && !(await isTrustedDriver(req.user!.id, c))) throw new HttpError(422, 'Instant book is available once your identity is verified, or after enough successful deliveries.', 'not_trusted');
     for (const [k, v] of Object.entries(b)) if (k !== 'capacity_kg') set(k, v);
     if (b.capacity_kg !== undefined) {
       const reserved = j.capacity_kg - j.remaining_kg; if (b.capacity_kg < reserved) throw new HttpError(409, `${reserved} kg is already reserved by bookings`, 'conflict');
@@ -342,6 +346,7 @@ const serviceSchema = z.object({
 transport.post('/transport/services', requireAuth, wrap(async (req, res) => {
   const b = serviceSchema.parse(req.body); const uid = req.user!.id;
   await checkText(b.title); await checkText(b.description);
+  await assertDriverAllowed(uid);
   const id = await tx(async (c) => {
     const pl = await requirePlace(b.service_city, b.service_province, c);
     if (b.business_id && !(await can(b.business_id, uid, 'delivery'))) throw forbidden('You cannot post for this business');
@@ -415,8 +420,8 @@ transport.get('/users/:username/transport', optionalAuth, wrap(async (req, res) 
     `SELECT (SELECT count(*) FROM bookings WHERE transporter_id=$1 AND status='completed')::int AS completed_as_transporter,
             (SELECT count(*) FROM bookings WHERE shipper_id=$1 AND status='completed')::int AS completed_as_shipper,
             (SELECT count(*) FROM bookings WHERE transporter_id=$1 AND status='cancelled' AND cancelled_by=$1)::int AS cancelled_by_them,
-            (SELECT round(avg(rating)::numeric,2) FROM reviews WHERE reviewee_id=$1 AND role='transporter' AND status='active') AS rating_avg,
-            (SELECT count(*) FROM reviews WHERE reviewee_id=$1 AND role='transporter' AND status='active')::int AS rating_count`, [u.id])).rows[0];
+            (SELECT round(avg(rating)::numeric,2) FROM reviews WHERE reviewee_id=$1 AND role='transporter' AND status='active' AND revealed_at IS NOT NULL) AS rating_avg,
+            (SELECT count(*) FROM reviews WHERE reviewee_id=$1 AND role='transporter' AND status='active' AND revealed_at IS NOT NULL)::int AS rating_count`, [u.id])).rows[0];
   const show = viewer === u.id || u.privacy?.show_transport_history === true;
   const js = (await pool.query(`SELECT id FROM journeys WHERE driver_id=$1 AND status IN ('open','full') AND departure_at > now() ORDER BY departure_at LIMIT 10`, [u.id])).rows.map((r) => r.id);
   const ss = (await pool.query(`SELECT id FROM transport_services WHERE provider_id=$1 AND status='active' ORDER BY created_at DESC LIMIT 10`, [u.id])).rows.map((r) => r.id);

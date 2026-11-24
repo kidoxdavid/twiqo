@@ -1,3 +1,4 @@
+import { enforceVelocity, recordRisk, scanText, CHAT_WARNING_REASONS } from '../lib/risk.js';
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
@@ -50,6 +51,7 @@ messaging.post('/conversations', requireAuth, wrap(async (req, res) => {
   if (b.recipient_id === me) throw badRequest('You cannot message yourself');
   if (!!b.subject_type !== !!b.subject_id) throw badRequest('Subject is incomplete');
   await assertCanMessage(me, b.recipient_id);
+  await enforceVelocity(pool, me, 'conversation');
   if (b.subject_type) {
     const l = await pool.query(SUBJECT_OWNER[b.subject_type], [b.subject_id]);
     if (!l.rows[0] || l.rows[0].o !== b.recipient_id) throw badRequest('That does not belong to this person');
@@ -85,7 +87,7 @@ messaging.get('/conversations/:id/messages', requireAuth, wrap(async (req, res) 
   await assertMember(id, req.user!.id);
   const before = typeof req.query.before === 'string' ? new Date(req.query.before) : null;
   const { rows } = await pool.query(
-    `SELECT m.id, m.sender_id, m.kind, CASE WHEN m.status='removed' THEN NULL ELSE m.body END AS body, m.payload, m.status, m.created_at,
+    `SELECT m.id, m.sender_id, m.kind, CASE WHEN m.status='removed' THEN NULL ELSE m.body END AS body, m.payload, m.status, m.created_at, m.flags,
             (SELECT storage_key FROM media_assets WHERE id=m.media_id) AS media_key
      FROM messages m WHERE m.conversation_id=$1 AND ($2::timestamptz IS NULL OR m.created_at < $2) ORDER BY m.created_at DESC LIMIT 50`, [id, before]);
   const other = await otherMember(id, req.user!.id);
@@ -94,6 +96,8 @@ messaging.get('/conversations/:id/messages', requireAuth, wrap(async (req, res) 
   const cards = await offerViews(offerIds, req.user!.id);
   res.json({ items: rows.reverse().map((m) => ({ id: m.id, sender_id: m.sender_id, kind: m.kind, body: m.body, payload: m.payload, offer: m.payload?.offer_id ? cards.get(m.payload.offer_id) ?? null : null, removed: m.status === 'removed',
     image_url: m.media_key ? mediaUrl(m.media_key) : null, created_at: m.created_at,
+    // only the person receiving a risky message is warned; the sender never learns the heuristics
+    warning: m.sender_id !== req.user!.id && m.flags?.length ? 'This message asks you to pay or arrange things outside twiqo. Payments made outside twiqo are not covered by our refund and dispute review. Be careful, and report it if it feels wrong.' : undefined,
     read: m.sender_id === req.user!.id && readAt ? new Date(readAt) >= new Date(m.created_at) : undefined })) });
 }));
 
@@ -103,7 +107,9 @@ async function sendMessage(conversationId: string, sender: string, m: { kind: 't
   if (m.kind === 'text') { const flagged = await checkText(m.body); if (flagged) throw new HttpError(422, 'This message breaks our community guidelines', 'policy_violation'); }
   const row = await tx(async (c) => {
     if (m.media_id) await assertOwnsMedia(c, sender, [m.media_id]);
-    const r = await c.query(`INSERT INTO messages(conversation_id,sender_id,kind,body,media_id) VALUES ($1,$2,$3,$4,$5) RETURNING id, created_at`, [conversationId, sender, m.kind, m.body ?? null, m.media_id ?? null]);
+    const flags = m.kind === 'text' ? scanText(m.body).reasons.filter((x) => CHAT_WARNING_REASONS.has(x)) : [];
+    const r = await c.query(`INSERT INTO messages(conversation_id,sender_id,kind,body,media_id,flags) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, created_at`, [conversationId, sender, m.kind, m.body ?? null, m.media_id ?? null, flags]);
+    if (flags.length) await recordRisk(c, { entityType: 'message', entityId: r.rows[0].id, userId: sender, score: 3, reasons: flags });
     await c.query(`UPDATE conversations SET last_message_at = $2 WHERE id=$1`, [conversationId, r.rows[0].created_at]);
     await c.query(`UPDATE conversation_members SET last_read_at = $3 WHERE conversation_id=$1 AND user_id=$2`, [conversationId, sender, r.rows[0].created_at]);
     return r.rows[0];

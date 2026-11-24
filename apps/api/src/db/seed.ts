@@ -204,8 +204,8 @@ for (const [i, [shipper, rating, comment]] of doneShippers.entries()) {
   const rq = await mkRequest(shipper, { title: `Past delivery ${i + 1}`, cat: 'boxes', kg: 20, from: 'Toronto', to: 'Calgary', fromDay: -30 - i, toDay: -25 - i, status: 'completed' });
   const of = await mkOffer({ kind: 'transport', customer: shipper, provider: daniel, proposer: shipper, request: rq, amount: 7000 + i * 500, status: 'accepted' });
   const bk = (await pool.query(`INSERT INTO bookings(offer_id,request_id,shipper_id,transporter_id,agreed_cents,pickup_pin,delivery_pin,status,pickup_confirmed_at,delivered_at,completed_at,created_at) VALUES ($1,$2,$3,$4,$5,'1111','2222','completed', now() - ($6 || ' days')::interval, now() - ($6 || ' days')::interval, now() - ($6 || ' days')::interval, now() - ($6 || ' days')::interval) RETURNING id`, [of, rq, shipper, daniel, 7000 + i * 500, String(25 + i)])).rows[0].id;
-  await pool.query(`INSERT INTO reviews(booking_id,reviewer_id,reviewee_id,role,rating,comment) VALUES ($1,$2,$3,'transporter',$4,$5)`, [bk, shipper, daniel, rating, comment]);
-  await pool.query(`INSERT INTO reviews(booking_id,reviewer_id,reviewee_id,role,rating,comment) VALUES ($1,$2,$3,'shipper',5,'Easy handover, accurate description.')`, [bk, daniel, shipper]);
+  await pool.query(`INSERT INTO reviews(booking_id,reviewer_id,reviewee_id,role,rating,comment,revealed_at) VALUES ($1,$2,$3,'transporter',$4,$5, now())`, [bk, shipper, daniel, rating, comment]);
+  await pool.query(`INSERT INTO reviews(booking_id,reviewer_id,reviewee_id,role,rating,comment,revealed_at) VALUES ($1,$2,$3,'shipper',5,'Easy handover, accurate description.', now())`, [bk, daniel, shipper]);
 }
 
 // a live booking: amara is shipping boxes with daniel and the load is in transit (PINs 4821 / 1937 in dev data)

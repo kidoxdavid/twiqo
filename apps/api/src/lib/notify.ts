@@ -25,6 +25,7 @@ export const NOTIFICATION_TYPES: { type: string; label: string }[] = [
   { type: 'saved_search_match', label: 'New matches for my saved searches' },
   { type: 'price_drop', label: 'Price drops on items I saved' },
   { type: 'safety_alert', label: 'Safety alerts from people I am moving with' },
+  { type: 'document_review', label: 'Driver document reviews' },
 ];
 
 /** Create a notification unless the recipient turned that type off or the pair is blocked. Returns true if stored. */

@@ -95,13 +95,16 @@ export async function hydrateListings(ids: string[], viewer: string | null, dist
 const ownerSql = (idCol: string, role: 'transporter' | 'shipper') => `
   u.username, pr.display_name, pr.verification_level,
   (SELECT storage_key FROM media_assets WHERE id = pr.avatar_media_id) AS avatar_key,
-  (SELECT round(avg(rv.rating)::numeric, 2) FROM reviews rv WHERE rv.reviewee_id = ${idCol} AND rv.status='active' AND rv.role='${role}') AS rating_avg,
-  (SELECT count(*) FROM reviews rv WHERE rv.reviewee_id = ${idCol} AND rv.status='active' AND rv.role='${role}')::int AS rating_count,
-  (SELECT count(*) FROM bookings bk WHERE bk.${role}_id = ${idCol} AND bk.status='completed')::int AS completed`;
+  (SELECT round(avg(rv.rating)::numeric, 2) FROM reviews rv WHERE rv.reviewee_id = ${idCol} AND rv.status='active' AND rv.revealed_at IS NOT NULL AND rv.role='${role}') AS rating_avg,
+  (SELECT count(*) FROM reviews rv WHERE rv.reviewee_id = ${idCol} AND rv.status='active' AND rv.revealed_at IS NOT NULL AND rv.role='${role}')::int AS rating_count,
+  (SELECT count(*) FROM bookings bk WHERE bk.${role}_id = ${idCol} AND bk.status='completed')::int AS completed,
+  EXISTS (SELECT 1 FROM driver_documents dd WHERE dd.user_id = ${idCol} AND dd.kind='drivers_licence' AND dd.status='approved' AND dd.expires_on >= current_date) AS licence_ok,
+  EXISTS (SELECT 1 FROM driver_documents dd WHERE dd.user_id = ${idCol} AND dd.kind='insurance' AND dd.status='approved' AND dd.expires_on >= current_date) AS insurance_ok`;
 
 const ownerView = (r: any, id: string) => ({
   id, username: r.username, display_name: r.display_name, avatar_url: av(r.avatar_key), verification_level: r.verification_level,
   rating_avg: r.rating_avg === null ? null : Number(r.rating_avg), rating_count: r.rating_count, completed: r.completed,
+  trust: { identity: r.verification_level === 'identity', licence: !!r.licence_ok, insurance: !!r.insurance_ok },
 });
 const place = (city: string, province: string, pt: { x: number; y: number }, area?: string | null) => ({ city, province, lat: pt.y, lng: pt.x, ...(area !== undefined ? { area } : {}) });
 const ST = (c: string) => `json_build_object('x', ST_X(${c}::geometry), 'y', ST_Y(${c}::geometry))`;
@@ -153,7 +156,7 @@ export async function hydrateJourneys(ids: string[], viewer: string | null) {
       waypoints: r.waypoints, distance_km: r.distance_km, max_detour_km: r.max_detour_km, departure_at: r.departure_at, arrival_at: r.arrival_at, vehicle_type: r.vehicle_type,
       capacity_kg: r.capacity_kg, remaining_kg: r.remaining_kg, capacity_m3: r.capacity_m3 === null ? null : Number(r.capacity_m3), remaining_m3: r.remaining_m3 === null ? null : Number(r.remaining_m3),
       max_dimensions_cm: { length: r.max_length_cm, width: r.max_width_cm, height: r.max_height_cm }, item_restrictions: r.item_restrictions,
-      price_cents: r.price_cents, price_type: r.price_type, pickup_preferences: r.pickup_preferences, delivery_preferences: r.delivery_preferences, helps_loading: r.helps_loading,
+      price_cents: r.price_cents, price_type: r.price_type, instant_book: !!r.instant_book, pickup_preferences: r.pickup_preferences, delivery_preferences: r.delivery_preferences, helps_loading: r.helps_loading,
       status: r.status, driver: ownerView(r, r.driver_id), business: r.business_id ? { id: r.business_id, name: r.business_name, slug: r.business_slug } : null,
       counts: { likes: r.like_count, comments: r.comment_count, saves: r.save_count }, viewer: { liked: r.liked, saved: r.saved, is_owner: viewer === r.driver_id }, created_at: r.created_at,
     });

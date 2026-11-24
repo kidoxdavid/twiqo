@@ -1,4 +1,5 @@
 import { track } from '../lib/analytics.js';
+import { enforceVelocity } from '../lib/risk.js';
 import crypto from 'node:crypto';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -103,8 +104,10 @@ const createSchema = z.discriminatedUnion('kind', [
 offers.post('/offers', requireAuth, wrap(async (req, res) => {
   const b = createSchema.parse(req.body); const me = req.user!.id;
   await checkText(b.message);
+  await enforceVelocity(pool, me, 'offer');
   await expireOffers();
   const hours = await expiryHours(b.expires_in_hours);
+  let instantDriver: string | null = null;
   let conv: { provider: string; customer: string; subject?: { type: SubjectType; id: string } };
   let row: Record<string, unknown>;
 
@@ -139,6 +142,7 @@ offers.post('/offers', requireAuth, wrap(async (req, res) => {
       const fit = await checkFit(r.id, j.id);
       if (fit?.excluded && ['capacity', 'restriction'].includes(fit.excluded.code)) throw new HttpError(422, fit.excluded.reason, 'does_not_fit');
       provider = j.driver_id; subject = { type: 'journey', id: j.id }; if (j.price_type === 'fixed' && asShipper) fixedPrice = j.price_cents;
+      if (asShipper && j.instant_book && j.price_type === 'fixed' && b.amount_cents === j.price_cents) instantDriver = j.driver_id;
     } else if (b.service_id) {
       const s = (await pool.query(`SELECT s.*, (SELECT status FROM users WHERE id=s.provider_id) AS ps FROM transport_services s WHERE s.id=$1`, [b.service_id])).rows[0];
       if (!s || s.ps !== 'active' || s.status !== 'active') throw notFound('Service');
@@ -171,8 +175,17 @@ offers.post('/offers', requireAuth, wrap(async (req, res) => {
     return o.rows[0].id as string;
   });
   await track(pool, { name: 'offer_made', userId: me, targetType: b.kind === 'goods' ? 'listing' : 'transport_request', targetId: (b.kind === 'goods' ? b.listing_id : b.request_id) as string });
-  res.status(201).json(await offerView(id, me));
+  // Instant book: a fixed-price journey from a trusted driver is confirmed straight away for an eligible shipper. Anything unusual falls back to a normal pending offer.
+  let booking_id: string | undefined;
+  if (instantDriver && (await instantEligible(me))) { try { booking_id = (await acceptOffer(id, instantDriver)).booking_id; } catch (e) { console.error('instant book fell back to a normal offer:', (e as Error).message); } }
+  res.status(201).json({ ...(await offerView(id, me)), instant_booked: !!booking_id, booking_id: booking_id ?? undefined });
 }));
+
+async function instantEligible(shipper: string) {
+  const minAge = Number(await setting('instant_book.min_account_age_hours', 24));
+  const u = (await pool.query(`SELECT email_verified_at IS NOT NULL AS verified, created_at < now() - ($2 || ' hours')::interval AS old_enough, (SELECT count(*)::int FROM disputes d WHERE d.opened_by=$1 AND d.status='open') AS open_disputes FROM users WHERE id=$1`, [shipper, String(minAge)])).rows[0];
+  return !!u && u.verified && u.old_enough && u.open_disputes === 0;
+}
 
 // ------------------------------------------------------------------------------------------ read
 offers.get('/offers', requireAuth, wrap(async (req, res) => {
@@ -287,8 +300,8 @@ offers.post('/offers/:id/counter', requireAuth, wrap(async (req, res) => {
 const pin = () => crypto.randomInt(0, 10000).toString().padStart(4, '0');
 const NIL_UNLESS = <T>(v: T | null | undefined) => v ?? null;
 
-offers.post('/offers/:id/accept', requireAuth, wrap(async (req, res) => {
-  const id = uuid.parse(req.params.id); const me = req.user!.id;
+/** Accept an offer as `me` (the recipient). Shared by the accept route and instant book. */
+export async function acceptOffer(id: string, me: string) {
   let expired = false;
   let result: { order_id?: string; booking_id?: string } = {};
   try {
@@ -350,5 +363,10 @@ offers.post('/offers/:id/accept', requireAuth, wrap(async (req, res) => {
   } catch (e) { if (e instanceof HttpError && e.code === 'expired') expired = true; else throw e; }
   if (expired) { await pool.query(`UPDATE offers SET status='expired' WHERE id=$1 AND status='pending'`, [id]); throw new HttpError(409, 'This offer has expired', 'expired'); }
   await track(pool, { name: 'order_created', userId: me, targetType: result.order_id ? 'order' : 'booking', targetId: (result.order_id ?? result.booking_id) as string });
+  return result;
+}
+offers.post('/offers/:id/accept', requireAuth, wrap(async (req, res) => {
+  const id = uuid.parse(req.params.id); const me = req.user!.id;
+  const result = await acceptOffer(id, me);
   res.json({ offer: await offerView(id, me), ...result });
 }));

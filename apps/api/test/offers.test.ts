@@ -138,6 +138,8 @@ describe('goods offers and negotiation', () => {
     await api().post(`/api/orders/${order_id}/complete`).set(auth(buyer));
     expect((await api().post(`/api/orders/${order_id}/reviews`).set(auth(buyer)).send({ rating: 5, comment: 'Great seller' })).status).toBe(201);
     expect((await api().post(`/api/orders/${order_id}/reviews`).set(auth(buyer)).send({ rating: 1 })).status).toBe(409);
+    expect((await api().get(`/api/users/${seller.username}/reviews`)).body.summary).toEqual({ average: null, count: 0 });   // blind: hidden until the seller reviews too
+    expect((await api().post(`/api/orders/${order_id}/reviews`).set(auth(seller)).send({ rating: 4 })).status).toBe(201);
     const reviews = (await api().get(`/api/users/${seller.username}/reviews`)).body;
     expect(reviews.summary).toEqual({ average: 5, count: 1 }); expect(reviews.items[0].role).toBe('seller');
   });

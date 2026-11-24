@@ -260,6 +260,15 @@ export async function handleEvent(ev: NormalizedEvent, provider = paymentProvide
     else if (ev.type === 'payout.updated' && ev.payout && ev.accountId) {
       const a = (await c.query('SELECT user_id FROM payment_accounts WHERE provider_account_id=$1', [ev.accountId])).rows[0];
       if (a) await c.query(`INSERT INTO payouts(user_id,provider_payout_id,amount_cents,currency,status,arrival_date) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (provider_payout_id) DO UPDATE SET status=EXCLUDED.status, arrival_date=EXCLUDED.arrival_date`, [a.user_id, ev.payout.id, ev.payout.amount, ev.payout.currency ?? 'CAD', ev.payout.status, ev.payout.arrival ?? null]);
+    } else if (ev.type === 'identity.updated' && ev.identity) {
+      const v = ev.identity; const row = (await c.query('SELECT user_id, status FROM identity_verifications WHERE provider_session_id=$1 FOR UPDATE', [v.sessionId])).rows[0];
+      if (row && !(row.status === 'verified' && v.status !== 'verified')) {
+        await c.query(`UPDATE identity_verifications SET status=$2, updated_at=now(), verified_at = CASE WHEN $2='verified' THEN now() ELSE verified_at END WHERE provider_session_id=$1`, [v.sessionId, v.status]);
+        if (v.status === 'verified') {
+          await c.query(`UPDATE user_profiles SET verification_level='identity', identity_verified_at=coalesce(identity_verified_at, now()) WHERE user_id=$1`, [row.user_id]);
+          await notify(c, { userId: row.user_id, type: 'payment_update', targetType: 'account', targetId: row.user_id, data: { event: 'identity_verified' }, dedupeKey: `idv:${v.sessionId}` });
+        }
+      }
     } else if (ev.type === 'subscription.updated' && ev.subscription) {
       const sub = ev.subscription;
       const known = (await c.query('SELECT user_id, status FROM subscriptions WHERE provider_subscription_id=$1 OR provider_customer_id=$2', [sub.id, sub.customerId])).rows[0];

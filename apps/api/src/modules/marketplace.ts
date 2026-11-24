@@ -1,10 +1,11 @@
 import { track, optedOut, anonIdOf } from '../lib/analytics.js';
 import { enqueue } from '../lib/queue.js';
+import { enforceVelocity, recordRisk, scanText } from '../lib/risk.js';
 import { queueSearchMatch } from './notifications.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import { pool, tx } from '../db/pool.js';
-import { HttpError, badRequest, forbidden, notFound, wrap } from '../lib/errors.js';
+import { HttpError, badRequest, forbidden, notFound, wrap, conflict } from '../lib/errors.js';
 import { optionalAuth, requireAuth } from '../lib/auth.js';
 import { checkText, setting } from '../lib/policy.js';
 import { resolvePlace } from '../lib/geo.js';
@@ -50,6 +51,17 @@ marketplace.post('/listings', requireAuth, wrap(async (req, res) => {
   const maxImages = Number(await setting('listing.max_images', 10));
   if (b.media_ids.length > maxImages) throw badRequest(`You can add up to ${maxImages} photos`);
   const reviewNew = (await setting('moderation.new_account_listing_review', false)) === true;
+  await enforceVelocity(pool, uid, 'listing');
+  // scam heuristics: held for human review, never auto-deleted
+  const scan = scanText(b.title, b.description); const reasons = [...scan.reasons]; let score = scan.score;
+  const same = Number((await pool.query(`SELECT count(*)::int n FROM listings WHERE seller_id=$1 AND status IN ('active','pending_review','reserved') AND lower(title)=lower($2) AND created_at > now() - interval '30 days'`, [uid, b.title])).rows[0].n);
+  if (same >= Number(await setting('risk.max_identical_listings', 5))) throw conflict('You already have several listings with this exact title. Edit or relist one of them instead of posting it again.');
+  if (b.description.length >= 40 && (await pool.query(`SELECT 1 FROM listings WHERE seller_id <> $1 AND status IN ('active','pending_review') AND created_at > now() - interval '30 days' AND similarity(title, $2) > 0.85 AND similarity(left(description, 400), left($3, 400)) > 0.8 LIMIT 1`, [uid, b.title, b.description])).rowCount) { reasons.push('duplicate_of_other_seller'); score += 3; }
+  if (b.price_cents >= 5000) {
+    const med = (await pool.query(`SELECT count(*)::int n, percentile_cont(0.5) WITHIN GROUP (ORDER BY price_cents) AS m FROM listings WHERE category_id=$1 AND status='active' AND price_cents > 0 AND created_at > now() - interval '90 days'`, [b.category_id])).rows[0];
+    if (med.n >= 10 && b.price_cents < Number(med.m) * 0.2) { reasons.push('price_far_below_market'); score += 2; }
+  }
+  const held = score >= Number(await setting('risk.flag_threshold', 3));
   const id = await tx(async (c) => {
     const cat = await c.query(`SELECT is_restricted FROM categories WHERE id=$1 AND is_active`, [b.category_id]);
     if (!cat.rowCount) throw badRequest('Choose a valid category');
@@ -58,7 +70,7 @@ marketplace.post('/listings', requireAuth, wrap(async (req, res) => {
     const place = b.city ? await resolvePlace(b.city, b.province, c) : null;
     if (b.city && !place) throw badRequest('We could not find that city');
     const young = reviewNew && (await c.query(`SELECT 1 FROM users WHERE id=$1 AND created_at > now() - interval '7 days'`, [uid])).rowCount;
-    const status = cat.rows[0].is_restricted || flagged || young ? 'pending_review' : 'active';
+    const status = cat.rows[0].is_restricted || flagged || young || held ? 'pending_review' : 'active';
     const l = await c.query(
       `INSERT INTO listings(seller_id,business_id,category_id,title,description,price_cents,price_type,condition,quantity,status,city,province,location,fulfillment,tags,attributes,visibility)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
@@ -71,6 +83,7 @@ marketplace.post('/listings', requireAuth, wrap(async (req, res) => {
     for (const [i, m] of b.media_ids.entries()) await c.query(`INSERT INTO listing_media(listing_id,media_id,position) VALUES ($1,$2,$3)`, [l.rows[0].id, m, i]);
     await c.query(`INSERT INTO feed_items(item_type,item_id,author_id,business_id,visibility,status,location) VALUES ('listing',$1,$2,$3,$4,$5,$6)`,
       [l.rows[0].id, uid, b.business_id ?? null, b.visibility, status === 'active' ? 'active' : 'pending', l.rows[0].location]);
+    if (held) await recordRisk(c, { entityType: 'listing', entityId: l.rows[0].id, userId: uid, score, reasons });
     return l.rows[0].id as string;
   });
   const out = (await hydrateListings([id], uid)).get(id);

@@ -12,7 +12,7 @@ import { paymentProvider } from './payments.js';
 
 /** Idempotent housekeeping. Runs on an interval today; move to a queue worker when one exists. */
 export async function runHousekeeping() {
-  const out = { offers: 0, listings: 0, journeys: 0, requests: 0, bookings: 0, stories: 0, reminders: 0, boosts: 0, abandoned_payments: 0, retried_refunds: 0, pruned_events: 0, digests: 0 };
+  const out = { offers: 0, listings: 0, journeys: 0, requests: 0, bookings: 0, stories: 0, reminders: 0, boosts: 0, abandoned_payments: 0, retried_refunds: 0, pruned_events: 0, digests: 0, reviews_revealed: 0, docs_expired: 0 };
   out.offers = await expireOffers();
 
   const l = await pool.query(`UPDATE listings SET status='expired' WHERE status='active' AND expires_at < now() RETURNING id`);
@@ -62,7 +62,13 @@ export async function runHousekeeping() {
     AND ((p.order_id IS NOT NULL AND EXISTS (SELECT 1 FROM orders o WHERE o.id=p.order_id AND o.status='cancelled')) OR (p.booking_id IS NOT NULL AND EXISTS (SELECT 1 FROM bookings b WHERE b.id=p.booking_id AND b.status='cancelled')))
     AND NOT EXISTS (SELECT 1 FROM refunds r WHERE r.payment_id=p.id AND r.status='pending') LIMIT 25`)).rows;
   for (const p of owed) { try { await refundPayment(p.id, { reason: 'Cancelled before completion', source: 'cancellation', initiatedBy: null }); out.retried_refunds++; } catch (e) { console.error('refund retry failed', (e as Error).message); } }
+  // driver documents: warn two weeks before expiry, then mark expired
+  const warn = (await pool.query(`UPDATE driver_documents SET expiry_warned_at = now() WHERE status='approved' AND expiry_warned_at IS NULL AND expires_on <= current_date + 14 AND expires_on >= current_date RETURNING user_id, kind, expires_on`)).rows;
+  for (const w of warn) await notify(pool, { userId: w.user_id, type: 'document_review', targetType: 'account', targetId: w.user_id, data: { decision: 'rejected', kind: w.kind, note: `Your ${String(w.kind).replace('_', ' ')} expires on ${String(w.expires_on instanceof Date ? w.expires_on.toISOString() : w.expires_on).slice(0, 10)}. Upload a new one to keep your driver badge.` } });
+  out.docs_expired = (await pool.query(`UPDATE driver_documents SET status='expired' WHERE status='approved' AND expires_on < current_date`)).rowCount ?? 0;
+  await pool.query(`DELETE FROM booking_locations WHERE booking_id IN (SELECT id FROM bookings WHERE status IN ('completed','cancelled') AND coalesce(completed_at, cancelled_at, created_at) < now() - interval '2 days')`);
   out.digests = await sendDigests();
+  out.reviews_revealed = (await pool.query(`UPDATE reviews SET revealed_at = now() WHERE revealed_at IS NULL AND created_at < now() - ($1 || ' days')::interval`, [String(await setting('reviews.reveal_after_days', 7))])).rowCount ?? 0;
   out.pruned_events = (await pool.query(`DELETE FROM analytics_events WHERE created_at < now() - interval '180 days'`)).rowCount ?? 0;
   return out;
 }

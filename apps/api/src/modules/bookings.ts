@@ -28,8 +28,8 @@ async function bookingCard(c: PoolClient, b: any, actor: string, event: string) 
   await postCard(c, cid, actor, 'booking', { booking_id: b.id, event });
   await notify(c, { userId: other, type: 'booking_update', actorId: actor, targetType: 'booking', targetId: b.id, data: { event } });
 }
-const addEvent = (c: PoolClient, bookingId: string, actor: string | null, kind: string, note?: string | null, label?: string | null, media?: string | null) =>
-  c.query('INSERT INTO delivery_events(booking_id,actor_id,kind,note,location_label,media_id) VALUES ($1,$2,$3,$4,$5,$6)', [bookingId, actor, kind, note ?? null, label ?? null, media ?? null]);
+const addEvent = (c: PoolClient, bookingId: string, actor: string | null, kind: string, note?: string | null, label?: string | null, media?: string | null, gps?: { lat?: number; lng?: number }) =>
+  c.query('INSERT INTO delivery_events(booking_id,actor_id,kind,note,location_label,media_id,lat,lng) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)', [bookingId, actor, kind, note ?? null, label ?? null, media ?? null, gps?.lat ?? null, gps?.lng ?? null]);
 
 // ------------------------------------------------------------------------------------------ read
 export async function bookingView(id: string, me: string) {
@@ -47,9 +47,9 @@ export async function bookingView(id: string, me: string) {
   if (!b) return null;
   const isShipper = b.shipper_id === me;
   const events = (await pool.query(
-    `SELECT e.id, e.kind, e.note, e.location_label, e.created_at, u.username AS actor, (SELECT storage_key FROM media_assets WHERE id=e.media_id) AS media_key
+    `SELECT e.id, e.kind, e.note, e.location_label, e.lat, e.lng, e.created_at, u.username AS actor, (SELECT storage_key FROM media_assets WHERE id=e.media_id) AS media_key
      FROM delivery_events e LEFT JOIN users u ON u.id=e.actor_id WHERE e.booking_id=$1 ORDER BY e.id`, [id])).rows;
-  const reviews = (await pool.query(`SELECT reviewer_id, rating, comment, created_at FROM reviews WHERE booking_id=$1 AND status='active'`, [id])).rows;
+  const reviews = (await pool.query(`SELECT reviewer_id, rating, comment, created_at, revealed_at FROM reviews WHERE booking_id=$1 AND status='active' AND (revealed_at IS NOT NULL OR reviewer_id=$2)`, [id, me])).rows;
   const mine = reviews.find((x) => x.reviewer_id === me); const theirs = reviews.find((x) => x.reviewer_id !== me);
   const locked = b.pin_locked_until && new Date(b.pin_locked_until) > new Date();
   const actions: string[] = [];
@@ -72,7 +72,7 @@ export async function bookingView(id: string, me: string) {
     // the shipper holds the PINs and reads them out; the transporter must enter them
     pins: isShipper ? { pickup: b.pickup_pin, delivery: b.delivery_pin } : null,
     pin_locked_until: locked ? b.pin_locked_until : null,
-    timeline: events.map((e) => ({ id: e.id, kind: e.kind, note: e.note, location_label: e.location_label, actor: e.actor, created_at: e.created_at, photo_url: e.media_key ? mediaUrl(e.media_key) : null })),
+    timeline: events.map((e) => ({ id: e.id, kind: e.kind, note: e.note, location_label: e.location_label, gps: e.lat !== null && e.lng !== null ? { lat: e.lat, lng: e.lng } : null, actor: e.actor, created_at: e.created_at, photo_url: e.media_key ? mediaUrl(e.media_key) : null })),
     cancel: b.status === 'cancelled' ? { by: b.cancelled_by === me ? 'you' : 'them', reason: b.cancel_reason, at: b.cancelled_at } : null,
     review: { mine: mine ?? null, theirs: theirs ?? null }, actions,
   };
@@ -137,7 +137,7 @@ async function verifyPin(id: string, which: 'pickup_pin' | 'delivery_pin', input
   throw new HttpError(403, `That PIN is not correct. ${max - r.pin_attempts} attempt${max - r.pin_attempts === 1 ? '' : 's'} left.`, 'bad_pin');
 }
 
-const evidence = { photo_media_id: uuid.optional() };
+const evidence = { photo_media_id: uuid.optional(), lat: z.number().min(-90).max(90).optional(), lng: z.number().min(-180).max(180).optional() };
 
 bookings.post('/bookings/:id/pickup', requireAuth, wrap(async (req, res) => {
   const id = uuid.parse(req.params.id); const me = req.user!.id;
@@ -152,7 +152,7 @@ bookings.post('/bookings/:id/pickup', requireAuth, wrap(async (req, res) => {
     if (cur.status !== 'confirmed') throw conflict('This booking just changed');
     if (b.photo_media_id) await assertOwnsMedia(c, me, [b.photo_media_id]);
     await c.query(`UPDATE bookings SET status='pickup_confirmed', pickup_confirmed_at=now() WHERE id=$1`, [id]);
-    await addEvent(c, id, me, 'pickup_confirmed', 'Pickup confirmed with PIN', null, b.photo_media_id);
+    await addEvent(c, id, me, 'pickup_confirmed', 'Pickup confirmed with PIN', null, b.photo_media_id, b);
     await bookingCard(c, cur, me, 'pickup_confirmed');
   });
   res.json(await bookingView(id, me));
@@ -187,7 +187,7 @@ bookings.post('/bookings/:id/deliver', requireAuth, wrap(async (req, res) => {
     if (!['pickup_confirmed', 'in_transit'].includes(cur.status)) throw conflict('This booking just changed');
     if (b.photo_media_id) await assertOwnsMedia(c, me, [b.photo_media_id]);
     await c.query(`UPDATE bookings SET status='delivered', delivered_at=now() WHERE id=$1`, [id]);
-    await addEvent(c, id, me, 'delivered', 'Delivery confirmed with PIN', null, b.photo_media_id);
+    await addEvent(c, id, me, 'delivered', 'Delivery confirmed with PIN', null, b.photo_media_id, b);
     await bookingCard(c, cur, me, 'delivered');
   });
   res.json(await bookingView(id, me));
@@ -249,7 +249,7 @@ const orderSelect = `SELECT od.*, l.title, (SELECT m.storage_key FROM listing_me
 async function orderView(id: string, me: string) {
   const o = (await pool.query(`${orderSelect} WHERE od.id=$1 AND (od.buyer_id=$2 OR od.seller_id=$2)`, [id, me])).rows[0];
   if (!o) return null;
-  const reviews = (await pool.query(`SELECT reviewer_id, rating, comment FROM reviews WHERE order_id=$1 AND status='active'`, [id])).rows;
+  const reviews = (await pool.query(`SELECT reviewer_id, rating, comment FROM reviews WHERE order_id=$1 AND status='active' AND (revealed_at IS NOT NULL OR reviewer_id=$2)`, [id, me])).rows;
   const buyer = o.buyer_id === me; const mineR = reviews.find((r) => r.reviewer_id === me);
   const tr = (await pool.query(`SELECT id, status FROM transport_requests WHERE linked_listing_id=$1 AND requester_id=$2 ORDER BY created_at DESC LIMIT 1`, [o.listing_id, o.buyer_id])).rows[0];
   const openDispute = (await pool.query(`SELECT id FROM disputes WHERE order_id=$1 AND status='open'`, [id])).rows[0];
@@ -314,7 +314,10 @@ async function addReview(kind: 'booking' | 'order', id: string, me: string, b: z
     await c.query(`INSERT INTO reviews(booking_id,order_id,reviewer_id,reviewee_id,role,rating,comment) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
       [kind === 'booking' ? id : null, kind === 'order' ? id : null, me, reviewee, role, b.rating, b.comment ?? null])
       .catch((e) => { if (e.code === '23505') throw conflict('You already reviewed this'); throw e; });
-    await notify(c, { userId: reviewee, type: 'review_received', actorId: me, targetType: kind, targetId: id, data: { rating: b.rating } });
+    // Blind reviews: neither side can see the other's until both have reviewed, or the reveal window passes (housekeeping).
+    const both = (await c.query(`SELECT count(*)::int n FROM reviews WHERE ${kind === 'booking' ? 'booking_id' : 'order_id'}=$1 AND status='active'`, [id])).rows[0].n >= 2;
+    if (both) await c.query(`UPDATE reviews SET revealed_at = coalesce(revealed_at, now()) WHERE ${kind === 'booking' ? 'booking_id' : 'order_id'}=$1`, [id]);
+    await notify(c, { userId: reviewee, type: 'review_received', actorId: me, targetType: kind, targetId: id, data: both ? { revealed: true, rating: b.rating } : { hidden: true } });
   });
 }
 bookings.post('/bookings/:id/reviews', requireAuth, wrap(async (req, res) => { await addReview('booking', uuid.parse(req.params.id), req.user!.id, reviewBody.parse(req.body)); res.status(201).json(await bookingView(String(req.params.id), req.user!.id)); }));
@@ -326,8 +329,8 @@ bookings.get('/users/:username/reviews', optionalAuth, wrap(async (req, res) => 
   const role = z.enum(['transporter', 'shipper', 'buyer', 'seller']).optional().parse(req.query.role);
   const { rows } = await pool.query(
     `SELECT r.id, r.rating, r.comment, r.role, r.created_at, ru.username, rp.display_name, (SELECT storage_key FROM media_assets WHERE id=rp.avatar_media_id) AS avatar_key
-     FROM reviews r JOIN users ru ON ru.id=r.reviewer_id JOIN user_profiles rp ON rp.user_id=ru.id WHERE r.reviewee_id=$1 AND r.status='active' AND ($2::text IS NULL OR r.role=$2) ORDER BY r.created_at DESC LIMIT 50`, [u.id, role ?? null]);
-  const agg = (await pool.query(`SELECT round(avg(rating)::numeric,2) AS avg, count(*)::int AS n FROM reviews WHERE reviewee_id=$1 AND status='active' AND ($2::text IS NULL OR role=$2)`, [u.id, role ?? null])).rows[0];
+     FROM reviews r JOIN users ru ON ru.id=r.reviewer_id JOIN user_profiles rp ON rp.user_id=ru.id WHERE r.reviewee_id=$1 AND r.status='active' AND r.revealed_at IS NOT NULL AND ($2::text IS NULL OR r.role=$2) ORDER BY r.created_at DESC LIMIT 50`, [u.id, role ?? null]);
+  const agg = (await pool.query(`SELECT round(avg(rating)::numeric,2) AS avg, count(*)::int AS n FROM reviews WHERE reviewee_id=$1 AND status='active' AND revealed_at IS NOT NULL AND ($2::text IS NULL OR role=$2)`, [u.id, role ?? null])).rows[0];
   res.json({ summary: { average: agg.avg === null ? null : Number(agg.avg), count: agg.n }, items: rows.map((r) => ({ id: r.id, rating: r.rating, comment: r.comment, role: r.role, created_at: r.created_at, reviewer: { username: r.username, display_name: r.display_name, avatar_url: r.avatar_key ? thumbUrl(r.avatar_key) : null } })) });
 }));
 

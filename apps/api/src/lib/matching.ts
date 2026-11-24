@@ -126,8 +126,8 @@ export function scoreMatch(i: MatchInput): MatchResult {
 }
 
 // ------------------------------------------------------------------------------------------- queries
-const RATING = (u: string) => `(SELECT avg(rating) FROM reviews WHERE reviewee_id=${u} AND status='active' AND role='transporter') AS rating_avg,
-  (SELECT count(*) FROM reviews WHERE reviewee_id=${u} AND status='active' AND role='transporter')::int AS rating_count,
+const RATING = (u: string) => `(SELECT avg(rating) FROM reviews WHERE reviewee_id=${u} AND status='active' AND revealed_at IS NOT NULL AND role='transporter') AS rating_avg,
+  (SELECT count(*) FROM reviews WHERE reviewee_id=${u} AND status='active' AND revealed_at IS NOT NULL AND role='transporter')::int AS rating_count,
   (SELECT count(*) FROM bookings WHERE transporter_id=${u} AND status='completed')::int AS completed`;
 
 const REQ_COLS = `r.id AS request_id, r.requester_id, r.weight_kg, r.quantity, r.length_cm, r.width_cm, r.height_cm, r.fragile, r.item_category, r.preferred_vehicles,
