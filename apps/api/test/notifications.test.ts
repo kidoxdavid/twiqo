@@ -86,12 +86,12 @@ describe('saved searches and alerts', () => {
   it('caps saved searches per person and alerts per search per day', async () => {
     const u = await makeUser('cap'), seller = await makeUser('sel'); const cat = await makeCategory(); await pool.query(`UPDATE platform_settings SET value='2' WHERE key='saved_search.max_per_user'`);
     try {
-      expect((await api().post('/api/saved-searches').set(auth(u)).send({ kind: 'listing', name: 'one', params: { q: 'zebra' } })).status).toBe(201);
-      expect((await api().post('/api/saved-searches').set(auth(u)).send({ kind: 'listing', name: 'two', params: { q: 'giraffe' } })).status).toBe(201);
-      expect((await api().post('/api/saved-searches').set(auth(u)).send({ kind: 'listing', name: 'three', params: { q: 'lion' } })).status).toBe(409);
+      expect((await api().post('/api/saved-searches').set(auth(u)).send({ kind: 'listing', name: 'one', params: { q: 'quokka' } })).status).toBe(201);
+      expect((await api().post('/api/saved-searches').set(auth(u)).send({ kind: 'listing', name: 'two', params: { q: 'wombat' } })).status).toBe(201);
+      expect((await api().post('/api/saved-searches').set(auth(u)).send({ kind: 'listing', name: 'three', params: { q: 'numbat' } })).status).toBe(409);
     } finally { await pool.query(`UPDATE platform_settings SET value='20' WHERE key='saved_search.max_per_user'`); }
     await pool.query(`UPDATE platform_settings SET value='2' WHERE key='saved_search.max_alerts_per_day'`);
-    try { for (let i = 0; i < 4; i++) { await makeListing(seller, cat, { title: `zebra number ${i}` }); await drain(); }
+    try { for (let i = 0; i < 4; i++) { await makeListing(seller, cat, { title: `quokka number ${i}` }); await drain(); }
       expect((await api().get('/api/notifications').set(auth(u))).body.items.filter((x: any) => x.type === 'saved_search_match')).toHaveLength(2);
     } finally { await pool.query(`UPDATE platform_settings SET value='10' WHERE key='saved_search.max_alerts_per_day'`); }
   });
