@@ -5,12 +5,14 @@ import { completeBooking } from '../modules/bookings.js';
 import { notify } from './notify.js';
 import { enqueue, registerJob, runQueue } from './queue.js';
 import './email.js';
+import './delivery.js';
+import { sendDigests } from './delivery.js';
 import { refundPayment } from '../modules/payments.js';
 import { paymentProvider } from './payments.js';
 
 /** Idempotent housekeeping. Runs on an interval today; move to a queue worker when one exists. */
 export async function runHousekeeping() {
-  const out = { offers: 0, listings: 0, journeys: 0, requests: 0, bookings: 0, stories: 0, reminders: 0, boosts: 0, abandoned_payments: 0, retried_refunds: 0, pruned_events: 0 };
+  const out = { offers: 0, listings: 0, journeys: 0, requests: 0, bookings: 0, stories: 0, reminders: 0, boosts: 0, abandoned_payments: 0, retried_refunds: 0, pruned_events: 0, digests: 0 };
   out.offers = await expireOffers();
 
   const l = await pool.query(`UPDATE listings SET status='expired' WHERE status='active' AND expires_at < now() RETURNING id`);
@@ -60,6 +62,7 @@ export async function runHousekeeping() {
     AND ((p.order_id IS NOT NULL AND EXISTS (SELECT 1 FROM orders o WHERE o.id=p.order_id AND o.status='cancelled')) OR (p.booking_id IS NOT NULL AND EXISTS (SELECT 1 FROM bookings b WHERE b.id=p.booking_id AND b.status='cancelled')))
     AND NOT EXISTS (SELECT 1 FROM refunds r WHERE r.payment_id=p.id AND r.status='pending') LIMIT 25`)).rows;
   for (const p of owed) { try { await refundPayment(p.id, { reason: 'Cancelled before completion', source: 'cancellation', initiatedBy: null }); out.retried_refunds++; } catch (e) { console.error('refund retry failed', (e as Error).message); } }
+  out.digests = await sendDigests();
   out.pruned_events = (await pool.query(`DELETE FROM analytics_events WHERE created_at < now() - interval '180 days'`)).rowCount ?? 0;
   return out;
 }

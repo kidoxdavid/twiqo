@@ -1,3 +1,4 @@
+import { queueSearchMatch } from './notifications.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import { pool, tx } from '../db/pool.js';
@@ -65,6 +66,7 @@ function checkDates(from: string, to: string, by?: string | null) {
 }
 
 async function notifyMatchesForRequest(requestId: string) {
+  await queueSearchMatch('request', requestId);
   try {
     const min = Number(await setting('transport.match_min_score', 55));
     const reqRow = (await pool.query('SELECT requester_id, title FROM transport_requests WHERE id=$1 AND visibility=\'public\'', [requestId])).rows[0];
@@ -76,6 +78,7 @@ async function notifyMatchesForRequest(requestId: string) {
   } catch (e) { console.error('match notify failed', e); }
 }
 async function notifyMatchesForJourney(journeyId: string) {
+  await queueSearchMatch('journey', journeyId);
   try {
     const min = Number(await setting('transport.match_min_score', 55));
     const j = (await pool.query('SELECT driver_id, origin_city, dest_city FROM journeys WHERE id=$1', [journeyId])).rows[0];

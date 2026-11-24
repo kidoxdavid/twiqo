@@ -1,5 +1,6 @@
 import type { Db } from '../db/pool.js';
 import { publish } from './realtime.js';
+import { enqueue } from './queue.js';
 
 export const NOTIFICATION_TYPES: { type: string; label: string }[] = [
   { type: 'follow', label: 'New followers' },
@@ -21,6 +22,9 @@ export const NOTIFICATION_TYPES: { type: string; label: string }[] = [
   { type: 'boost_update', label: 'Boost and promotion updates' },
   { type: 'referral_reward', label: 'Referral rewards' },
   { type: 'subscription_update', label: 'Business Pro subscription updates' },
+  { type: 'saved_search_match', label: 'New matches for my saved searches' },
+  { type: 'price_drop', label: 'Price drops on items I saved' },
+  { type: 'safety_alert', label: 'Safety alerts from people I am moving with' },
 ];
 
 /** Create a notification unless the recipient turned that type off or the pair is blocked. Returns true if stored. */
@@ -37,8 +41,9 @@ export async function notify(db: Db, n: { userId: string; type: string; actorId?
     const d = await db.query(`SELECT 1 FROM notifications WHERE user_id=$1 AND type=$2 AND data->>'dedupe'=$3`, [n.userId, n.type, n.dedupeKey]);
     if (d.rowCount) return false;
   }
-  await db.query(`INSERT INTO notifications(user_id,type,actor_id,target_type,target_id,data) VALUES ($1,$2,$3,$4,$5,$6)`,
+  const row = await db.query(`INSERT INTO notifications(user_id,type,actor_id,target_type,target_id,data) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
     [n.userId, n.type, n.actorId ?? null, n.targetType ?? null, n.targetId ?? null, JSON.stringify(data)]);
+  await enqueue(db, 'deliver_notification', { id: row.rows[0].id });   // push/email go out after the transaction commits, via the queue
   publish(n.userId, 'notification', { type: n.type });
   return true;
 }

@@ -1,4 +1,6 @@
 import { track, optedOut, anonIdOf } from '../lib/analytics.js';
+import { enqueue } from '../lib/queue.js';
+import { queueSearchMatch } from './notifications.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import { pool, tx } from '../db/pool.js';
@@ -73,6 +75,7 @@ marketplace.post('/listings', requireAuth, wrap(async (req, res) => {
   });
   const out = (await hydrateListings([id], uid)).get(id);
   await track(pool, { name: 'listing_created', userId: uid, targetType: 'listing', targetId: id });
+  if (out?.status === 'active') await queueSearchMatch('listing', id);
   res.status(201).json(out);
 }));
 
@@ -167,9 +170,10 @@ marketplace.patch('/listings/:id', requireAuth, wrap(async (req, res) => {
   const id = uuid.parse(req.params.id);
   const b = patchSchema.parse(req.body);
   await checkText(b.title); await checkText(b.description);
+  let priceBefore: number | null = null;
   await tx(async (c) => {
-    const { rows } = await c.query('SELECT seller_id, business_id, status, price_type FROM listings WHERE id=$1 FOR UPDATE', [id]);
-    const l = rows[0];
+    const { rows } = await c.query('SELECT seller_id, business_id, status, price_type, price_cents FROM listings WHERE id=$1 FOR UPDATE', [id]);
+    const l = rows[0]; priceBefore = l ? l.price_cents : null;
     if (!l) throw notFound('Listing');
     const ok = l.seller_id === req.user!.id || (l.business_id && (await can(l.business_id, req.user!.id, 'manage_listings')));
     if (!ok) throw forbidden();
@@ -195,7 +199,9 @@ marketplace.patch('/listings/:id', requireAuth, wrap(async (req, res) => {
       for (const [i, m] of b.media_ids.entries()) await c.query(`INSERT INTO listing_media(listing_id,media_id,position) VALUES ($1,$2,$3)`, [id, m, i]);
     }
   });
-  res.json((await hydrateListings([id], req.user!.id)).get(id));
+  const after = (await hydrateListings([id], req.user!.id)).get(id);
+  if (priceBefore !== null && after && after.price_cents < priceBefore) await enqueue(pool, 'price_drop', { id, old_cents: priceBefore, new_cents: after.price_cents }, { dedupeKey: `pd:${id}:${after.price_cents}` });
+  res.json(after);
 }));
 
 marketplace.post('/listings/:id/renew', requireAuth, wrap(async (req, res) => {
