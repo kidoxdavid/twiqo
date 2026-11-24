@@ -219,3 +219,21 @@ The schema in `apps/api/migrations` is written so later phases add tables and mo
 **Circles.** Roles are ranks; every action checks rank, never just membership. A partial unique index guarantees one owner. Private circles return 404 to outsiders (no existence leak). Moderator removals write both `moderation_actions` (with the reason) and the audit log.
 
 **A lesson worth recording.** Zod 4 keeps `.default()` values inside `.partial()`, so PATCH endpoints built from create schemas silently reset untouched fields (it would have wiped listing photos and made private requests public). All update endpoints now use `patchOf()` and regression tests pin the behaviour.
+
+
+## 9. Phase 4 design notes (payments)
+
+**Money flow.** Destination charges: `PaymentIntent{amount, application_fee_amount, transfer_data.destination}` on the platform account. The payee's share moves to their Express account immediately; twiqo keeps the application fee. Boosts are plain platform charges (no transfer). Refunds use `reverse_transfer` (and `refund_application_fee` when `payments.refund_platform_fee` is on) so refunds come out of the payee's balance. Payout delay is set on connected accounts (best effort) so refunds and disputes can be handled before funds leave. This is not escrow: twiqo does not hold funds, and the UI says so.
+
+**Tables** (migration 008): `payment_accounts`, `payments` (one live payment per order/booking/boost via partial unique indexes; fee snapshot columns), `refunds`, `payouts`, `webhook_events` (event id primary key = idempotency), `disputes` + `dispute_messages`, `boosts`; `orders.payment_status` / `bookings.payment_status` are denormalised for views and updated in the same transaction as the payment.
+
+**Consistency rules.**
+- Payment row is committed before the provider call; the provider idempotency key is `pay:<payment id>` so a retry never double-charges. If the provider call fails the row is marked failed.
+- The success webhook is the only thing that marks a payment paid; the client never asserts success.
+- Refund: under `FOR NO KEY UPDATE` on the payment, pending refunds count against the remainder; the provider call uses `refund:<refund id>`; success is applied exactly once.
+- Webhook event insert and state change share one transaction; replays return `duplicate`. Side effects that call the provider (late-payment refunds) run after commit.
+- A payment arriving for an already-cancelled order/booking/boost is refunded automatically.
+
+**Disputes** are a staff review process (not insurance and not a card chargeback). Open disputes block manual and automatic completion and new checkout. Stripe card disputes (`charge.dispute.created`) are recorded for staff; evidence submission is not built.
+
+**Risks / open items.** Adapter unverified against live Stripe; sales tax and marketplace-facilitator obligations; KYC/identity handled by Stripe Express only; fee changes apply to new payments only; revenue report is derived from webhooks and must be reconciled with Stripe.

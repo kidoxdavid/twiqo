@@ -16,6 +16,7 @@ import { Notifications } from './pages/Notifications';
 import { Move, JourneyPage, RequestPage, ServicePage } from './pages/Move';
 import { CreateRequest, CreateJourney, CreateService } from './pages/CreateTransport';
 import { Offers, Bookings, BookingPage, OrderPage } from './pages/Deals';
+import { PaymentsSettings, DisputePage } from './pages/Payments';
 import { Admin } from './pages/Admin';
 import { Clips } from './pages/Clips';
 import { CreateClip, CreateStory } from './pages/CreateMedia';
@@ -125,6 +126,8 @@ export function App() {
             <Route path="/bookings/:id" element={<Private><BookingPage /></Private>} />
             <Route path="/orders/:id" element={<Private><OrderPage /></Private>} />
             <Route path="/u/:username" element={<Profile />} />
+            <Route path="/settings/payments" element={<Private><PaymentsSettings /></Private>} />
+            <Route path="/disputes/:id" element={<Private><DisputePage /></Private>} />
             <Route path="/settings/profile" element={<Private><EditProfile /></Private>} />
             <Route path="/saved" element={<Private><Saved /></Private>} />
             <Route path="/search" element={<SearchPeople />} />

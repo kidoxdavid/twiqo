@@ -37,7 +37,7 @@ export function Profile() {
           <div className="stat"><b>{u.counts.posts}</b><span>Posts</span></div><div className="stat"><b>{u.counts.listings}</b><span>Listings</span></div>
         </div>
         <div className="row wrap">
-          {self ? <><Link className="btn ghost" to="/settings/profile">Edit profile</Link><Link className="btn soft" to="/offers">Offers</Link><Link className="btn soft" to="/bookings">Moves &amp; orders</Link><Link className="btn soft" to="/saved">Saved</Link><button className="btn soft" onClick={async () => { await logout(); nav('/login'); }}>Sign out</button></>
+          {self ? <><Link className="btn ghost" to="/settings/profile">Edit profile</Link><Link className="btn soft" to="/offers">Offers</Link><Link className="btn soft" to="/bookings">Moves &amp; orders</Link><Link className="btn soft" to="/settings/payments">Payments</Link><Link className="btn soft" to="/saved">Saved</Link><button className="btn soft" onClick={async () => { await logout(); nav('/login'); }}>Sign out</button></>
             : <><button className={`btn ${u.viewer?.following ? 'soft' : ''}`} style={{ flex: 1 }} onClick={follow}>{u.viewer?.following ? 'Following' : 'Follow'}</button>
               <button className="btn ghost" style={{ flex: 1 }} onClick={() => guard(() => nav(`/messages/new?to=${u.id}`))}>Message</button></>}
         </div>

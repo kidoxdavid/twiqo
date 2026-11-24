@@ -299,9 +299,43 @@ await mkStory(daniel, { kind: 'text', text: 'Leaving Toronto Nov 28 — 480 kg o
 await mkStory(owner, { kind: 'text', text: 'Weekend sale: free delivery in Calgary over $500', bg: '#8E6CF5', link: ['business', biz], hoursAgo: 8 });
 await mkStory(marcus, { kind: 'text', text: 'Slots open for furniture delivery this Saturday', bg: '#F5A623', hoursAgo: 1 });
 
-await pool.query(`INSERT INTO banned_words(term,severity) VALUES ('counterfeit','block'),('western union','flag'),('wire transfer only','flag')`);
 await pool.query(`UPDATE fee_rules SET percent_bps=500 WHERE scope='product_sale'`);
 await pool.query(`UPDATE fee_rules SET percent_bps=1000 WHERE scope='transport_booking'`);
+// ---- payments (fake provider: no real money). Fees below are applied from fee_rules at the time of each payment.
+for (const [u, n] of [[amara, 'amara'], [daniel, 'daniel'], [marcus, 'marcus']] as const)
+  await pool.query(`INSERT INTO payment_accounts(user_id,provider,provider_account_id,charges_enabled,payouts_enabled,details_submitted) VALUES ($1,'fake',$2,true,true,true)`, [u, `acct_fake_seed_${n}`]);
+const feeBps = async (scope: string) => (await pool.query(`SELECT percent_bps FROM fee_rules WHERE scope=$1 AND active`, [scope])).rows[0]?.percent_bps ?? 0;
+const mkPayment = async (o: { kind: 'order' | 'booking' | 'boost'; subject: string; payer: string; payee: string | null; amount: number; scope: string; status?: string; refunded?: number; days?: number }) => {
+  const bps = o.kind === 'boost' ? 0 : await feeBps(o.scope); const fee = o.kind === 'boost' ? o.amount : Math.round(o.amount * bps / 10000);
+  const col = { order: 'order_id', booking: 'booking_id', boost: 'boost_id' }[o.kind];
+  return (await pool.query(`INSERT INTO payments(kind,${col},payer_id,payee_id,amount_cents,fee_cents,fee_scope,fee_percent_bps,provider,provider_payment_id,provider_charge_id,status,refunded_cents,succeeded_at,created_at,description)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'fake',$9,$10,$11,$12, now() - ($13 || ' days')::interval, now() - ($13 || ' days')::interval, 'twiqo seed payment') RETURNING id`,
+    [o.kind, o.subject, o.payer, o.payee, o.amount, fee, o.scope, bps, `pi_fake_seed_${Math.random().toString(36).slice(2, 10)}`, `ch_fake_seed_${Math.random().toString(36).slice(2, 8)}`, o.status ?? 'succeeded', o.refunded ?? 0, String(o.days ?? 1)])).rows[0].id as string;
+};
+const mkOrder = async (listingTitle: string, buyer: string, seller: string, amount: number, status = 'agreed') => {
+  const l = (await pool.query(`SELECT id FROM listings WHERE title=$1`, [listingTitle])).rows[0].id as string;
+  const offer = await mkOffer({ kind: 'goods', customer: buyer, provider: seller, proposer: buyer, listing: l, amount, status: 'accepted' });
+  return (await pool.query(`INSERT INTO orders(offer_id,listing_id,buyer_id,seller_id,quantity,total_cents,status,completed_at) VALUES ($1,$2,$3,$4,1,$5,$6, CASE WHEN $6='completed' THEN now() - interval '2 days' END) RETURNING id`, [offer, l, buyer, seller, amount, status])).rows[0].id as string;
+};
+const paidOrder = await mkOrder('Road Bike 54cm', omar, marcus, 62000, 'completed');
+await mkPayment({ kind: 'order', subject: paidOrder, payer: omar, payee: marcus, amount: 62000, scope: 'product_sale', days: 3 });
+await pool.query(`UPDATE orders SET payment_status='paid' WHERE id=$1`, [paidOrder]);
+const refundedOrder = await mkOrder('Adjustable dumbbells 5–52 lb', priya, marcus, 30000);
+await mkPayment({ kind: 'order', subject: refundedOrder, payer: priya, payee: marcus, amount: 30000, scope: 'product_sale', status: 'partially_refunded', refunded: 5000, days: 2 });
+await pool.query(`UPDATE orders SET payment_status='partially_refunded' WHERE id=$1`, [refundedOrder]);
+await mkOrder('Roof rack (fits most SUVs)', lena, daniel, 16000);                                         // agreed, unpaid: shows "Pay by card"
+await mkPayment({ kind: 'booking', subject: live, payer: amara, payee: daniel, amount: 10500, scope: 'transport_booking', days: 1 });
+await pool.query(`UPDATE bookings SET payment_status='paid' WHERE id=$1`, [live]);
+// boosts: a featured service and a sponsored business post (shown labelled in feeds)
+const boostRow = async (owner_: string, type: string, target: string, placement: string, price: number) =>
+  (await pool.query(`INSERT INTO boosts(owner_id,target_type,target_id,placement,status,days,price_cents,starts_at,ends_at) VALUES ($1,$2,$3,$4,'active',7,$5, now() - interval '1 day', now() + interval '6 days') RETURNING id`, [owner_, type, target, placement, price])).rows[0].id as string;
+const b1 = await boostRow(marcus, 'transport_service', svc, 'featured', 999); await mkPayment({ kind: 'boost', subject: b1, payer: marcus, payee: null, amount: 999, scope: 'featured_service' });
+const adPost = (await pool.query(`SELECT id FROM posts WHERE business_id=$1 ORDER BY created_at DESC LIMIT 1`, [biz])).rows[0].id as string;
+const b2 = await boostRow(owner, 'post', adPost, 'sponsored', 1499); await mkPayment({ kind: 'boost', subject: b2, payer: owner, payee: null, amount: 1499, scope: 'sponsored' });
+// an open dispute on the live booking, for the admin queue
+await pool.query(`INSERT INTO disputes(booking_id,opened_by,other_party_id,reason,description) VALUES ($1,$2,$3,'damaged','One of the boxes arrived crushed at the corner and a lamp inside is cracked.')`, [live, amara, daniel]);
+
+await pool.query(`INSERT INTO banned_words(term,severity) VALUES ('counterfeit','block'),('western union','flag'),('wire transfer only','flag')`);
 
 console.log(`Done. Sign in with any seeded username (admin, moderator, amara, marcus, daniel, priya, lena, omar, calgarylife, brightside) and password "${PASSWORD}".`);
 await pool.end();

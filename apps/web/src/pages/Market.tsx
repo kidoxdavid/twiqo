@@ -7,6 +7,7 @@ import { Comments, ListingCard, shareLink, useRequireAuth, useToggle } from '../
 import { Icon } from '../components/Icon';
 import { useToast } from '../components/Toast';
 import { OfferDialog } from '../components/transport';
+import { BoostButton } from '../components/payments';
 import { Avatar, CONDITIONS, Menu, ReportDialog, State, Verified, ago, errMsg, money } from '../components/ui';
 
 export function Market() {
@@ -67,7 +68,7 @@ export function ListingDetail() {
           {l.images.length > 1 && <div className="thumbs">{l.images.map((m: any, i: number) => <img key={m.id} src={m.thumb_url} alt={`Photo ${i + 1}`} className={i === img ? 'on' : ''} onClick={() => setImg(i)} />)}</div>}
         </div>
         <div className="col">
-          <div className="row wrap"><span className="pill b">{l.category.name}</span>{l.status !== 'active' && <span className="pill a">{l.status === 'pending_review' ? 'Under review' : l.status}</span>}</div>
+          <div className="row wrap"><span className="pill b">{l.category.name}</span>{l.featured && <span className="pill a">Featured</span>}{l.status !== 'active' && <span className="pill a">{l.status === 'pending_review' ? 'Under review' : l.status}</span>}</div>
           <h1 style={{ fontSize: 24, letterSpacing: -0.5, fontWeight: 800 }}>{l.title}</h1>
           <div className="price">{money(l.price_cents, l.price_type)} {l.price_type === 'negotiable' && <span className="pill t" style={{ verticalAlign: 'middle' }}>Negotiable</span>}</div>
           <div className="muted sm">{CONDITIONS[l.condition]} · {l.location.city}, {l.location.province} · Listed {ago(l.created_at)} ago · Quantity {l.quantity}</div>
@@ -81,6 +82,7 @@ export function ListingDetail() {
               {['reserved', 'sold'].includes(l.status) && <button className="btn" onClick={() => setStatus('active')}>Relist</button>}
               <button className="btn ghost" onClick={async () => { if (confirm('Remove this listing?')) { try { await api(`/listings/${id}`, { method: 'DELETE' }); nav('/market'); } catch (e) { toast(errMsg(e), 'err'); } } }}>Remove</button>
               <Link className="btn soft" to="/offers">View offers</Link>
+              {l.status === 'active' && !l.featured && <BoostButton targetType="listing" targetId={l.id} />}
             </> : <>
               {l.status === 'active' && <button className="btn" style={{ flex: 1 }} onClick={() => guard(() => setOffer(true))}>{l.price_type === 'fixed' ? 'Buy at listed price' : l.price_type === 'free' ? 'Ask for it' : 'Make offer'}</button>}
               <button className="btn ghost" onClick={() => guard(() => nav(`/messages/new?to=${l.seller.id}&listing=${l.id}`))}><Icon name="chat" />Message</button>

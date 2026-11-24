@@ -7,6 +7,7 @@ import { Comments, shareLink, useRequireAuth, useToggle } from '../components/ca
 import { Icon } from '../components/Icon';
 import { useToast } from '../components/Toast';
 import { CATEGORIES, CityInput, JourneyCard, OfferCard, OfferDialog, RequestCard, RouteMap, ServiceCard, Stars, VEHICLES, fmtDate, fmtDateTime, windowText, type Match } from '../components/transport';
+import { BoostButton } from '../components/payments';
 import { Avatar, Menu, ReportDialog, State, Verified, errMsg, money } from '../components/ui';
 
 type Tab = 'journeys' | 'requests' | 'services';
@@ -166,7 +167,7 @@ export function ServicePage() {
   return (
     <main className="main"><div style={{ padding: '0 16px 8px' }}><button className="row muted" onClick={() => nav(-1)}><Icon name="back" />Back</button></div>
       <div className="col" style={{ padding: '0 16px' }}>
-        <div><div className="row wrap"><span className={`pill ${s.status === 'active' ? 't' : 'a'}`}>{s.status}</span><span className="pill b">{VEHICLES[s.vehicle_type]}</span></div><h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: '8px 0 2px' }}>{s.title}</h1>
+        <div><div className="row wrap"><span className={`pill ${s.status === 'active' ? 't' : 'a'}`}>{s.status}</span>{s.featured && <span className="pill a">Featured</span>}<span className="pill b">{VEHICLES[s.vehicle_type]}</span></div><h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: '8px 0 2px' }}>{s.title}</h1>
           <div className="muted sm">Serves {s.area.city} and {s.service_radius_km} km around{s.intercity ? ', and can deliver beyond' : ''}</div></div>
         <div className="row"><div className="price" style={{ fontSize: 28 }}>{s.price_type === 'fixed' ? '' : 'From '}{money(s.price_cents)}</div><span className="muted sm">{unit} · {s.price_type === 'fixed' ? 'fixed' : 'negotiable'}</span></div>
         <Person u={s.provider} role={s.business ? s.business.name : 'Provider'} />
@@ -175,6 +176,7 @@ export function ServicePage() {
         <div className="row wrap">
           {!owner && s.status === 'active' && <button className="btn" style={{ flex: 1 }} onClick={() => guard(() => setOffer(true))}>Request a booking</button>}
           {!owner && <button className="btn ghost" onClick={() => guard(() => nav(`/messages/new?to=${s.provider.id}&subject_type=service&subject_id=${s.id}`))}><Icon name="chat" />Message</button>}
+          {owner && s.status === 'active' && !s.featured && <BoostButton targetType="transport_service" targetId={s.id} />}
           {owner && <><button className="btn soft" onClick={async () => { try { await api(`/transport/services/${id}`, { method: 'PATCH', body: { status: s.status === 'active' ? 'paused' : 'active' } }); qc.invalidateQueries(); } catch (e) { toast(errMsg(e), 'err'); } }}>{s.status === 'active' ? 'Pause service' : 'Resume service'}</button>
             <button className="btn ghost" onClick={async () => { if (confirm('Remove this service?')) { try { await api(`/transport/services/${id}`, { method: 'DELETE' }); nav('/move?tab=services'); } catch (e) { toast(errMsg(e), 'err'); } } }}>Remove</button></>}
         </div>

@@ -6,6 +6,7 @@ import { useAuth } from '../auth';
 import { Icon } from './Icon';
 import { useToast } from './Toast';
 import { InlineVideo, PollBox } from './media';
+import { BoostFlow } from './payments';
 import { Avatar, CONDITIONS, Menu, Modal, ReportDialog, State, Verified, ago, errMsg, money } from './ui';
 
 export function useRequireAuth() {
@@ -84,7 +85,7 @@ export function PostCard({ p, onRemoved }: { p: any; onRemoved?: () => void }) {
   const { me } = useAuth(); const toast = useToast(); const guard = useRequireAuth(); const nav = useNavigate();
   const like = useToggle('reactions', 'post', p.id, p.viewer.liked, p.counts.likes);
   const save = useToggle('saves', 'post', p.id, p.viewer.saved);
-  const [comments, setComments] = useState(false); const [cc, setCc] = useState(p.counts.comments); const [report, setReport] = useState(false);
+  const [comments, setComments] = useState(false); const [cc, setCc] = useState(p.counts.comments); const [report, setReport] = useState(false); const [boost, setBoost] = useState(false);
   const mine = me?.id === p.author.id;
   const name = p.business ? p.business.name : p.author.display_name;
   const g = Math.min(p.media.length, 4);
@@ -92,10 +93,10 @@ export function PostCard({ p, onRemoved }: { p: any; onRemoved?: () => void }) {
     <article className="post">
       <div className="who">
         <Link to={p.business ? `/b/${p.business.slug}` : `/u/${p.author.username}`}><Avatar user={p.author} /></Link>
-        <div><b><Link to={p.business ? `/b/${p.business.slug}` : `/u/${p.author.username}`}>{name}</Link> {(p.business?.verified || (!p.business && p.author.verification_level === 'identity')) && <Verified />}</b>
+        <div><b><Link to={p.business ? `/b/${p.business.slug}` : `/u/${p.author.username}`}>{name}</Link> {p.sponsored && <span className="pill" style={{ padding: '2px 8px' }}>Sponsored</span>} {(p.business?.verified || (!p.business && p.author.verification_level === 'identity')) && <Verified />}</b>
           <div className="muted sm">{ago(p.created_at)}{p.location ? ` · ${p.location.city}, ${p.location.province}` : ''}{p.visibility === 'followers' ? ' · Followers' : p.visibility === 'private' ? ' · Only me' : ''}{p.status === 'pending' ? ' · Under review' : ''}{p.group && <> · in <Link to={`/c/${p.group.slug}`} style={{ color: 'var(--blue)', fontWeight: 700 }}>{p.group.name}</Link></>}</div></div>
         <span className="sp" />
-        <Menu items={[...(mine ? [{ label: 'Delete post', onClick: async () => { if (!confirm('Delete this post?')) return; try { await api(`/posts/${p.id}`, { method: 'DELETE' }); toast('Post deleted'); onRemoved?.(); } catch (e) { toast(errMsg(e), 'err'); } } }] : [{ label: 'Report post', onClick: () => guard(() => setReport(true)) }]),
+        <Menu items={[...(mine && p.visibility === 'public' && !p.group ? [{ label: 'Boost this post', onClick: () => setBoost(true) }] : []), ...(mine ? [{ label: 'Delete post', onClick: async () => { if (!confirm('Delete this post?')) return; try { await api(`/posts/${p.id}`, { method: 'DELETE' }); toast('Post deleted'); onRemoved?.(); } catch (e) { toast(errMsg(e), 'err'); } } }] : [{ label: 'Report post', onClick: () => guard(() => setReport(true)) }]),
           ...(!mine ? [{ label: `Go to ${p.author.display_name}`, onClick: () => nav(`/u/${p.author.username}`) }] : [])]} />
       </div>
       {p.body && <div className="body">{p.body}</div>}
@@ -115,6 +116,7 @@ export function PostCard({ p, onRemoved }: { p: any; onRemoved?: () => void }) {
         <button className={`act ${save.on ? 'saved' : ''}`} onClick={save.toggle} aria-pressed={save.on} aria-label="Save"><Icon name="save" /></button>
       </div>
       {comments && <Modal onClose={() => setComments(false)} title="Comments"><Comments target={{ type: 'post', id: p.id }} onCount={(d) => setCc((c: number) => Math.max(0, c + d))} /></Modal>}
+      {boost && <BoostFlow targetType="post" targetId={p.id} onClose={() => setBoost(false)} />}
       {report && <ReportDialog target={{ type: 'post', id: p.id }} onClose={() => setReport(false)} />}
     </article>
   );
@@ -128,6 +130,7 @@ export function ListingCard({ l }: { l: any }) {
         <Link to={`/l/${l.id}`} aria-label={l.title} style={{ display: 'block', height: '100%' }}>
           {l.images[0] ? <img src={l.images[0].thumb_url} alt="" loading="lazy" /> : <div className="noimg"><Icon name="bag" /></div>}
         </Link>
+        {l.featured && <span className="tagover" style={{ left: 8, top: 8, bottom: 'auto', background: 'var(--amber)', color: '#fff' }}>Featured</span>}
         {l.fulfillment?.delivery && <span className="tagover">🚚 Delivery</span>}
         {l.status !== 'active' && <span className="tagover" style={{ background: 'var(--navy)', color: '#fff' }}>{l.status === 'sold' ? 'Sold' : 'Reserved'}</span>}
         <button className={`heart ${save.on ? 'on' : ''}`} onClick={save.toggle} aria-pressed={save.on} aria-label="Save listing"><Icon name="save" /></button>
@@ -149,7 +152,7 @@ export function FeedListing({ l }: { l: any }) {
     <article className="post">
       <div className="who">
         <Link to={`/u/${l.seller.username}`}><Avatar user={l.seller} /></Link>
-        <div><b><Link to={l.business ? `/b/${l.business.slug}` : `/u/${l.seller.username}`}>{l.business?.name ?? l.seller.display_name}</Link> <span className="pill t" style={{ padding: '2px 8px' }}>For sale</span></b>
+        <div><b><Link to={l.business ? `/b/${l.business.slug}` : `/u/${l.seller.username}`}>{l.business?.name ?? l.seller.display_name}</Link> <span className="pill t" style={{ padding: '2px 8px' }}>For sale</span> {l.sponsored && <span className="pill" style={{ padding: '2px 8px' }}>Sponsored</span>}</b>
           <div className="muted sm">{ago(l.created_at)} · {l.location?.city}{l.distance_km != null ? (l.distance_km < 1 ? ' · Nearby' : ` · ${l.distance_km} km away`) : ''}</div></div>
       </div>
       <Link to={`/l/${l.id}`}>

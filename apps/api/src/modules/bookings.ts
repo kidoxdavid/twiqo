@@ -250,8 +250,9 @@ async function orderView(id: string, me: string) {
   const reviews = (await pool.query(`SELECT reviewer_id, rating, comment FROM reviews WHERE order_id=$1 AND status='active'`, [id])).rows;
   const buyer = o.buyer_id === me; const mineR = reviews.find((r) => r.reviewer_id === me);
   const tr = (await pool.query(`SELECT id, status FROM transport_requests WHERE linked_listing_id=$1 AND requester_id=$2 ORDER BY created_at DESC LIMIT 1`, [o.listing_id, o.buyer_id])).rows[0];
+  const openDispute = (await pool.query(`SELECT id FROM disputes WHERE order_id=$1 AND status='open'`, [id])).rows[0];
   return {
-    id: o.id, status: o.status, payment_status: o.payment_status, quantity: o.quantity, total_cents: o.total_cents, currency: o.currency, created_at: o.created_at, completed_at: o.completed_at, my_role: buyer ? 'buyer' : 'seller',
+    id: o.id, status: o.status, payment_status: o.payment_status, dispute_id: openDispute?.id ?? null, quantity: o.quantity, total_cents: o.total_cents, currency: o.currency, created_at: o.created_at, completed_at: o.completed_at, my_role: buyer ? 'buyer' : 'seller',
     listing: { id: o.listing_id, title: o.title, image_url: o.img ? thumbUrl(o.img) : null, city: o.city }, buyer: who(o, 'b'), seller: who(o, 's'), counterparty: buyer ? who(o, 's') : who(o, 'b'),
     transport_request: buyer && tr ? { id: tr.id, status: tr.status } : null, review: { mine: mineR ?? null, theirs: reviews.find((r) => r.reviewer_id !== me) ?? null },
     actions: [...(o.status === 'agreed' ? ['complete', 'cancel'] : []), ...(o.status === 'completed' && !mineR ? ['review'] : []), ...(buyer && o.status === 'agreed' && !tr ? ['arrange_transport'] : []), ...(buyer && o.status === 'agreed' && o.payment_status === 'unpaid' ? ['pay'] : [])],

@@ -97,7 +97,7 @@ function Config() {
         <label className="row sm">%<input className="input" style={{ width: 90 }} inputMode="decimal" value={e.pct} onChange={(ev) => setFeeEdit({ ...feeEdit, [f.id]: { ...e, pct: ev.target.value } })} /></label>
         <label className="row sm">$<input className="input" style={{ width: 90 }} inputMode="decimal" value={e.fixed} onChange={(ev) => setFeeEdit({ ...feeEdit, [f.id]: { ...e, fixed: ev.target.value } })} /></label>
         <button className="btn sm" onClick={() => act(() => api(`/admin/fee-rules/${f.id}`, { method: 'PUT', body: { percent_bps: Math.round(parseFloat(e.pct) * 100), fixed_cents: Math.round(parseFloat(e.fixed) * 100), active: f.active } }), 'Fee updated', ['afees'])}>Save</button></div>; })}
-      <div className="muted sm" style={{ marginTop: 8 }}>Fees are stored here and applied when payments launch in Phase 4. Changes are written to the audit log.</div></div></div>;
+      <div className="muted sm" style={{ marginTop: 8 }}>Fees apply to new payments and boosts only; existing payments keep the fee they were charged. Changes are written to the audit log.</div></div></div>;
 }
 
 function Audit() {
@@ -114,10 +114,59 @@ function Appeals() {
     {sel && <Reason title="Decide appeal" cta="Confirm" onClose={() => setSel(null)} onSubmit={(reason) => act(() => api(`/admin/appeals/${sel.a.id}/decide`, { body: { decision: sel.d, reason } }), 'Decision recorded', ['aappeals', 'astats'])} />}</>;
 }
 
+// ------------------------------------------------------------------------------------------------ payments (manage.payments)
+function Revenue() {
+  const [days, setDays] = useState(30); const q = useQuery({ queryKey: ['arevenue', days], queryFn: () => api('/admin/revenue', { query: { days } }) });
+  if (q.isLoading) return <State kind="loading" />; if (q.isError) return <State kind="error" />;
+  const r = q.data; const max = Math.max(1, ...r.by_day.map((d: any) => d.net_fees_cents));
+  return <div className="col">
+    <div className="row">{[7, 30, 90].map((d) => <button key={d} className={`pill ${days === d ? 'b' : ''}`} onClick={() => setDays(d)}>{d} days</button>)}</div>
+    <div className="kpis">{([['Card volume', money(r.gross_cents)], ['Platform fees', money(r.platform_fees_cents)], ['Fees returned on refunds', money(r.fees_returned_cents)], ['Net revenue', money(r.net_platform_revenue_cents)], ['Refunded to buyers', money(r.refunded_cents)], ['Payments', String(r.payments)], ['Open disputes', String(r.open_disputes)], ['Failed refunds', String(r.failed_refunds)]] as [string, string][]).map(([l, v]) => <div key={l} className="kpi"><span>{l}</span><b>{v}</b></div>)}</div>
+    <h2 className="sec">Net fees by source</h2>
+    <table className="table"><thead><tr><th>Source</th><th>Payments</th><th>Volume</th><th>Net fees</th></tr></thead><tbody>{r.by_scope.map((s: any) => <tr key={s.scope}><td>{String(s.scope).replace(/_/g, ' ')}</td><td>{s.payments}</td><td>{money(s.gross_cents)}</td><td>{money(s.net_fees_cents)}</td></tr>)}{!r.by_scope.length && <tr><td colSpan={4} className="muted">No paid activity in this period.</td></tr>}</tbody></table>
+    {r.by_day.length > 0 && <div className="card pad"><div className="row" style={{ alignItems: 'flex-end', gap: 4, height: 90 }} role="img" aria-label="Net fees per day">{r.by_day.map((d: any) => <div key={d.day} title={`${String(d.day).slice(0, 10)}: ${money(d.net_fees_cents)}`} style={{ flex: 1, minWidth: 4, background: 'var(--blue)', borderRadius: 4, height: `${Math.max(4, (d.net_fees_cents / max) * 100)}%` }} />)}</div></div>}
+    <div className="muted sm">{r.note} Figures come from payments recorded by webhook; reconcile against your Stripe dashboard before relying on them for accounting.</div></div>;
+}
+
+function Payments() {
+  const [status, setStatus] = useState(''); const q = useQuery({ queryKey: ['apayments', status], queryFn: () => api('/admin/payments', { query: { status } }) }); const act = useAct(); const [sel, setSel] = useState<any>(null);
+  return <div className="col"><div className="row wrap">{['', 'succeeded', 'partially_refunded', 'refunded', 'failed', 'requires_payment'].map((s) => <button key={s} className={`pill ${status === s ? 'b' : ''}`} onClick={() => setStatus(s)}>{s ? s.replace('_', ' ') : 'all'}</button>)}</div>
+    {q.isLoading ? <State kind="loading" /> : !q.data.items.length ? <State kind="empty" title="No payments" /> :
+      <table className="table"><thead><tr><th>When</th><th>Type</th><th>Payer → payee</th><th>Amount</th><th>Fee</th><th>Status</th><th /></tr></thead><tbody>{q.data.items.map((p: any) => <tr key={p.id}><td>{ago(p.created_at)}</td><td>{p.kind}</td><td>@{p.payer}{p.payee ? ` → @${p.payee}` : ''}</td><td>{money(p.amount_cents)}{p.refunded_cents > 0 && <div className="muted sm">−{money(p.refunded_cents)}</div>}</td><td>{money(p.fee_cents)}</td><td><span className="pill b">{p.status.replace('_', ' ')}</span>{p.failure_reason && <div className="muted sm">{p.failure_reason}</div>}</td>
+        <td>{['succeeded', 'partially_refunded'].includes(p.status) && p.refunded_cents < p.amount_cents && <button className="btn sm danger" onClick={() => setSel(p)}>Refund</button>}</td></tr>)}</tbody></table>}
+    {sel && <Reason title={`Refund ${money(sel.amount_cents - sel.refunded_cents)}`} cta="Refund in full" onClose={() => setSel(null)} onSubmit={(reason) => act(() => api(`/payments/${sel.id}/refund`, { body: { reason } }), 'Refund issued', ['apayments', 'arevenue'])} />}</div>;
+}
+
+function Disputes() {
+  const [st, setSt] = useState<'open' | 'resolved' | 'withdrawn'>('open'); const q = useQuery({ queryKey: ['adisputes', st], queryFn: () => api('/admin/disputes', { query: { status: st } }) });
+  const [sel, setSel] = useState<any>(null); const act = useAct(); const detail = useQuery({ queryKey: ['adispute', sel?.id], queryFn: () => api(`/disputes/${sel.id}`), enabled: !!sel });
+  const [res, setRes] = useState('refund_partial'); const [amt, setAmt] = useState(''); const [note, setNote] = useState(''); const [msg, setMsg] = useState('');
+  return <div className="col"><div className="row">{(['open', 'resolved', 'withdrawn'] as const).map((s) => <button key={s} className={`pill ${st === s ? 'b' : ''}`} onClick={() => setSt(s)}>{s}</button>)}</div>
+    {q.isLoading ? <State kind="loading" /> : !q.data.items.length ? <State kind="empty" title={`No ${st} disputes`} /> : q.data.items.map((d: any) => <div key={d.id} className="card pad row" style={{ cursor: 'pointer' }} onClick={() => { setSel(d); setNote(''); setAmt(''); }}><div style={{ flex: 1 }}><b>{d.subject.title}</b><div className="muted sm">{d.reason.replace('_', ' ')} · @{d.opened_by.username} vs @{d.other_party.username} · {ago(d.created_at)}</div></div><span className="pill a">{d.status}</span></div>)}
+    {sel && <Modal onClose={() => setSel(null)} title="Review dispute"><div className="col">
+      {detail.isLoading ? <State kind="loading" /> : detail.data && <>
+        <div className="sm"><b>{detail.data.subject.title}</b> · {detail.data.reason.replace('_', ' ')}</div><div style={{ whiteSpace: 'pre-wrap' }} className="sm">{detail.data.description}</div>
+        {detail.data.messages.map((m: any) => <div key={m.id} className="card pad sm" style={{ background: m.staff ? '#EEF3FF' : undefined }}><b>{m.staff ? 'Staff' : `@${m.author.username}`}</b> · {m.body}</div>)}
+        {detail.data.status === 'open' && <>
+          <div className="row"><input className="input" aria-label="Message to both parties" placeholder="Message both parties" value={msg} onChange={(e) => setMsg(e.target.value)} /><button className="btn sm soft" disabled={!msg.trim()} onClick={async () => { if (await act(() => api(`/disputes/${sel.id}/messages`, { body: { body: msg.trim() } }), 'Sent', ['adispute'])) setMsg(''); }}>Send</button></div>
+          <div className="field"><label htmlFor="rs2">Decision</label><select id="rs2" className="input" value={res} onChange={(e) => setRes(e.target.value)}><option value="refund_full">Full refund</option><option value="refund_partial">Partial refund</option><option value="no_refund">No refund</option></select></div>
+          {res === 'refund_partial' && <div className="field"><label htmlFor="am">Refund amount (CAD)</label><input id="am" className="input" inputMode="decimal" value={amt} onChange={(e) => setAmt(e.target.value)} /></div>}
+          <div className="field"><label htmlFor="nt">Note (shown to both parties, kept in the audit log)</label><textarea id="nt" className="input" value={note} onChange={(e) => setNote(e.target.value)} /></div>
+          <button className="btn" disabled={note.trim().length < 5 || (res === 'refund_partial' && !(parseFloat(amt) > 0))} onClick={async () => { if (await act(() => api(`/admin/disputes/${sel.id}/resolve`, { body: { resolution: res, note: note.trim(), ...(res === 'refund_partial' ? { refund_cents: Math.round(parseFloat(amt) * 100) } : {}) } }), 'Dispute resolved', ['adisputes', 'apayments', 'arevenue'])) setSel(null); }}>Resolve</button></>}</>}
+    </div></Modal>}</div>;
+}
+
+function Boosts() {
+  const q = useQuery({ queryKey: ['aboosts'], queryFn: () => api('/admin/boosts') }); const act = useAct(); const [sel, setSel] = useState<any>(null);
+  if (q.isLoading) return <State kind="loading" />; if (!q.data.items.length) return <State kind="empty" title="No boosts yet" />;
+  return <><table className="table"><thead><tr><th>Owner</th><th>What</th><th>Type</th><th>Status</th><th>Ends</th><th>Views</th><th /></tr></thead><tbody>{q.data.items.map((b: any) => <tr key={b.id}><td>@{b.username}</td><td>{b.target_type.replace('_', ' ')}</td><td>{b.placement}</td><td><span className="pill b">{b.status.replace('_', ' ')}</span></td><td>{b.ends_at ? new Date(b.ends_at).toLocaleDateString('en-CA') : '—'}</td><td>{b.impressions}</td><td>{['active', 'pending_payment'].includes(b.status) && <button className="btn sm danger" onClick={() => setSel(b)}>Cancel</button>}</td></tr>)}</tbody></table>
+    {sel && <Reason title="Cancel boost (no refund)" cta="Cancel boost" onClose={() => setSel(null)} onSubmit={(reason) => act(() => api(`/admin/boosts/${sel.id}/cancel`, { body: { reason, refund: false } }), 'Boost cancelled', ['aboosts'])} />}</>;
+}
+
 export function Admin() {
   const { me } = useAuth(); const p = me?.permissions ?? [];
   if (!p.length) return <Navigate to="/" replace />;
-  const tabs: [string, string, boolean][] = [['', 'Overview', p.includes('view.analytics')], ['reports', 'Reports', p.includes('moderate.content')], ['listings', 'Listing review', p.includes('moderate.content')], ['users', 'Users', p.includes('manage.users')], ['appeals', 'Appeals', p.includes('manage.users')], ['categories', 'Categories', p.includes('manage.categories')], ['config', 'Config', p.includes('manage.settings')], ['audit', 'Audit log', p.includes('view.audit')]];
+  const tabs: [string, string, boolean][] = [['', 'Overview', p.includes('view.analytics')], ['reports', 'Reports', p.includes('moderate.content')], ['listings', 'Listing review', p.includes('moderate.content')], ['users', 'Users', p.includes('manage.users')], ['appeals', 'Appeals', p.includes('manage.users')], ['categories', 'Categories', p.includes('manage.categories')], ['config', 'Config', p.includes('manage.settings')], ['audit', 'Audit log', p.includes('view.audit')], ['payments', 'Payments', p.includes('manage.payments')], ['disputes', 'Disputes', p.includes('manage.payments')], ['revenue', 'Revenue', p.includes('manage.payments')], ['boosts', 'Boosts', p.includes('manage.payments')]];
   const first = tabs.find((t) => t[2])?.[0] ?? '';
   return (
     <main className="main wide"><h1 className="page">Admin</h1>
@@ -126,6 +175,7 @@ export function Admin() {
         <Routes>
           <Route index element={first === '' ? <Overview /> : <Navigate to={`/admin/${first}`} replace />} />
           <Route path="reports" element={<Reports />} /><Route path="listings" element={<Listings />} /><Route path="users" element={<Users />} /><Route path="appeals" element={<Appeals />} />
+          <Route path="payments" element={<Payments />} /><Route path="disputes" element={<Disputes />} /><Route path="revenue" element={<Revenue />} /><Route path="boosts" element={<Boosts />} />
           <Route path="categories" element={<Categories />} /><Route path="config" element={<Config />} /><Route path="audit" element={<Audit />} />
         </Routes>
       </div>

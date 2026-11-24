@@ -55,7 +55,7 @@ Legend: ✅ done and tested · 🟡 partial · ⬜ not started
 | Web UI | ✅ | Move hub, journey/request/service pages, create forms, offers inbox, booking page, orders |
 | Tests | ✅ | 102 API integration tests incl. concurrency and PIN lockout; full two-user browser walkthrough |
 | Map tiles / geocoding | ⬜ | route preview is schematic; needs a map provider key |
-| Disputes, refunds, payments | ⬜ | Phase 4 — UI states plainly that funds are not held |
+| Disputes, refunds, payments | ✅ | Phase 4 — UI states plainly that funds are not held in escrow |
 
 ## Phase 3 — Communities and video (done)
 
@@ -77,8 +77,19 @@ Legend: ✅ done and tested · 🟡 partial · ⬜ not started
 | Signed / private video URLs | ⬜ | clip URLs are unguessable but public |
 | Tests | ✅ | 138 API integration tests (Circles, roles, privacy, polls, stories, real FFmpeg uploads, Bunny adapter with mocked HTTP) + browser walkthrough |
 
-## Phase 4 — Transactions and monetization ⬜
-Payments (Stripe Connect) · commissions from `fee_rules` · payouts · premium listings · promotions · disputes · refunds.
+## Phase 4 — Transactions and monetization ✅ (Stripe adapter unverified against live Stripe)
+- ✅ Provider interface with `fake` (dev/tests) and `stripe` (Connect Express, destination charges, Canada) implementations
+- ✅ Payout onboarding (`/settings/payments`), account sync, earnings summary, payout history from webhooks
+- ✅ Checkout for orders and transport bookings, Stripe Elements form (lazy-loaded), fee snapshot per payment from `fee_rules`
+- ✅ Idempotent, signature-verified webhooks (`webhook_events`), two secrets (platform + connect)
+- ✅ Refunds: partial/full, race-safe against over-refund, provider-outage safe, fee returned proportionally (setting)
+- ✅ Auto-refund on cancel (order/booking), late-payment refund, housekeeping retry of failed refunds, abandoned payment cleanup
+- ✅ Optional pickup gating on payment (`payments.required_for_pickup`)
+- ✅ Disputes: open/reply/withdraw, completion + auto-complete paused while open, staff resolve with full/partial/no refund, audit-logged
+- ✅ Boosts: featured listings/services (ranked higher, not labelled as ads), sponsored posts/listings in feeds (always labelled, one per page, never to owner/blocked)
+- ✅ Admin: payments, disputes, boosts, revenue (net of returned fees), webhook log; permission `manage.payments`
+- ✅ `npm run stripe:check`; tests: fees, checkout, webhooks, refunds, disputes, boosts, admin, mocked Stripe adapter
+- ⬜ Not built: sales tax, tax forms, Stripe chargeback evidence, subscriptions/business plans, multi-currency, payout schedule UI beyond Stripe's dashboard
 
 ## Phase 5 — Growth ⬜
 Recommendations · trending · subscriptions · referrals · analytics · performance · internationalisation.

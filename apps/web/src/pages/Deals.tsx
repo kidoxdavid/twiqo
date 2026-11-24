@@ -5,6 +5,7 @@ import { api } from '../api';
 import { useToast } from '../components/Toast';
 import { OfferCard, RouteLine, fmtDate, fmtDateTime, windowText } from '../components/transport';
 import { Icon, Ticks } from '../components/Icon';
+import { PaymentPanel, ReportProblem } from '../components/payments';
 import { Avatar, ImageUploader, Modal, State, ago, errMsg, money, type Uploaded } from '../components/ui';
 
 // ------------------------------------------------------------------------------------------------ offers inbox
@@ -115,6 +116,9 @@ export function BookingPage() {
         {!ship && has('confirm_delivery') && <div className="card pad"><h2 className="sec">Confirm delivery</h2><PinForm id={b.id} kind="deliver" onDone={refresh} />{b.pin_locked_until && <div className="err" style={{ marginTop: 8 }}>PIN entry is locked until {fmtDateTime(b.pin_locked_until)}.</div>}</div>}
         {ship && has('confirm_receipt') && <div className="card pad col"><b>Your item was delivered</b><div className="muted sm">Confirm you received it to complete the move. If you don't, it completes automatically after a few days.</div><button className="btn teal" disabled={busy} onClick={() => call('complete', {}, 'Move completed')}>Confirm I received it</button></div>}
 
+        {b.status !== 'cancelled' && <PaymentPanel kind="booking" id={b.id} status={b.payment_status} buyerSide={ship} canPay={has('pay')} disputeId={b.dispute_id} onChanged={refresh} />}
+        {['pickup_confirmed', 'in_transit', 'delivered', 'completed'].includes(b.status) && !b.dispute_id && <ReportProblem subject={{ booking_id: b.id }} onDone={(d) => nav(`/disputes/${d}`)} />}
+
         {b.status !== 'cancelled' && <div className="card pad col"><h2 className="sec" style={{ margin: 0 }}>Addresses <span className="pill" style={{ verticalAlign: 'middle' }}>private</span></h2>
           {ship && has('set_address') ? <>
             <div className="field"><label htmlFor="pa">Pickup address</label><input id="pa" className="input" value={a.pickup_address ?? ''} onChange={(e) => setAddr({ ...a, pickup_address: e.target.value })} /></div>
@@ -140,7 +144,7 @@ export function BookingPage() {
           <div style={{ flex: 1 }}><b className="sm" style={{ textTransform: 'capitalize' }}>{e.kind.replace('_', ' ')}</b>{e.location_label && <span className="muted sm"> · {e.location_label}</span>}<div className="sm">{e.note}</div>{e.photo_url && <img src={e.photo_url} alt="Evidence" style={{ width: 120, borderRadius: 12, marginTop: 6 }} />}<div className="muted sm">{e.actor ? `@${e.actor} · ` : ''}{fmtDateTime(e.created_at)}</div></div></div>)}</div>
 
         {has('cancel') && <button className="btn ghost" style={{ color: 'var(--red)', borderColor: 'var(--red)' }} onClick={() => setCancel(true)}>Cancel this booking</button>}
-        <div className="muted sm">Pickup and delivery are verified with PINs and photos. Insurance depends on the transporter's own coverage; twiqo doesn't insure items or hold payment yet.</div>
+        <div className="muted sm">Pickup and delivery are verified with PINs and photos. Insurance depends on the transporter's own coverage; twiqo doesn't insure items, and card payments are not held in escrow.</div>
       </div>
       {cancel && <Modal onClose={() => setCancel(false)} title="Cancel this booking?"><div className="col"><div className="muted sm">Cancelling is only possible before pickup. {ship ? 'Your shipment goes back to open.' : 'The space on your journey is released.'}</div>
         <textarea className="input" aria-label="Reason" placeholder="Reason (the other person will see it)" value={reason} onChange={(e) => setReason(e.target.value)} /><button className="btn danger" disabled={reason.trim().length < 3 || busy} onClick={async () => { if (await call('cancel', { reason }, 'Booking cancelled')) setCancel(false); }}>Cancel booking</button></div></Modal>}
@@ -161,7 +165,9 @@ export function OrderPage() {
       <div className="col" style={{ padding: '0 16px' }}>
         <Link to={`/l/${o.listing.id}`} className="attach"><div className="th">{o.listing.image_url && <img src={o.listing.image_url} alt="" />}</div><div className="tx"><b>{o.listing.title}</b><span className="muted sm">{o.quantity > 1 ? `${o.quantity} × ` : ''}agreed {money(o.total_cents)}</span></div></Link>
         <div className="card pad row"><Link to={`/u/${o.counterparty.username}`} className="row" style={{ flex: 1 }}><Avatar user={o.counterparty} size={42} /><div><b>{o.counterparty.display_name}</b><div className="muted sm">{o.my_role === 'buyer' ? 'Seller' : 'Buyer'}</div></div></Link>{o.my_role === 'buyer' && <Link className="btn sm soft" to={`/messages/new?to=${o.counterparty.id}&listing=${o.listing.id}`}><Icon name="chat" />Message</Link>}</div>
-        <div className="card pad sm">Agreed on {fmtDate(o.created_at)}. Arrange pickup or delivery and payment directly with {o.counterparty.display_name} — twiqo doesn't hold funds for sales yet.</div>
+        <div className="card pad sm">Agreed on {fmtDate(o.created_at)}. Arrange pickup or delivery with {o.counterparty.display_name}. You can pay by card here or settle directly. twiqo doesn't hold funds in escrow.</div>
+        {o.status !== 'cancelled' && <PaymentPanel kind="order" id={o.id} status={o.payment_status} buyerSide={o.my_role === 'buyer'} canPay={has('pay')} disputeId={o.dispute_id} onChanged={() => q.refetch()} />}
+        {['agreed', 'completed'].includes(o.status) && !o.dispute_id && <ReportProblem subject={{ order_id: o.id }} onDone={(d) => nav(`/disputes/${d}`)} />}
         {has('arrange_transport') && <Link className="btn teal" to={`/create/request?listing=${o.listing.id}`}><Icon name="truck" />Arrange transport for this item</Link>}
         {o.transport_request && <Link className="btn ghost" to={`/r/${o.transport_request.id}`}>Transport request: {o.transport_request.status}</Link>}
         {has('complete') && <button className="btn" disabled={busy} onClick={() => call('complete', {}, 'Order completed')}>Mark as completed</button>}

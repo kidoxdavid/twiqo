@@ -89,6 +89,18 @@ Videos use the local FFmpeg provider by default (fine for development and small 
 
 The adapter follows Bunny's documented API and is tested against a mocked HTTP server; confirm it with your own account before launch. Uploads go from the browser straight to Bunny (resumable TUS), so large files never pass through this server.
 
+## Payments: Stripe setup (Phase 4)
+
+twiqo uses **Stripe Connect (Express accounts, destination charges)**: the buyer pays twiqo's Stripe account, the seller's or driver's share is transferred to their connected account at the same moment, and twiqo's commission stays as the application fee. twiqo does not hold seller money and this is **not escrow**. In development `PAYMENT_PROVIDER=fake` (the default) simulates everything with a test panel and no network calls; the fake provider refuses to start in production.
+
+1. Create a Stripe account, switch to **test mode**, and enable **Connect** (platform country Canada).
+2. Put the keys in `apps/api/.env`: `PAYMENT_PROVIDER=stripe`, `STRIPE_SECRET_KEY=sk_test_...`, `STRIPE_PUBLISHABLE_KEY=pk_test_...`.
+3. Run `npm run stripe:check -w apps/api`. It verifies the key, Connect, onboarding links and a test PaymentIntent, then cleans up after itself.
+4. Add two webhook endpoints pointing at `<your API>/api/webhooks/stripe`: one for **your account** (secret -> `STRIPE_WEBHOOK_SECRET`) and one for **Connect/connected accounts** (secret -> `STRIPE_CONNECT_WEBHOOK_SECRET`). Events: `payment_intent.succeeded`, `payment_intent.payment_failed`, `refund.created`, `refund.updated`, `charge.refund.updated`, `charge.dispute.created`, `account.updated`, `payout.created`, `payout.paid`, `payout.failed`, `payout.updated`. For local testing use `stripe listen --forward-to localhost:4000/api/webhooks/stripe`.
+5. Fees are data: Admin -> Config -> Fees (`product_sale`, `transport_booking`, `premium_listing`, `featured_service`, `sponsored`). Each payment snapshots the fee it was charged. Other settings: `payments.enabled`, `payments.required_for_pickup`, `payments.payout_delay_days`, `payments.refund_platform_fee`, `payments.dispute_window_days`, `boost.days`, `ads.every_n`.
+
+Honest status: the Stripe adapter is covered by tests against a mocked Stripe client that assert the exact parameters sent (destination charge, application fee, reverse_transfer, signature verification), but it has **not been run against live Stripe** from this build. Run `stripe:check` and one end-to-end test purchase with your test keys before trusting it. Not handled: sales tax (GST/HST/PST) on sales or on twiqo's fees, tax reporting (e.g. payee tax forms), Stripe card-dispute evidence submission (chargebacks are recorded, not contested), multi-currency. Get legal and accounting review before going live (money-transmitter and marketplace-facilitator rules, terms of service, refund policy).
+
 ## Honest scope notes
 
 * Payments are **not implemented yet** (Phase 4); the UI says so plainly instead of faking it.
