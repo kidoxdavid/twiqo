@@ -4,7 +4,7 @@ import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { config } from '../config.js';
 import { pool, tx } from '../db/pool.js';
 import type { Db } from '../db/pool.js';
-import { HttpError, badRequest, forbidden, notFound, wrap } from '../lib/errors.js';
+import { HttpError, badRequest, conflict, forbidden, notFound, wrap } from '../lib/errors.js';
 import { optionalAuth, requireAuth } from '../lib/auth.js';
 import { checkText } from '../lib/policy.js';
 import { hydratePosts, hydrateJourneys, hydrateRequests, hydrateServices } from '../lib/hydrate.js';
@@ -12,6 +12,7 @@ import { notify } from '../lib/notify.js';
 import { visibleTo } from '../lib/views.js';
 import { audit } from '../lib/audit.js';
 import { can } from './business.js';
+import { atLeast, membership } from '../lib/groups.js';
 
 export const content = Router();
 const postLimiter = rateLimit({ windowMs: 60_000, limit: 20, skip: () => config.RATE_LIMIT_DISABLED === 'true',
@@ -24,7 +25,9 @@ const postSchema = z.object({
   kind: z.enum(['text', 'photo', 'video', 'poll', 'share']).default('text'),
   body: z.string().trim().max(5000).optional(),
   media_ids: z.array(uuid).max(10).default([]),
-  attachment_type: z.enum(['listing', 'business', 'transport_request', 'journey', 'transport_service']).optional(),   // events arrive with Circles
+  attachment_type: z.enum(['listing', 'business', 'transport_request', 'journey', 'transport_service']).optional(),
+  video_id: uuid.optional(), group_id: uuid.optional(),
+  poll: z.object({ options: z.array(z.string().trim().min(1).max(80)).min(2).max(6), closes_in_hours: z.number().int().min(1).max(24 * 30).optional() }).optional(),
   attachment_id: uuid.optional(),
   visibility: z.enum(['public', 'followers', 'private']).default('public'),
   business_id: uuid.optional(),
@@ -39,15 +42,33 @@ export async function assertOwnsMedia(db: Db, userId: string, ids: string[]) {
 content.post('/posts', requireAuth, postLimiter, wrap(async (req, res) => {
   const b = postSchema.parse(req.body);
   const uid = req.user!.id;
-  if (b.kind === 'video' || b.kind === 'poll') throw new HttpError(422, `${b.kind === 'video' ? 'Video' : 'Poll'} posts are coming soon`, 'not_available');
   if (b.kind === 'photo' && !b.media_ids.length) throw badRequest('Add at least one photo');
   if (b.kind === 'text' && !b.body) throw badRequest('Write something to post');
   if (b.kind === 'share' && !b.attachment_id) throw badRequest('Choose something to share');
+  if (b.kind === 'video' && !b.video_id) throw badRequest('Choose a video');
+  if (b.kind === 'poll' && (!b.body || !b.poll)) throw badRequest('Ask a question and add 2–6 options');
+  if (b.kind !== 'video' && b.video_id) throw badRequest('Only video posts can include a video');
+  if (b.kind !== 'poll' && b.poll) throw badRequest('Only poll posts can include options');
   if (!!b.attachment_type !== !!b.attachment_id) throw badRequest('Attachment is incomplete');
-  const flagged = await checkText(b.body);
+  let flagged = await checkText(b.body);
+  for (const o of b.poll?.options ?? []) flagged = (await checkText(o)) || flagged;
   const id = await tx(async (c) => {
     if (b.business_id && !(await can(b.business_id, uid, 'manage_listings')) && !(await can(b.business_id, uid, 'edit_profile'))) throw forbidden('You cannot post for this business');
     await assertOwnsMedia(c, uid, b.media_ids);
+    let visibility: string = b.visibility; let groupId: string | null = null;
+    if (b.group_id) {
+      const g = (await c.query(`SELECT * FROM groups WHERE id=$1 AND status='active'`, [b.group_id])).rows[0];
+      const m = g ? await membership(c, g.id, uid) : null;
+      if (!g || !m || m.status !== 'active') throw forbidden('Join this circle to post in it');
+      if (g.who_can_post === 'moderators' && !atLeast(m, 'moderator')) throw forbidden('Only moderators and admins can post in this circle');
+      if (!g.allow_commerce && b.attachment_type && !atLeast(m, 'moderator')) throw forbidden('This circle does not allow listings or promotions from members');
+      groupId = g.id; visibility = g.visibility === 'private' ? 'group' : 'public';
+    }
+    if (b.kind === 'video') {
+      const v = (await c.query('SELECT status FROM videos WHERE id=$1 AND owner_id=$2', [b.video_id, uid])).rows[0];
+      if (!v || ['failed', 'rejected', 'removed'].includes(v.status)) throw badRequest('That video is not available. Upload it again.');
+      if ((await c.query(`SELECT 1 FROM posts WHERE video_id=$1 AND status <> 'removed'`, [b.video_id])).rowCount) throw conflict('That video is already posted');
+    }
     if (b.attachment_type === 'listing') {
       const l = await c.query(`SELECT 1 FROM listings l WHERE l.id=$1 AND l.status IN ('active','reserved') AND l.visibility='public'`, [b.attachment_id]);
       if (!l.rowCount) throw badRequest('That listing is not available to share');
@@ -60,12 +81,14 @@ content.post('/posts', requireAuth, postLimiter, wrap(async (req, res) => {
     }
     const status = flagged ? 'pending' : 'active';
     const p = await c.query(
-      `INSERT INTO posts(author_id,business_id,kind,body,attachment_type,attachment_id,visibility,status,location)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,(SELECT location FROM user_profiles WHERE user_id=$1)) RETURNING id, location`,
-      [uid, b.business_id ?? null, b.kind, b.body ?? null, b.attachment_type ?? null, b.attachment_id ?? null, b.visibility, status]);
+      `INSERT INTO posts(author_id,business_id,group_id,kind,body,attachment_type,attachment_id,visibility,status,video_id,poll_closes_at,location)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, CASE WHEN $11::int IS NULL THEN NULL ELSE now() + ($11 || ' hours')::interval END,
+         CASE WHEN $3::uuid IS NULL THEN (SELECT location FROM user_profiles WHERE user_id=$1) ELSE NULL END) RETURNING id, location`,
+      [uid, b.business_id ?? null, groupId, b.kind, b.body ?? null, b.attachment_type ?? null, b.attachment_id ?? null, visibility, status, b.video_id ?? null, b.poll?.closes_in_hours ?? null]);
     for (const [i, m] of b.media_ids.entries()) await c.query(`INSERT INTO post_media(post_id,media_id,position) VALUES ($1,$2,$3)`, [p.rows[0].id, m, i]);
-    await c.query(`INSERT INTO feed_items(item_type,item_id,author_id,business_id,visibility,status,location) VALUES ('post',$1,$2,$3,$4,$5,$6)`,
-      [p.rows[0].id, uid, b.business_id ?? null, b.visibility, status, p.rows[0].location]);
+    for (const [i, o] of (b.poll?.options ?? []).entries()) await c.query(`INSERT INTO poll_options(post_id,text,position) VALUES ($1,$2,$3)`, [p.rows[0].id, o, i]);
+    await c.query(`INSERT INTO feed_items(item_type,item_id,author_id,business_id,group_id,visibility,status,location) VALUES ('post',$1,$2,$3,$4,$5,$6,$7)`,
+      [p.rows[0].id, uid, b.business_id ?? null, groupId, visibility, status, p.rows[0].location]);
     return p.rows[0].id as string;
   });
   res.status(201).json((await hydratePosts([id], uid)).get(id));
@@ -231,7 +254,7 @@ content.get('/me/saved', requireAuth, wrap(async (req, res) => {
 // ---- reports ------------------------------------------------------------------------------
 content.post('/reports', requireAuth, wrap(async (req, res) => {
   const b = z.object({
-    target_type: z.enum(['user', 'post', 'comment', 'listing', 'business', 'message', 'transport_request', 'journey', 'transport_service']), target_id: uuid,
+    target_type: z.enum(['user', 'post', 'comment', 'listing', 'business', 'message', 'transport_request', 'journey', 'transport_service', 'group', 'story', 'event']), target_id: uuid,
     reason: z.enum(['spam', 'prohibited_item', 'fraud', 'harassment', 'nudity', 'violence', 'misleading', 'other']),
     details: z.string().max(1000).optional(),
   }).parse(req.body);
@@ -241,7 +264,7 @@ content.post('/reports', requireAuth, wrap(async (req, res) => {
     const m = await pool.query(`SELECT 1 FROM messages m JOIN conversation_members cm ON cm.conversation_id=m.conversation_id AND cm.user_id=$2 WHERE m.id=$1`, [b.target_id, uid]);
     if (!m.rowCount) throw notFound('Message');
   } else {
-    const tbl = { user: 'users', post: 'posts', comment: 'comments', listing: 'listings', business: 'businesses', transport_request: 'transport_requests', journey: 'journeys', transport_service: 'transport_services' }[b.target_type]!;
+    const tbl = { user: 'users', post: 'posts', comment: 'comments', listing: 'listings', business: 'businesses', transport_request: 'transport_requests', journey: 'journeys', transport_service: 'transport_services', group: 'groups', story: 'stories', event: 'events' }[b.target_type]!;
     if (!(await pool.query(`SELECT 1 FROM ${tbl} WHERE id=$1`, [b.target_id])).rowCount) throw notFound('Item');
   }
   await pool.query(`INSERT INTO reports(reporter_id,target_type,target_id,reason,details) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (reporter_id,target_type,target_id) DO NOTHING`,

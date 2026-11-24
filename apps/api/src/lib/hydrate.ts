@@ -1,5 +1,6 @@
 import { pool } from '../db/pool.js';
 import { mediaUrl, thumbUrl } from './views.js';
+import { videoUrls } from './video.js';
 
 const av = (k: string | null) => (k ? thumbUrl(k) : null);
 
@@ -11,13 +12,16 @@ export async function hydratePosts(ids: string[], viewer: string | null) {
   const { rows } = await pool.query(
     `SELECT p.*, u.username, pr.display_name, pr.verification_level, (SELECT storage_key FROM media_assets WHERE id = pr.avatar_media_id) AS avatar_key,
             b.name AS business_name, b.slug AS business_slug, b.verification_status AS business_verification,
-            pr.city, pr.province,
+            pr.city, pr.province, g.slug AS group_slug, g.name AS group_name,
+            vd.id AS vd_id, vd.status AS vd_status, vd.duration_s AS vd_dur, vd.width AS vd_w, vd.height AS vd_h, vd.provider AS vd_provider, vd.provider_video_id AS vd_pvid,
+            (SELECT json_agg(json_build_object('id', o.id, 'text', o.text, 'votes', o.vote_count) ORDER BY o.position) FROM poll_options o WHERE o.post_id = p.id) AS poll_opts,
+            (SELECT option_id FROM poll_votes pv WHERE pv.post_id = p.id AND pv.user_id = $2) AS my_vote,
             EXISTS (SELECT 1 FROM reactions r WHERE r.user_id=$2 AND r.target_type='post' AND r.target_id=p.id) AS liked,
             EXISTS (SELECT 1 FROM saved_items s WHERE s.user_id=$2 AND s.target_type='post' AND s.target_id=p.id) AS saved,
             coalesce((SELECT json_agg(json_build_object('id', m.id, 'key', m.storage_key, 'width', m.width, 'height', m.height) ORDER BY pm.position)
                       FROM post_media pm JOIN media_assets m ON m.id = pm.media_id WHERE pm.post_id = p.id), '[]') AS media
      FROM posts p JOIN users u ON u.id = p.author_id JOIN user_profiles pr ON pr.user_id = u.id
-     LEFT JOIN businesses b ON b.id = p.business_id WHERE p.id = ANY($1::uuid[])`, [ids, viewer]);
+     LEFT JOIN businesses b ON b.id = p.business_id LEFT JOIN groups g ON g.id = p.group_id LEFT JOIN videos vd ON vd.id = p.video_id WHERE p.id = ANY($1::uuid[])`, [ids, viewer]);
   const listingIds = rows.filter((r) => r.attachment_type === 'listing').map((r) => r.attachment_id);
   const listings = await hydrateListings(listingIds, viewer);
   const att = (t: string) => rows.filter((r) => r.attachment_type === t).map((r) => r.attachment_id);
@@ -28,6 +32,10 @@ export async function hydratePosts(ids: string[], viewer: string | null) {
       author: { id: r.author_id, username: r.username, display_name: r.display_name, avatar_url: av(r.avatar_key), verification_level: r.verification_level },
       business: r.business_id ? { id: r.business_id, name: r.business_name, slug: r.business_slug, verified: r.business_verification === 'verified' } : null,
       location: r.city ? { city: r.city, province: r.province } : null,
+      group: r.group_id ? { id: r.group_id, slug: r.group_slug, name: r.group_name } : null,
+      video: r.vd_id ? { id: r.vd_id, status: r.vd_status, duration_s: r.vd_dur === null ? null : Number(r.vd_dur), width: r.vd_w, height: r.vd_h, urls: r.vd_status === 'ready' ? videoUrls({ id: r.vd_id, provider: r.vd_provider, provider_video_id: r.vd_pvid }) : null } : null,
+      poll: r.poll_opts ? (() => { const total = r.poll_opts.reduce((n: number, o: any) => n + o.votes, 0); const closed = r.poll_closes_at && new Date(r.poll_closes_at) < new Date(); return { options: r.poll_opts.map((o: any) => ({ id: o.id, text: o.text, votes: o.votes, pct: total ? Math.round((o.votes / total) * 100) : 0 })), total_votes: total, my_vote: r.my_vote, closes_at: r.poll_closes_at, closed: !!closed }; })() : null,
+      view_count: r.view_count,
       media: r.media.map((m: any) => ({ id: m.id, url: mediaUrl(m.key), thumb_url: thumbUrl(m.key), width: m.width, height: m.height })),
       attachment: r.attachment_type === 'listing' ? { type: 'listing', id: r.attachment_id, listing: listings.get(r.attachment_id) ?? null }
         : r.attachment_type === 'transport_request' ? { type: 'transport_request', id: r.attachment_id, request: reqs.get(r.attachment_id) ?? null }

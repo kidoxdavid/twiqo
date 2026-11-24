@@ -17,6 +17,10 @@ import { admin } from './modules/admin.js';
 import { transport } from './modules/transport.js';
 import { offers } from './modules/offers.js';
 import { bookings } from './modules/bookings.js';
+import { videos } from './modules/videos.js';
+import { circles } from './modules/circles.js';
+import { clips } from './modules/clips.js';
+import { stories } from './modules/stories.js';
 
 export function createApp() {
   const app = express();
@@ -26,7 +30,7 @@ export function createApp() {
   app.use(express.json({ limit: '200kb' }));
   app.use('/media', express.static(storage.root, { maxAge: '30d', immutable: true, index: false, dotfiles: 'deny' }));
   app.get('/health', (_req, res) => res.json({ ok: true }));
-  app.use('/api', identity, users, business, media, content, marketplace, feed, messaging, search, transport, offers, bookings, admin);
+  app.use('/api', identity, users, business, media, content, marketplace, feed, messaging, search, transport, offers, bookings, videos, circles, clips, stories, admin);
   app.use('/api', (_req, res) => res.status(404).json({ error: { code: 'not_found', message: 'Not found' } }));
   app.use(errorMiddleware);
   return app;

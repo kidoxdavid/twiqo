@@ -11,7 +11,8 @@
     "seed": "tsx src/db/seed.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "db:reset": "tsx src/db/reset.ts"
+    "db:reset": "tsx src/db/reset.ts",
+    "video:check": "tsx src/db/video-check.ts"
   },
   "dependencies": {
     "cors": "^2.8.6",

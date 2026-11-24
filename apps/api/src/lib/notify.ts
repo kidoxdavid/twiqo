@@ -12,6 +12,10 @@ export const NOTIFICATION_TYPES: { type: string; label: string }[] = [
   { type: 'booking_update', label: 'Booking, pickup and delivery updates' },
   { type: 'match', label: 'Matching transport opportunities' },
   { type: 'journey_posted', label: 'New journeys from transporters I follow' },
+  { type: 'group_invite', label: 'Circle invitations' },
+  { type: 'group_activity', label: 'Circle activity (requests, approvals, roles, events)' },
+  { type: 'event_reminder', label: 'Event reminders' },
+  { type: 'story_reply', label: 'Story views and replies' },
 ];
 
 /** Create a notification unless the recipient turned that type off or the pair is blocked. Returns true if stored. */

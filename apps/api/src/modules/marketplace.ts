@@ -8,6 +8,7 @@ import { resolvePlace } from '../lib/geo.js';
 import { hydrateListings } from '../lib/hydrate.js';
 import { can } from './business.js';
 import { assertOwnsMedia } from './content.js';
+import { patchOf } from '../lib/validation.js';
 
 export const marketplace = Router();
 const uuid = z.string().uuid();
@@ -158,7 +159,7 @@ marketplace.get('/listings/:id', optionalAuth, wrap(async (req, res) => {
   res.json({ ...base, description: r.description, attributes: r.attributes, expires_at: r.expires_at, category: { id: r.category_id, name: r.category_name }, viewer: { ...base.viewer, is_owner: !!mine } });
 }));
 
-const patchSchema = listingBody.partial().extend({ status: z.enum(['draft', 'active', 'reserved', 'sold']).optional() });
+const patchSchema = patchOf(listingBody).extend({ status: z.enum(['draft', 'active', 'reserved', 'sold']).optional() });
 marketplace.patch('/listings/:id', requireAuth, wrap(async (req, res) => {
   const id = uuid.parse(req.params.id);
   const b = patchSchema.parse(req.body);

@@ -68,8 +68,9 @@ describe('feed', () => {
     expect(ids(r).indexOf(f.id)).toBeLessThan(ids(r).indexOf(s.id));
   });
 
-  it('circles tab is honest about not being available yet', async () => {
-    const r = await api().get('/api/feed').query({ tab: 'circles' });
-    expect(r.body.items).toEqual([]); expect(r.body.notice).toBeTruthy();
+  it('circles tab needs sign-in and shows only circles you belong to', async () => {
+    expect((await api().get('/api/feed').query({ tab: 'circles' })).status).toBe(400);
+    const me = await makeUser('cir'); const r = await api().get('/api/feed').query({ tab: 'circles' }).set(auth(me));
+    expect(r.status).toBe(200); expect(r.body.items).toEqual([]);
   });
 });

@@ -23,7 +23,7 @@ const dec = (s?: string) => { try { return s ? JSON.parse(Buffer.from(s, 'base64
 feed.get('/feed', optionalAuth, wrap(async (req, res) => {
   const a = q.parse(req.query);
   const viewer = req.user?.id ?? null;
-  if (a.tab === 'circles') return res.json({ items: [], next_cursor: null, notice: 'Circles are not available yet.' });
+  if (a.tab === 'circles' && !viewer) throw badRequest('Sign in to see your circles');
   if (a.tab === 'following' && !viewer) throw badRequest('Sign in to see people you follow');
 
   let center: { lng: number; lat: number } | null = null;
@@ -36,10 +36,12 @@ feed.get('/feed', optionalAuth, wrap(async (req, res) => {
   if (a.tab === 'nearby' && !center) throw badRequest('Choose a city to see what is nearby');
 
   const p: unknown[] = [viewer]; const add = (v: unknown) => { p.push(v); return `$${p.length}`; };
-  const where = [visibleTo('fi', '$1'), `fi.created_at > now() - interval '60 days'`];
+  const where = [visibleTo('fi', '$1'), `fi.created_at > now() - interval '60 days'`,
+    `(fi.item_type <> 'post' OR NOT EXISTS (SELECT 1 FROM posts vp JOIN videos vv ON vv.id = vp.video_id WHERE vp.id = fi.item_id AND vv.status <> 'ready'))`];
+  if (a.tab === 'circles') where.push(`fi.group_id IN (SELECT group_id FROM group_members WHERE user_id=$1::uuid AND status='active')`);
   const followed = `(fi.author_id IN (SELECT target_id FROM follows WHERE follower_id=$1::uuid AND target_type='user') OR fi.business_id IN (SELECT target_id FROM follows WHERE follower_id=$1::uuid AND target_type='business'))`;
   if (a.tab === 'following') where.push(followed);
-  const cpt = center && a.tab !== 'following' ? `ST_SetSRID(ST_MakePoint(${add(center.lng)}::float8, ${add(center.lat)}::float8),4326)::geography` : null;
+  const cpt = center && (a.tab === 'for_you' || a.tab === 'nearby') ? `ST_SetSRID(ST_MakePoint(${add(center.lng)}::float8, ${add(center.lat)}::float8),4326)::geography` : null;
   if (a.tab === 'nearby') where.push(`fi.location IS NOT NULL AND ST_DWithin(fi.location, ${cpt}, ${add((a.radius_km ?? Number(await setting('search.default_radius_km', 25))) * 1000)})`);
 
   let rows: { item_type: string; item_id: string; created_at: Date; id: string }[]; let next: string | null = null;

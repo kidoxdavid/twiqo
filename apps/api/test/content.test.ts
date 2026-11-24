@@ -21,7 +21,7 @@ describe('posts, comments, reactions', () => {
     expect(p.body.media).toHaveLength(1);
     expect((await api().post('/api/posts').set(auth(u)).send({ kind: 'photo' })).status).toBe(400);
     expect((await api().post('/api/posts').set(auth(u)).send({ kind: 'text' })).status).toBe(400);
-    expect((await api().post('/api/posts').set(auth(u)).send({ kind: 'video', body: 'x' })).status).toBe(422);
+    expect((await api().post('/api/posts').set(auth(u)).send({ kind: 'video', body: 'x' })).status).toBe(400);   // a video post needs a video
     const other = await makeUser('post2');
     expect((await api().post('/api/posts').set(auth(other)).send({ kind: 'photo', media_ids: [img.body.id] })).status).toBe(400);
   });

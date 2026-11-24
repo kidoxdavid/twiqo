@@ -13,6 +13,7 @@ import { audit } from '../lib/audit.js';
 import { can } from './business.js';
 import { assertOwnsMedia } from './content.js';
 import { rejectOpenOffers } from './offers.js';
+import { patchOf } from '../lib/validation.js';
 
 export const transport = Router();
 const uuid = z.string().uuid();
@@ -156,7 +157,7 @@ transport.get('/transport/requests', optionalAuth, wrap(async (req, res) => {
 
 transport.patch('/transport/requests/:id', requireAuth, wrap(async (req, res) => {
   const id = uuid.parse(req.params.id);
-  const b = requestSchema.pick({ title: true, description: true, special_handling: true, budget_cents: true, price_type: true, visibility: true, preferred_vehicles: true, needs_loading_help: true, needs_unloading_help: true, pickup_from: true, pickup_to: true, deliver_by: true }).partial().parse(req.body);
+  const b = patchOf(requestSchema.pick({ title: true, description: true, special_handling: true, budget_cents: true, price_type: true, visibility: true, preferred_vehicles: true, needs_loading_help: true, needs_unloading_help: true, pickup_from: true, pickup_to: true, deliver_by: true })).parse(req.body);
   await checkText(b.title); await checkText(b.description);
   await tx(async (c) => {
     const r = (await c.query('SELECT * FROM transport_requests WHERE id=$1 FOR NO KEY UPDATE', [id])).rows[0];
@@ -271,7 +272,7 @@ transport.get('/transport/journeys', optionalAuth, wrap(async (req, res) => {
 
 transport.patch('/transport/journeys/:id', requireAuth, wrap(async (req, res) => {
   const id = uuid.parse(req.params.id);
-  const b = journeySchema.pick({ description: true, price_cents: true, price_type: true, max_detour_km: true, item_restrictions: true, pickup_preferences: true, delivery_preferences: true, helps_loading: true, capacity_kg: true, arrival_at: true, departure_at: true }).partial().parse(req.body);
+  const b = patchOf(journeySchema.pick({ description: true, price_cents: true, price_type: true, max_detour_km: true, item_restrictions: true, pickup_preferences: true, delivery_preferences: true, helps_loading: true, capacity_kg: true, arrival_at: true, departure_at: true })).parse(req.body);
   await checkText(b.description);
   await tx(async (c) => {
     const j = (await c.query('SELECT * FROM journeys WHERE id=$1 FOR NO KEY UPDATE', [id])).rows[0];
@@ -376,7 +377,7 @@ transport.get('/transport/services', optionalAuth, wrap(async (req, res) => {
 
 transport.patch('/transport/services/:id', requireAuth, wrap(async (req, res) => {
   const id = uuid.parse(req.params.id);
-  const b = serviceSchema.pick({ title: true, description: true, price_cents: true, price_type: true, pricing_model: true, service_radius_km: true, intercity: true, helps_loading: true, item_restrictions: true, capacity_kg: true }).partial().extend({ status: z.enum(['active', 'paused']).optional() }).parse(req.body);
+  const b = patchOf(serviceSchema.pick({ title: true, description: true, price_cents: true, price_type: true, pricing_model: true, service_radius_km: true, intercity: true, helps_loading: true, item_restrictions: true, capacity_kg: true })).extend({ status: z.enum(['active', 'paused']).optional() }).parse(req.body);
   await checkText(b.title); await checkText(b.description);
   await tx(async (c) => {
     const s = (await c.query('SELECT provider_id FROM transport_services WHERE id=$1 FOR NO KEY UPDATE', [id])).rows[0];

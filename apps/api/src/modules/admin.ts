@@ -27,8 +27,8 @@ admin.get('/admin/stats', requirePermission('view.analytics'), wrap(async (_req,
 }));
 
 // ---- moderation: one code path removes/restores content on every surface --------------------------------
-const TABLES: Record<string, string> = { post: 'posts', comment: 'comments', listing: 'listings', message: 'messages', business: 'businesses', review: 'reviews', transport_request: 'transport_requests', journey: 'journeys', transport_service: 'transport_services' };
-const RESTORED: Record<string, string> = { transport_request: 'open', journey: 'open' };
+const TABLES: Record<string, string> = { post: 'posts', comment: 'comments', listing: 'listings', message: 'messages', business: 'businesses', review: 'reviews', transport_request: 'transport_requests', journey: 'journeys', transport_service: 'transport_services', group: 'groups', story: 'stories', event: 'events' };
+const RESTORED: Record<string, string> = { transport_request: 'open', journey: 'open', event: 'scheduled' };
 
 export async function setRemoved(c: PoolClient, actor: string, type: string, id: string, removed: boolean, reason: string, reportId: string | null, addr: string | null) {
   const t = TABLES[type];
@@ -92,7 +92,7 @@ admin.post('/admin/reports/:id/resolve', requirePermission('moderate.content'), 
 
 async function ownerOf(c: PoolClient, type: string, id: string): Promise<string> {
   const q: Record<string, string> = { user: 'SELECT id AS u FROM users WHERE id=$1', post: 'SELECT author_id AS u FROM posts WHERE id=$1', comment: 'SELECT author_id AS u FROM comments WHERE id=$1',
-    listing: 'SELECT seller_id AS u FROM listings WHERE id=$1', transport_request: 'SELECT requester_id AS u FROM transport_requests WHERE id=$1', journey: 'SELECT driver_id AS u FROM journeys WHERE id=$1', transport_service: 'SELECT provider_id AS u FROM transport_services WHERE id=$1', business: 'SELECT owner_id AS u FROM businesses WHERE id=$1', message: 'SELECT sender_id AS u FROM messages WHERE id=$1' };
+    listing: 'SELECT seller_id AS u FROM listings WHERE id=$1', transport_request: 'SELECT requester_id AS u FROM transport_requests WHERE id=$1', journey: 'SELECT driver_id AS u FROM journeys WHERE id=$1', transport_service: 'SELECT provider_id AS u FROM transport_services WHERE id=$1', group: `SELECT user_id AS u FROM group_members WHERE group_id=$1 AND role='owner'`, story: 'SELECT author_id AS u FROM stories WHERE id=$1', event: 'SELECT host_id AS u FROM events WHERE id=$1', business: 'SELECT owner_id AS u FROM businesses WHERE id=$1', message: 'SELECT sender_id AS u FROM messages WHERE id=$1' };
   const r = await c.query(q[type], [id]);
   if (!r.rows[0]) throw notFound('Target');
   return r.rows[0].u;
