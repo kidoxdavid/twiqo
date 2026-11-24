@@ -1,0 +1,277 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>twiqo mockups D · green direction</title><link rel="stylesheet" href="fonts.css"><style>
+:root{--bg:#F3F8F4;--card:#fff;--line:#E1EBE3;--ink:#14213D;--ink2:#5B6784;--g:#087F5B;--gd:#066B4B;--gb:#13B9B0;--gt:#DDF3E8;--gl:#B9F0D6;--b:#1D5FE6;--bt:#E1EBFF;--amber:#F5A623;--navy:#14213D;--red:#C0283C}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:#E4ECE6;color:var(--ink);padding:40px 32px 60px}
+h1.t{font-size:34px;letter-spacing:-.8px;font-weight:800}.sub{color:var(--ink2);font-size:15px;margin:6px 0 26px;max-width:880px;line-height:1.5}
+.sec{font-size:13px;font-weight:800;letter-spacing:1.2px;color:var(--gd);margin:38px 0 14px;text-transform:uppercase}
+.board{display:flex;flex-wrap:wrap;gap:34px;align-items:flex-start}
+.cap{width:390px;margin-top:14px;font-size:13px;line-height:1.5;color:var(--ink2)}.cap b{color:var(--ink);display:block;font-size:14px;margin-bottom:2px}
+.phone{width:390px;height:844px;border-radius:46px;background:var(--bg);position:relative;overflow:hidden;box-shadow:0 0 0 9px #0f1a14,0 26px 56px rgba(15,26,20,.28);flex:none}
+.notch{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:108px;height:28px;background:#0f1a14;border-radius:20px;z-index:30}
+.status{height:46px;display:flex;justify-content:space-between;align-items:flex-end;padding:0 28px 6px;font-size:14px;font-weight:700}
+svg.i{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}
+svg.i.f{fill:currentColor;stroke:none}
+.row{display:flex;align-items:center;gap:10px}.sp{flex:1}.col{display:flex;flex-direction:column}
+.pad{padding:0 18px}
+/* ---- floating pill navigation (new): detached from the edges, the active tab opens up to show its name ---- */
+.fnav{position:absolute;left:18px;right:18px;bottom:20px;height:64px;border-radius:32px;background:#fff;box-shadow:0 10px 30px rgba(8,60,40,.18),0 0 0 1px var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 10px;z-index:20}
+.fnav>div{height:46px;min-width:46px;border-radius:23px;display:flex;align-items:center;justify-content:center;gap:7px;color:var(--ink2);font-size:13px;font-weight:700;position:relative}
+.fnav .on{background:var(--g);color:#fff;padding:0 16px}
+.fnav .fab{width:54px;height:54px;border-radius:50%;background:var(--navy);color:var(--gl);margin-top:-22px;box-shadow:0 8px 18px rgba(20,33,61,.35);border:4px solid var(--bg)}
+.fnav .dot{position:absolute;top:7px;right:8px;width:16px;height:16px;border-radius:8px;background:var(--red);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center}
+/* ---- shared bits ---- */
+.pill{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:12px;font-size:11.5px;font-weight:700;background:#E6ECE8;color:var(--ink2)}
+.pill.g{background:var(--gt);color:var(--gd)}.pill.b{background:var(--bt);color:var(--b)}.pill.a{background:#FDEFD0;color:#7A5200}.pill.n{background:var(--navy);color:var(--gl)}
+.vt{display:inline-flex;width:16px;height:16px;border-radius:50%;background:var(--g);color:#fff;align-items:center;justify-content:center;vertical-align:-3px}.vt svg{width:10px;height:10px;stroke-width:3}
+.av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px;flex:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;border-radius:16px;font-weight:800;font-size:14px;background:var(--g);color:#fff}
+.btn.o{background:#fff;color:var(--gd);box-shadow:inset 0 0 0 1.5px var(--g)}.btn.bl{background:var(--b)}.btn.s{padding:9px 14px;font-size:13px;border-radius:13px}
+.art{width:100%;height:100%}
+.ph{position:relative;overflow:hidden}
+.ph svg.art{position:absolute;left:8%;top:8%;width:84%;height:84%}
+.price{position:absolute;left:10px;bottom:10px;background:var(--navy);color:#fff;font-weight:800;font-size:14px;padding:6px 11px;border-radius:12px}
+.price small{font-weight:700;color:var(--gl);font-size:10.5px;margin-left:5px}
+.heart{position:absolute;right:10px;top:10px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.92);display:flex;align-items:center;justify-content:center;color:var(--ink)}.heart svg{width:16px;height:16px}
+.card{background:#fff;border-radius:24px;box-shadow:0 0 0 1px var(--line)}
+h2.h{font-size:17px;font-weight:800;letter-spacing:-.3px}.more{font-size:13px;font-weight:800;color:var(--g)}
+/* ---- HOME ---- */
+.hdr{display:flex;align-items:center;gap:12px;padding:2px 18px 10px}
+.greet small{display:block;color:var(--ink2);font-size:12.5px;font-weight:600}.greet b{font-size:21px;letter-spacing:-.5px}
+.chip-loc{display:inline-flex;align-items:center;gap:5px;padding:5px 10px 5px 8px;border-radius:14px;background:var(--gt);color:var(--gd);font-size:12px;font-weight:800;margin-top:5px}.chip-loc svg{width:14px;height:14px}
+.ib{width:42px;height:42px;border-radius:50%;background:#fff;box-shadow:0 0 0 1px var(--line);display:flex;align-items:center;justify-content:center;position:relative}.ib i{position:absolute;top:10px;right:11px;width:9px;height:9px;border-radius:50%;background:var(--red);border:2px solid #fff}
+.search{margin:0 18px;height:54px;border-radius:27px;background:#fff;box-shadow:0 0 0 1.5px var(--line);display:flex;align-items:center;padding:0 7px 0 18px;gap:10px;color:var(--ink2);font-size:14.5px;font-weight:600}
+.search .fb{width:42px;height:42px;border-radius:50%;background:var(--g);color:#fff;display:flex;align-items:center;justify-content:center}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:12px 18px 2px}
+.tile{height:80px;border-radius:22px;padding:11px 13px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden}
+.tile b{font-size:16px;letter-spacing:-.3px;display:block}.tile span{font-size:11.5px;font-weight:600;opacity:.85}
+.tile .ti{width:28px;height:28px;border-radius:10px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center}
+.tile.g{background:var(--g);color:#fff}.tile.m{background:var(--gl);color:var(--navy)}.tile.m .ti{background:rgba(8,127,91,.16)}.tile.bl{background:var(--b);color:#fff}.tile.n{background:var(--navy);color:#fff}.tile.n .ti{background:rgba(185,240,214,.18);color:var(--gl)}
+.day{margin:12px 18px 0;padding:12px 14px 4px 18px;position:relative}
+.day:before{content:"";position:absolute;left:0;top:16px;bottom:16px;width:5px;border-radius:0 5px 5px 0;background:var(--g)}
+.drow{display:flex;gap:12px;align-items:center;padding:6px 0;border-top:1px solid var(--line)}.drow:first-of-type{border-top:0}
+.drow .di{width:34px;height:34px;border-radius:13px;display:flex;align-items:center;justify-content:center;flex:none}
+.drow b{font-size:14px;display:block}.drow span{font-size:12px;color:var(--ink2)}
+.moments{display:flex;gap:10px;padding:2px 18px;overflow:hidden}
+.mo{width:92px;height:104px;border-radius:22px;flex:none;position:relative;overflow:hidden;color:#fff;display:flex;align-items:flex-end;padding:9px;font-size:11.5px;font-weight:800}
+.mo.add{background:#fff;color:var(--gd);box-shadow:inset 0 0 0 2px var(--gl);border-radius:22px;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center}
+.hs{display:flex;gap:12px;padding:2px 18px;overflow:hidden}
+.lc{width:158px;flex:none}.lc .ph{height:142px;border-radius:22px}.lc b{display:block;font-size:14px;margin:8px 2px 1px}.lc span{font-size:12px;color:var(--ink2);margin:0 2px;display:block}
+/* ---- MARKET ---- */
+.cats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:14px 18px 4px}
+.cat{text-align:center;font-size:11.5px;font-weight:700}.cat i{display:flex;width:100%;aspect-ratio:1;border-radius:20px;align-items:center;justify-content:center;margin-bottom:5px}.cat svg{width:26px;height:26px}
+.hero{margin:12px 18px 0;height:226px;border-radius:28px}.hero .grad{position:absolute;inset:auto 0 0 0;height:58%;background:linear-gradient(transparent,rgba(8,40,28,.78))}
+.hero .t{position:absolute;left:16px;right:16px;bottom:14px;color:#fff}.hero .t b{font-size:19px;letter-spacing:-.4px;display:block}.hero .t span{font-size:12px;font-weight:600;opacity:.9}
+.mas{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 18px 0}.mas>div{display:flex;flex-direction:column;gap:12px}
+.mcard .ph{border-radius:22px}.mcard b{font-size:13.5px;display:block;margin:7px 2px 1px}.mcard span{font-size:11.5px;color:var(--ink2);margin:0 2px;display:block}
+.sortrow{display:flex;gap:8px;padding:14px 18px 0;overflow:hidden}.sc{padding:8px 14px;border-radius:18px;background:#fff;box-shadow:inset 0 0 0 1.5px var(--line);font-size:12.5px;font-weight:800;white-space:nowrap}.sc.on{background:var(--navy);color:#fff;box-shadow:none}
+/* ---- DETAIL ---- */
+.dimg{height:350px;position:relative}.dimg .ctl{position:absolute;top:52px;left:16px;right:16px;display:flex;justify-content:space-between}
+.sheet{position:absolute;left:0;right:0;top:312px;bottom:0;background:var(--bg);border-radius:32px 32px 0 0;padding:20px 18px;box-shadow:0 -10px 30px rgba(8,60,40,.12)}
+.sheet .grip{width:42px;height:5px;border-radius:3px;background:#CFE0D4;margin:-8px auto 14px}
+.bigp{font-size:32px;font-weight:800;letter-spacing:-1px;color:var(--gd)}
+.seller{padding:12px 14px;display:flex;gap:12px;align-items:center;margin-top:14px}
+.movecard{margin-top:12px;border-radius:24px;background:var(--bt);padding:14px;position:relative}
+.rline{display:flex;align-items:center;gap:0;margin-top:10px}.rline i{width:11px;height:11px;border-radius:50%;background:var(--b);flex:none}.rline u{flex:1;height:3px;background:repeating-linear-gradient(90deg,var(--b) 0 6px,transparent 6px 11px);margin:0 3px}.rline i.e{background:var(--g)}
+.abar{position:absolute;left:14px;right:14px;bottom:18px;height:70px;border-radius:30px;background:#fff;box-shadow:0 10px 30px rgba(8,60,40,.2),0 0 0 1px var(--line);display:flex;align-items:center;gap:10px;padding:0 10px;z-index:25}
+.abar .h{width:50px;height:50px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--line);display:flex;align-items:center;justify-content:center}
+/* ---- MOVE ---- */
+.mvh{background:var(--b);color:#fff;padding:0 18px 70px;border-radius:0 0 34px 34px}.mvh .tt{display:flex;align-items:center;gap:10px;padding-top:6px}.mvh h1{font-size:26px;letter-spacing:-.7px}
+.route{margin:-56px 18px 0;padding:14px;position:relative;z-index:2}
+.rin{display:flex;align-items:center;gap:12px;padding:11px 0}.rin+.rin{border-top:1px dashed var(--line)}.rin .d{width:12px;height:12px;border-radius:50%;background:var(--b);flex:none;position:relative}.rin .d.e{background:var(--g)}
+.rin small{display:block;font-size:11px;color:var(--ink2);font-weight:700}.rin b{font-size:15.5px}
+.swap{position:absolute;right:16px;top:60px;width:38px;height:38px;border-radius:50%;background:#fff;box-shadow:0 0 0 1.5px var(--line);display:flex;align-items:center;justify-content:center;color:var(--b)}
+.seg{display:flex;background:#E3EDE6;border-radius:18px;padding:4px;margin:14px 18px 0}.seg div{flex:1;text-align:center;padding:9px 0;border-radius:14px;font-size:13px;font-weight:800;color:var(--ink2)}.seg .on{background:#fff;color:var(--b);box-shadow:0 2px 8px rgba(8,60,40,.12)}
+.jc{margin:12px 18px 0;padding:15px}.jc .stops{display:flex;align-items:flex-start;margin:14px 2px 4px}.stp{text-align:center;width:0;flex:1;position:relative}.stp:first-child,.stp:last-child{flex:none;width:62px}
+.cap-bar{height:8px;border-radius:4px;background:#E3EDE6;overflow:hidden;margin-top:6px}.cap-bar u{display:block;height:100%;background:linear-gradient(90deg,var(--gb),var(--g));border-radius:4px}
+.tick{display:inline-flex;gap:4px;align-items:center;font-size:11px;font-weight:800;color:var(--gd);background:var(--gt);padding:3px 8px;border-radius:10px}
+/* ---- COMMUNITY ---- */
+.cs{display:flex;gap:9px;padding:12px 18px 0;overflow:hidden}.cc{width:128px;flex:none;border-radius:22px;padding:12px;color:#fff;position:relative;height:86px;display:flex;flex-direction:column;justify-content:flex-end}.cc b{font-size:14px}.cc span{font-size:11px;opacity:.9;font-weight:600}.cc .nw{position:absolute;top:10px;right:10px;background:#fff;color:var(--gd);font-size:10px;font-weight:800;padding:2px 7px;border-radius:9px}
+.note{margin:12px 18px 0;padding:14px 14px 10px 18px;position:relative;overflow:hidden}.note:before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--g)}.note.tr:before{background:var(--b)}.note.ev:before{background:var(--amber)}
+.note .who{display:flex;align-items:center;gap:9px}.note .who b{font-size:13.5px}.note .who span{font-size:11.5px;color:var(--ink2)}
+.note p{font-size:15px;line-height:1.45;margin:10px 0 4px}
+.nfoot{display:flex;align-items:center;gap:16px;margin-top:8px;color:var(--ink2);font-size:12.5px;font-weight:700}.nfoot span{display:inline-flex;gap:5px;align-items:center}.nfoot svg{width:18px;height:18px}.nfoot .reply{margin-left:auto;color:var(--gd);background:var(--gt);padding:6px 12px;border-radius:14px}
+.att{display:flex;gap:10px;align-items:center;background:var(--bg);border-radius:16px;padding:8px;margin-top:6px}.att .ph{width:54px;height:54px;border-radius:12px;flex:none}
+.poll div{margin-top:7px;border-radius:12px;background:#EAF3EC;height:36px;position:relative;overflow:hidden;font-size:13px;font-weight:700;display:flex;align-items:center;padding:0 12px;justify-content:space-between}.poll div u{position:absolute;left:0;top:0;bottom:0;background:var(--gl);z-index:0}.poll div *{position:relative;z-index:1}
+/* ---- DESKTOP ---- */
+.desk{width:1280px;height:880px;border-radius:18px;background:var(--bg);box-shadow:0 0 0 1px #c9d7cd,0 26px 56px rgba(15,26,20,.22);overflow:hidden;position:relative;flex:none}
+.dtop{height:72px;background:#fff;box-shadow:0 1px 0 var(--line);display:flex;align-items:center;padding:0 32px;gap:20px}
+.logo{display:flex;align-items:center;gap:9px;font-size:26px;font-weight:800;letter-spacing:-.8px}
+.modes{display:flex;background:#E7F0EA;border-radius:26px;padding:5px;margin:0 auto}.modes div{padding:10px 26px;border-radius:21px;font-size:14.5px;font-weight:800;color:var(--ink2);display:flex;gap:8px;align-items:center}.modes .on{background:var(--g);color:#fff}.modes .mv{background:var(--b);color:#fff}
+.dmain{display:grid;grid-template-columns:1fr 380px;gap:28px;padding:28px 32px}
+.dhero{background:var(--navy);border-radius:32px;padding:28px 30px;color:#fff;position:relative;overflow:hidden}
+.dhero:after{content:"";position:absolute;right:-60px;top:-70px;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle,rgba(19,185,176,.5),transparent 70%)}
+.dhero h1{font-size:30px;letter-spacing:-.8px}.dhero .search{margin:16px 0 0;box-shadow:none;max-width:560px;position:relative;z-index:1;color:var(--ink2)}
+.dtiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:16px}.dtiles .tile{height:104px}
+.dcards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:12px}.dcards .lc{width:auto}.dcards .lc .ph{height:168px}
+.side .card{padding:18px;margin-bottom:16px}
+.cmp{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start}
+.swatches{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}.sw{width:112px}.sw i{display:block;height:64px;border-radius:18px;margin-bottom:6px}.sw b{font-size:12.5px;display:block}.sw span{font-size:11px;color:var(--ink2)}
+.notes{display:grid;grid-template-columns:repeat(3,minmax(260px,1fr));gap:16px;max-width:1240px}.notes .card{padding:16px 18px;font-size:14px;line-height:1.5}.notes b{display:block;margin-bottom:4px;font-size:15px}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute"><defs>
+<symbol id="home" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/></symbol>
+<symbol id="bag" viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6L5 8zM9 8V6a3 3 0 016 0v2"/></symbol>
+<symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="truck" viewBox="0 0 24 24"><path d="M2 7h11v9H2zM13 10h4l3 3v3h-7"/><circle cx="6.5" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></symbol>
+<symbol id="chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4V5z"/></symbol>
+<symbol id="bell" viewBox="0 0 24 24"><path d="M6 17v-6a6 6 0 0112 0v6l2 2H4l2-2zM10 21h4"/></symbol>
+<symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/></symbol>
+<symbol id="filter" viewBox="0 0 24 24"><path d="M4 7h16M7 12h10M10 17h4"/></symbol>
+<symbol id="heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 017-2.5A4 4 0 0119 10c0 5.5-7 10-7 10z"/></symbol>
+<symbol id="share" viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4M5 12v8h14v-8"/></symbol>
+<symbol id="pin" viewBox="0 0 24 24"><path d="M12 21s-6-5.5-6-10a6 6 0 0112 0c0 4.5-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></symbol>
+<symbol id="back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+<symbol id="map" viewBox="0 0 24 24"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2V6zM9 4v14M15 6v14"/></symbol>
+<symbol id="star" viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.8-4.5 4.2 1.1 6-5.4-3-5.4 3 1.1-6L3.2 9.4l6.1-.8L12 3z"/></symbol>
+<symbol id="clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></symbol>
+<symbol id="box" viewBox="0 0 24 24"><path d="M4 8l8-4 8 4v8l-8 4-8-4V8zM4 8l8 4 8-4M12 12v8"/></symbol>
+<symbol id="swap" viewBox="0 0 24 24"><path d="M8 4v14M4 14l4 4 4-4M16 20V6M12 10l4-4 4 4"/></symbol>
+<symbol id="chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+<symbol id="users" viewBox="0 0 24 24"><circle cx="9" cy="9" r="3.2"/><path d="M3 20a6 6 0 0112 0M16 6a3 3 0 010 6M18 20a5 5 0 00-3-4.6"/></symbol>
+<symbol id="film" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M10 9l5 3-5 3V9z"/></symbol>
+<symbol id="cam" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4V8z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+<symbol id="tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8L3 12z"/><circle cx="8" cy="8" r="1.5"/></symbol>
+<symbol id="sofa-i" viewBox="0 0 24 24"><path d="M5 11V8a2 2 0 012-2h10a2 2 0 012 2v3M3 13a2 2 0 014 0v2h10v-2a2 2 0 014 0v5H3v-5zM6 18v2M18 18v2"/></symbol>
+<symbol id="chip" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></symbol>
+<symbol id="gift" viewBox="0 0 24 24"><path d="M4 10h16v10H4V10zM3 7h18v3H3V7zM12 7v13M12 7C10 3 6 4 8 7M12 7c2-4 6-3 4 0"/></symbol>
+<symbol id="ball" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16"/></symbol>
+<symbol id="car" viewBox="0 0 24 24"><path d="M4 15v-3l2-5h12l2 5v3M3 15h18v3H3zM7 18v2M17 18v2"/></symbol>
+<symbol id="dots" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18" cy="12" r="1.4"/></symbol>
+<symbol id="ticks" viewBox="0 0 70 50"><path d="M5 25L17 37L39 9" stroke="#1D5FE6" fill="none" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/><path d="M23 27L35 39L61 9" stroke="#13B9B0" fill="none" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<!-- item art -->
+<symbol id="a-sofa" viewBox="0 0 200 140"><rect x="40" y="36" width="120" height="52" rx="16" fill="#6E8F7B"/><rect x="22" y="56" width="32" height="56" rx="13" fill="#4C6E5A"/><rect x="146" y="56" width="32" height="56" rx="13" fill="#4C6E5A"/><rect x="40" y="76" width="120" height="36" rx="11" fill="#5A7D69"/><rect x="48" y="110" width="9" height="14" rx="3" fill="#2E4439"/><rect x="143" y="110" width="9" height="14" rx="3" fill="#2E4439"/></symbol>
+<symbol id="a-bike" viewBox="0 0 200 140"><circle cx="52" cy="88" r="30" fill="none" stroke="#14213D" stroke-width="7"/><circle cx="150" cy="88" r="30" fill="none" stroke="#14213D" stroke-width="7"/><path d="M52 88L84 46h38l28 42M84 46l18 42H52M104 46l-4-14h-12M122 46l-6-12h18" fill="none" stroke="#14213D" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="a-tires" viewBox="0 0 200 140"><ellipse cx="100" cy="102" rx="56" ry="18" fill="#1E2A44"/><rect x="44" y="82" width="112" height="20" fill="#1E2A44"/><ellipse cx="100" cy="82" rx="56" ry="18" fill="#2C3B5E"/><ellipse cx="100" cy="82" rx="26" ry="8" fill="#9FB3C8"/><ellipse cx="100" cy="62" rx="56" ry="18" fill="#243350"/><rect x="44" y="62" width="112" height="20" fill="#243350"/><ellipse cx="100" cy="62" rx="56" ry="18" fill="#2C3B5E"/><ellipse cx="100" cy="62" rx="26" ry="8" fill="#9FB3C8"/></symbol>
+<symbol id="a-plant" viewBox="0 0 200 140"><path d="M70 96h60l-8 34H78l-8-34z" fill="#C9835A"/><path d="M100 96C96 60 70 52 52 56c4 24 22 38 48 40zM100 96c4-40 30-52 50-48-4 26-22 44-50 48zM100 96c-2-30 2-52 0-72 14 18 16 50 0 72z" fill="#2E9E6B"/></symbol>
+<symbol id="a-laptop" viewBox="0 0 200 140"><rect x="48" y="26" width="104" height="70" rx="8" fill="#3B4560"/><rect x="55" y="33" width="90" height="56" rx="4" fill="#BFD8EE"/><path d="M30 102h140l-10 14H40l-10-14z" fill="#9AA6BC"/></symbol>
+<symbol id="a-lamp" viewBox="0 0 200 140"><path d="M70 22h60l18 46H52l18-46z" fill="#F5C766"/><rect x="96" y="68" width="8" height="46" fill="#4C5A73"/><ellipse cx="100" cy="118" rx="30" ry="7" fill="#4C5A73"/></symbol>
+<symbol id="a-chair" viewBox="0 0 200 140"><rect x="64" y="20" width="14" height="70" rx="6" fill="#B07A4B"/><rect x="64" y="70" width="80" height="14" rx="6" fill="#C98F5B"/><rect x="64" y="84" width="10" height="42" rx="4" fill="#8A5B34"/><rect x="134" y="84" width="10" height="42" rx="4" fill="#8A5B34"/><rect x="64" y="20" width="60" height="12" rx="6" fill="#C98F5B"/></symbol>
+<symbol id="a-fridge" viewBox="0 0 200 140"><rect x="64" y="10" width="72" height="122" rx="12" fill="#D6DFE8"/><path d="M64 52h72" stroke="#9AA9BA" stroke-width="4"/><rect x="74" y="26" width="5" height="18" rx="2" fill="#7D8CA0"/><rect x="74" y="64" width="5" height="30" rx="2" fill="#7D8CA0"/></symbol>
+</defs></svg>
+
+<h1 class="t">twiqo · green direction (mockup D)</h1>
+<p class="sub">Two changes to what you have today: <b>green becomes the main colour</b> (buttons, active states, prices, highlights) with <b>blue kept for Move and links</b>, and the <b>layout is reorganised around what you want to do</b> rather than a social feed, so it stops reading as Facebook. Nothing is built yet: this is the proposal to react to.</p>
+
+<div class="sec">1 · Colour: green leads, blue supports</div>
+<div class="cmp">
+  <div class="card" style="padding:20px;width:600px"><b style="font-size:15px">Today</b><div class="swatches"><div class="sw"><i style="background:#1D5FE6"></i><b>Blue</b><span>buttons, active tab, links, prices</span></div><div class="sw"><i style="background:#13B9B0"></i><b>Teal</b><span>small accents only</span></div><div class="sw"><i style="background:#14213D"></i><b>Navy</b><span>text</span></div><div class="sw"><i style="background:#F5F8FF;box-shadow:inset 0 0 0 1px #E4EAF6"></i><b>Blue-white</b><span>page background</span></div></div></div>
+  <div class="card" style="padding:20px;width:700px"><b style="font-size:15px">Proposed</b><div class="swatches"><div class="sw"><i style="background:#087F5B"></i><b>Green</b><span>buttons, active tab, prices, “go” actions</span></div><div class="sw"><i style="background:#13B9B0"></i><b>Logo teal</b><span>highlights, progress</span></div><div class="sw"><i style="background:#B9F0D6"></i><b>Mint</b><span>tiles, tints, chips</span></div><div class="sw"><i style="background:#1D5FE6"></i><b>Blue</b><span>Move, links, info</span></div><div class="sw"><i style="background:#14213D"></i><b>Navy</b><span>hero blocks, text</span></div><div class="sw"><i style="background:#F3F8F4;box-shadow:inset 0 0 0 1px #E1EBE3"></i><b>Soft green-white</b><span>page background</span></div></div></div>
+</div>
+
+<div class="sec">2 · What changes in the layout</div>
+<div class="notes">
+  <div class="card"><b>Home is a “what do you want to do?” screen, not a feed</b>Greeting + your location, a big search, four action tiles (Buy, Sell, Send, Drive), and a <i>Your day</i> card with the things that need you (offers, pickups). The social feed moves to its own Community tab.</div>
+  <div class="card"><b>Three modes instead of a social menu</b>Shop (green), Move (blue) and Community. On desktop the modes sit in the top bar as a switch; there is no left menu and no right-hand contacts list, which is the Facebook giveaway.</div>
+  <div class="card"><b>Floating pill navigation</b>Detached from the screen edges; the active tab expands to show its name; a raised centre “+”. Profile lives behind your avatar in the header, so the bar is Home · Market · + · Trips · Inbox.</div>
+  <div class="card"><b>Posts become “notes”</b>Colour rail on the left (green for posts, blue for transport, amber for events), a single small reaction row and one Reply button. No wide Like · Comment · Share bar with dividers.</div>
+  <div class="card"><b>Stories become “Moments”</b>Tall rounded tiles instead of circles with rings, shown below your day, not above everything.</div>
+  <div class="card"><b>Market and Move lead with the useful bits</b>Category tiles instead of chips, a “top pick” hero card, prices as navy badges on photos. Move starts with a route card (From → To) and shows drivers with a capacity bar and trust badges.</div>
+</div>
+
+<div class="sec">3 · Screens (mobile)</div>
+<div class="board">
+
+<div><div class="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● 100%</span></div>
+  <div class="hdr"><div class="av" style="background:linear-gradient(135deg,var(--g),var(--gb));width:46px;height:46px;font-size:17px">A</div><div class="greet"><small>Good morning</small><b>Amara</b><br><span class="chip-loc"><svg class="i"><use href="#pin"/></svg>Calgary, AB ▾</span></div><span class="sp"></span><div class="ib"><svg class="i"><use href="#bell"/></svg><i></i></div></div>
+  <div class="search"><svg class="i"><use href="#search"/></svg><span>Sofa, bike, a driver to Edmonton…</span><span class="sp"></span><div class="fb"><svg class="i"><use href="#filter"/></svg></div></div>
+  <div class="tiles">
+    <div class="tile g"><div class="ti"><svg class="i"><use href="#bag"/></svg></div><div><b>Buy nearby</b><span>2,184 listings</span></div></div>
+    <div class="tile m"><div class="ti"><svg class="i" style="color:var(--gd)"><use href="#tag"/></svg></div><div><b>Sell something</b><span>List in 2 minutes</span></div></div>
+    <div class="tile bl"><div class="ti"><svg class="i"><use href="#box"/></svg></div><div><b>Send something</b><span>Drivers on your route</span></div></div>
+    <div class="tile n"><div class="ti"><svg class="i"><use href="#truck"/></svg></div><div><b>Drive &amp; earn</b><span>Fill your empty space</span></div></div>
+  </div>
+  <div class="card day"><div class="row" style="margin-bottom:2px"><h2 class="h">Your day</h2><span class="pill g">3 things</span><span class="sp"></span><span class="more">All</span></div>
+    <div class="drow"><div class="di" style="background:var(--gt);color:var(--gd)"><svg class="i"><use href="#tag"/></svg></div><div style="flex:1"><b>2 offers waiting</b><span>Sofa · Road bike</span></div><svg class="i" style="color:var(--ink2)"><use href="#chev"/></svg></div>
+    <div class="drow"><div class="di" style="background:var(--bt);color:var(--b)"><svg class="i"><use href="#truck"/></svg></div><div style="flex:1"><b>Pickup tomorrow, 9:00</b><span>Boxes with Daniel · PIN ready</span></div><svg class="i" style="color:var(--ink2)"><use href="#chev"/></svg></div>
+    <div class="drow"><div class="di" style="background:#FDEFD0;color:#7A5200"><svg class="i"><use href="#bell"/></svg></div><div style="flex:1"><b>Price drop on a saved bike</b><span>Now $520, was $620</span></div><svg class="i" style="color:var(--ink2)"><use href="#chev"/></svg></div></div>
+  <div class="row pad" style="margin:14px 0 8px"><h2 class="h">Moments</h2><span class="sp"></span><span class="more">See all</span></div>
+  <div class="moments"><div class="mo add"><svg class="i"><use href="#plus"/></svg>Add yours</div><div class="mo" style="background:linear-gradient(160deg,#13B9B0,#087F5B)">Calgary Life</div><div class="mo" style="background:linear-gradient(160deg,#1D5FE6,#14213D)">Daniel · TO→YYC</div><div class="mo" style="background:linear-gradient(160deg,#F5A623,#C0283C)">Brightside</div></div>
+  <div class="row pad" style="margin:14px 0 8px"><h2 class="h">Near you</h2><span class="sp"></span><span class="more">See all</span></div>
+  <div class="hs"><div class="lc"><div class="ph" style="background:#DDF3E8"><svg class="art"><use href="#a-sofa"/></svg><div class="price">$450<small>neg.</small></div></div><b>Sofa, great condition</b><span>1.2 km · Delivery</span></div><div class="lc"><div class="ph" style="background:#E1EBFF"><svg class="art"><use href="#a-bike"/></svg><div class="price">$520</div></div><b>Road bike 54cm</b><span>3.4 km · Pickup</span></div></div>
+  <div class="fnav"><div class="on"><svg class="i"><use href="#home"/></svg>Home</div><div><svg class="i"><use href="#bag"/></svg></div><div class="fab"><svg class="i"><use href="#plus"/></svg></div><div><svg class="i"><use href="#truck"/></svg></div><div><svg class="i"><use href="#chat"/></svg><span class="dot">2</span></div></div>
+</div><div class="cap"><b>Home</b>Greeting, location, search, four actions, then “Your day” with what needs you. The feed is no longer the first thing you see.</div></div>
+
+<div><div class="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● 100%</span></div>
+  <div class="hdr"><h1 style="font-size:28px;letter-spacing:-.8px">Market</h1><span class="sp"></span><div class="ib"><svg class="i"><use href="#map"/></svg></div><div class="ib"><svg class="i"><use href="#heart"/></svg></div></div>
+  <div class="search"><svg class="i"><use href="#search"/></svg><span>Search Calgary…</span><span class="sp"></span><div class="fb"><svg class="i"><use href="#filter"/></svg></div></div>
+  <div class="cats">
+    <div class="cat"><i style="background:var(--gt);color:var(--gd)"><svg class="i"><use href="#sofa-i"/></svg></i>Furniture</div><div class="cat"><i style="background:var(--bt);color:var(--b)"><svg class="i"><use href="#chip"/></svg></i>Tech</div><div class="cat"><i style="background:#FDEFD0;color:#7A5200"><svg class="i"><use href="#car"/></svg></i>Vehicles</div><div class="cat"><i style="background:#F1E3F5;color:#7A3D8C"><svg class="i"><use href="#home"/></svg></i>Home</div>
+    <div class="cat"><i style="background:#FFE3E6;color:#B3263A"><svg class="i"><use href="#ball"/></svg></i>Sports</div><div class="cat"><i style="background:var(--gl);color:var(--gd)"><svg class="i"><use href="#gift"/></svg></i>Free</div><div class="cat"><i style="background:#E3EDE6;color:var(--ink)"><svg class="i"><use href="#bag"/></svg></i>Shops</div><div class="cat"><i style="background:#fff;box-shadow:inset 0 0 0 1.5px var(--line);color:var(--ink2)"><svg class="i"><use href="#dots"/></svg></i>More</div></div>
+  <div class="hero ph" style="background:linear-gradient(135deg,#BFE9D4,#8ED3B4)"><svg class="art" style="left:22%;top:6%;width:56%;height:70%"><use href="#a-plant"/></svg><div class="grad"></div><div class="t"><span class="pill n" style="margin-bottom:6px">Top pick near you</span><b>Monstera, large pot</b><span>Free · 2.1 km · Vancouver Ave</span></div></div>
+  <div class="sortrow"><div class="sc on">Nearest</div><div class="sc">Newest</div><div class="sc">Price ↑</div><div class="sc">Delivery</div></div>
+  <div class="mas"><div><div class="mcard"><div class="ph" style="height:150px;background:#DDF3E8"><svg class="art"><use href="#a-sofa"/></svg><div class="price">$450<small>neg.</small></div><div class="heart"><svg class="i"><use href="#heart"/></svg></div></div><b>Sofa, great condition</b><span>1.2 km · <span class="vt" style="margin:0"><svg class="i"><use href="#check"/></svg></span> verified</span></div>
+    <div class="mcard"><div class="ph" style="height:118px;background:#FDEFD0"><svg class="art"><use href="#a-lamp"/></svg><div class="price">$40</div></div><b>Brass floor lamp</b><span>4.0 km</span></div></div>
+  <div><div class="mcard"><div class="ph" style="height:112px;background:#E1EBFF"><svg class="art"><use href="#a-bike"/></svg><div class="price">$520</div><div class="heart"><svg class="i"><use href="#heart"/></svg></div></div><b>Road bike 54cm</b><span>3.4 km · Pickup</span></div>
+    <div class="mcard"><div class="ph" style="height:150px;background:#E3EDE6"><svg class="art"><use href="#a-tires"/></svg><div class="price">$280</div></div><b>Winter tires ×4</b><span>6.7 km · Delivery</span></div></div></div>
+  <div class="fnav"><div><svg class="i"><use href="#home"/></svg></div><div class="on"><svg class="i"><use href="#bag"/></svg>Market</div><div class="fab"><svg class="i"><use href="#plus"/></svg></div><div><svg class="i"><use href="#truck"/></svg></div><div><svg class="i"><use href="#chat"/></svg><span class="dot">2</span></div></div>
+</div><div class="cap"><b>Market</b>Category tiles, a top-pick hero, and price badges on the photos. Green marks what you can act on; the heart and map stay quiet.</div></div>
+
+<div><div class="phone"><div class="notch"></div>
+  <div class="dimg ph" style="background:linear-gradient(160deg,#CBEBDA,#9DD8BB)"><svg class="art" style="left:12%;top:20%;width:76%;height:66%"><use href="#a-sofa"/></svg>
+    <div class="ctl"><div class="ib"><svg class="i"><use href="#back"/></svg></div><div class="row"><div class="ib"><svg class="i"><use href="#share"/></svg></div><div class="ib"><svg class="i"><use href="#heart"/></svg></div></div></div></div>
+  <div class="sheet"><div class="grip"></div>
+    <div class="row"><span class="bigp">$450</span><span class="pill g">Negotiable</span><span class="sp"></span><span class="pill">Good condition</span></div>
+    <div style="font-size:19px;font-weight:800;letter-spacing:-.4px;margin-top:6px">Sofa, great condition</div>
+    <div style="font-size:12.5px;color:var(--ink2);margin-top:3px">Calgary, AB · listed 2h ago · 14 views</div>
+    <div class="card seller"><div class="av" style="background:linear-gradient(135deg,var(--g),var(--gb))">A</div><div style="flex:1"><b style="font-size:14.5px">Amara O. <span class="vt"><svg class="i"><use href="#check"/></svg></span></b><div style="font-size:12px;color:var(--ink2)">★ 4.9 · 23 deals · replies within an hour</div></div><span class="more">Profile</span></div>
+    <div class="movecard"><div class="row"><b style="font-size:14.5px;color:var(--b)">Need it moved?</b><span class="sp"></span><span class="pill b">3 drivers nearby</span></div><div style="font-size:12.5px;color:#2B4A9B;margin-top:3px">Daniel passes by 8 km away on Sat. Typical price $65–$90.</div>
+      <div class="rline"><i></i><u></u><i class="e"></i></div><div class="row" style="justify-content:space-between;font-size:11.5px;font-weight:700;color:#2B4A9B;margin-top:5px"><span>Calgary</span><span>Airdrie</span></div></div>
+    <div style="font-size:14px;line-height:1.5;margin-top:14px;color:#2A3652">Three-seater grey sofa, smoke-free home. Moving out so need it gone this weekend. Cushions are removable and washable.</div></div>
+  <div class="abar"><div class="h"><svg class="i"><use href="#chat"/></svg></div><div class="btn o" style="flex:1;height:50px">Message</div><div class="btn" style="flex:1.3;height:50px;font-size:15px">Make an offer</div></div>
+</div><div class="cap"><b>Item</b>Big photo, then a sheet that slides over it. The price is the hero. “Need it moved?” is the blue Move tie-in, so blue stays meaningful.</div></div>
+
+<div><div class="phone"><div class="notch"></div><div class="status" style="color:#fff;position:relative;z-index:3"><span>9:41</span><span>●●● 100%</span></div>
+  <div style="position:absolute;inset:0 0 auto 0;height:300px" class="mvh"></div>
+  <div style="position:relative;z-index:2;color:#fff;padding:0 18px"><div class="tt row" style="margin-top:-2px"><svg class="i" style="width:28px;height:28px"><use href="#truck"/></svg><h1 style="font-size:26px;letter-spacing:-.7px">Move</h1><span class="sp"></span><div class="ib" style="background:rgba(255,255,255,.16);box-shadow:none;color:#fff"><svg class="i"><use href="#bell"/></svg></div></div><div style="font-size:13px;opacity:.9;margin-top:2px;font-weight:600">Find a driver already going your way</div></div>
+  <div class="card route" style="margin-top:42px;z-index:3"><div class="rin"><div class="d"></div><div style="flex:1"><small>From</small><b>Calgary, AB</b></div></div><div class="rin"><div class="d e"></div><div style="flex:1"><small>To</small><b>Edmonton, AB</b></div></div><div class="swap"><svg class="i"><use href="#swap"/></svg></div>
+    <div class="row" style="margin-top:6px"><span class="pill b"><svg class="i" style="width:14px;height:14px"><use href="#clock"/></svg>Any day</span><span class="pill b"><svg class="i" style="width:14px;height:14px"><use href="#box"/></svg>~60 kg</span><span class="sp"></span><div class="btn s">Find drivers</div></div></div>
+  <div class="seg"><div class="on">Drivers · 12</div><div>Shipments</div><div>Services</div></div>
+  <div class="card jc"><div class="row"><div class="av" style="background:linear-gradient(135deg,var(--b),var(--gb))">D</div><div style="flex:1"><b style="font-size:15px">Daniel K.</b><div class="row" style="gap:5px;margin-top:3px"><span class="tick">✓ ID</span><span class="tick">✓ Licence</span><span style="font-size:11.5px;color:var(--ink2);font-weight:700">★ 4.9</span></div></div><div style="text-align:right"><div style="font-size:19px;font-weight:800;color:var(--gd)">$85</div><span class="pill g">96% match</span></div></div>
+    <div class="stops"><div class="stp" style="text-align:left"><i style="display:block;width:12px;height:12px;border-radius:50%;background:var(--b)"></i><div style="font-size:12px;font-weight:800;margin-top:5px">Calgary</div></div><div style="flex:1;margin-top:5px;height:3px;background:repeating-linear-gradient(90deg,var(--b) 0 6px,transparent 6px 11px)"></div><div class="stp" style="text-align:center;width:70px"><i style="display:block;width:9px;height:9px;border-radius:50%;background:var(--amber);margin:1px auto 0"></i><div style="font-size:11px;font-weight:700;margin-top:6px;color:var(--ink2)">Red Deer</div></div><div style="flex:1;margin-top:5px;height:3px;background:repeating-linear-gradient(90deg,var(--b) 0 6px,transparent 6px 11px)"></div><div class="stp" style="text-align:right;width:62px"><i style="display:block;width:12px;height:12px;border-radius:50%;background:var(--g);margin-left:auto"></i><div style="font-size:12px;font-weight:800;margin-top:5px;white-space:nowrap;margin-right:-4px">Edmonton</div></div></div>
+    <div class="row" style="font-size:12px;color:var(--ink2);font-weight:700;margin-top:8px"><span>Space left</span><span class="sp"></span><span style="color:var(--ink)">320 of 600 kg</span></div><div class="cap-bar"><u style="width:53%"></u></div>
+    <div class="row" style="margin-top:12px"><span class="pill">Sat 28 · 12:00</span><span class="pill">Pickup truck</span><span class="sp"></span><div class="btn s">Book space</div></div></div>
+  <div class="card jc" style="margin-top:10px"><div class="row"><div class="av" style="background:linear-gradient(135deg,var(--g),var(--gb))">M</div><div style="flex:1"><b style="font-size:15px">Marcus T.</b><div class="row" style="gap:5px;margin-top:3px"><span class="tick">✓ Licence</span><span style="font-size:11.5px;color:var(--ink2);font-weight:700">★ 4.8</span></div></div><div style="text-align:right"><div style="font-size:19px;font-weight:800;color:var(--gd)">$70</div><span class="pill g">88% match</span></div></div></div>
+  <div class="fnav"><div><svg class="i"><use href="#home"/></svg></div><div><svg class="i"><use href="#bag"/></svg></div><div class="fab"><svg class="i"><use href="#plus"/></svg></div><div class="on" style="background:var(--b)"><svg class="i"><use href="#truck"/></svg>Move</div><div><svg class="i"><use href="#chat"/></svg><span class="dot">2</span></div></div>
+</div><div class="cap"><b>Move</b>A blue header makes this its own mode. A From → To card, drivers with trust badges, a route line and a capacity bar. “Book” stays green: green means go.</div></div>
+
+<div><div class="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● 100%</span></div>
+  <div class="hdr"><h1 style="font-size:28px;letter-spacing:-.8px">Community</h1><span class="sp"></span><div class="btn s"><svg class="i" style="width:18px;height:18px"><use href="#plus"/></svg>Note</div></div>
+  <div class="seg" style="margin-top:2px"><div class="on" style="color:var(--gd)">Notes</div><div>Circles</div><div>Clips</div></div>
+  <div class="cs"><div class="cc" style="background:linear-gradient(160deg,#13B9B0,#087F5B)"><span class="nw">3 new</span><b>Calgary Buy &amp; Sell</b><span>12.4k members</span></div><div class="cc" style="background:linear-gradient(160deg,#1D5FE6,#14213D)"><b>TO ⇄ YYC Transport</b><span>2.1k members</span></div><div class="cc" style="background:linear-gradient(160deg,#F5A623,#B3680A)"><b>Furniture Market</b><span>5.8k members</span></div></div>
+  <div class="card note"><div class="who"><div class="av" style="background:linear-gradient(135deg,var(--g),var(--gb));width:34px;height:34px;font-size:13px">A</div><div><b>Amara O.</b><br><span>Calgary Buy &amp; Sell · 2h</span></div></div><p>Move-out sale! The sofa goes first. DM me an offer or tap to get it delivered.</p>
+    <div class="att"><div class="ph" style="background:#DDF3E8"><svg class="art"><use href="#a-sofa"/></svg></div><div style="flex:1"><b style="font-size:13.5px">Sofa, great condition</b><div style="font-size:12px;color:var(--gd);font-weight:800">$450</div></div><span class="more">View</span></div>
+    <div class="nfoot"><span><svg class="i"><use href="#heart"/></svg>12</span><span><svg class="i"><use href="#chat"/></svg>3</span><span class="reply">Reply</span></div></div>
+  <div class="card note tr"><div class="who"><div class="av" style="background:linear-gradient(135deg,var(--b),var(--gb));width:34px;height:34px;font-size:13px">D</div><div><b>Daniel K.</b><br><span>TO ⇄ YYC Transport · 5h</span></div></div><p>Truck is packed and the route is set: Toronto → Calgary, Nov 28. 320 kg of space left!</p>
+    <div class="rline" style="margin:4px 0 2px"><i></i><u></u><i class="e"></i></div><div class="nfoot"><span><svg class="i"><use href="#heart"/></svg>24</span><span><svg class="i"><use href="#chat"/></svg>7</span><span class="reply" style="background:var(--bt);color:var(--b)">Book space</span></div></div>
+  <div class="card note ev"><div class="who"><div class="av" style="background:linear-gradient(135deg,var(--amber),#B3680A);width:34px;height:34px;font-size:13px">C</div><div><b>Calgary Life</b><br><span>Poll · 1d</span></div></div><p>Where should the next free swap day be?</p><div class="poll"><div><u style="width:62%"></u><span>Kensington</span><span>62%</span></div><div><u style="width:38%"></u><span>Inglewood</span><span>38%</span></div></div></div>
+  <div class="fnav"><div><svg class="i"><use href="#home"/></svg></div><div><svg class="i"><use href="#users"/></svg></div><div class="fab"><svg class="i"><use href="#plus"/></svg></div><div><svg class="i"><use href="#truck"/></svg></div><div><svg class="i"><use href="#chat"/></svg><span class="dot">2</span></div></div>
+</div><div class="cap"><b>Community</b>Posts become “notes”: a coloured rail, one reaction row, one Reply button. Circles sit on top as tiles, and the feed is one tab, not the whole app.</div></div>
+
+</div>
+
+<div class="sec">4 · Desktop</div>
+<div class="desk"><div class="dtop"><div class="logo"><svg class="i" style="width:44px;height:32px" viewBox="0 0 70 50"><use href="#ticks"/></svg>twiqo</div><div class="modes"><div class="on"><svg class="i"><use href="#bag"/></svg>Shop</div><div class="mv" style="background:transparent;color:var(--ink2)"><svg class="i"><use href="#truck"/></svg>Move</div><div><svg class="i"><use href="#users"/></svg>Community</div></div>
+  <div class="ib"><svg class="i"><use href="#chat"/></svg></div><div class="ib"><svg class="i"><use href="#bell"/></svg><i></i></div><div class="btn s"><svg class="i" style="width:18px;height:18px"><use href="#plus"/></svg>Create</div><div class="av" style="background:linear-gradient(135deg,var(--g),var(--gb));width:42px;height:42px">A</div></div>
+  <div class="dmain"><div>
+    <div class="dhero"><span class="chip-loc" style="background:rgba(185,240,214,.16);color:var(--gl)"><svg class="i"><use href="#pin"/></svg>Calgary, AB ▾</span><h1 style="margin-top:10px">What do you want to do today, Amara?</h1><div class="search"><svg class="i"><use href="#search"/></svg><span>Sofa, bike, a driver to Edmonton…</span><span class="sp"></span><div class="fb"><svg class="i"><use href="#filter"/></svg></div></div></div>
+    <div class="dtiles"><div class="tile g"><div class="ti"><svg class="i"><use href="#bag"/></svg></div><div><b>Buy nearby</b><span>2,184 listings</span></div></div><div class="tile m"><div class="ti"><svg class="i" style="color:var(--gd)"><use href="#tag"/></svg></div><div><b>Sell something</b><span>List in 2 minutes</span></div></div><div class="tile bl"><div class="ti"><svg class="i"><use href="#box"/></svg></div><div><b>Send something</b><span>Drivers on your route</span></div></div><div class="tile n"><div class="ti"><svg class="i"><use href="#truck"/></svg></div><div><b>Drive &amp; earn</b><span>Fill your empty space</span></div></div></div>
+    <div class="row" style="margin:24px 0 2px"><h2 class="h">Near you</h2><span class="sp"></span><span class="more">See all</span></div>
+    <div class="dcards"><div class="lc"><div class="ph" style="background:#DDF3E8"><svg class="art"><use href="#a-sofa"/></svg><div class="price">$450<small>neg.</small></div></div><b>Sofa, great condition</b><span>1.2 km · Delivery</span></div><div class="lc"><div class="ph" style="background:#E1EBFF"><svg class="art"><use href="#a-bike"/></svg><div class="price">$520</div></div><b>Road bike 54cm</b><span>3.4 km · Pickup</span></div><div class="lc"><div class="ph" style="background:#FDEFD0"><svg class="art"><use href="#a-laptop"/></svg><div class="price">$780</div></div><b>MacBook Air M1</b><span>5.0 km · Pickup</span></div><div class="lc"><div class="ph" style="background:#E3EDE6"><svg class="art"><use href="#a-tires"/></svg><div class="price">$280</div></div><b>Winter tires ×4</b><span>6.7 km · Delivery</span></div></div>
+    <div class="row" style="margin:22px 0 10px"><h2 class="h">Moments</h2><span class="sp"></span><span class="more">See all</span></div>
+    <div class="moments" style="padding:0"><div class="mo add"><svg class="i"><use href="#plus"/></svg>Add yours</div><div class="mo" style="background:linear-gradient(160deg,#13B9B0,#087F5B)">Calgary Life</div><div class="mo" style="background:linear-gradient(160deg,#1D5FE6,#14213D)">Daniel</div><div class="mo" style="background:linear-gradient(160deg,#F5A623,#C0283C)">Brightside</div><div class="mo" style="background:linear-gradient(160deg,#6E8F7B,#14213D)">Marcus</div></div>
+  </div>
+  <div class="side">
+    <div class="card"><div class="row"><h2 class="h">Your day</h2><span class="pill g">3 things</span></div>
+      <div class="drow"><div class="di" style="background:var(--gt);color:var(--gd)"><svg class="i"><use href="#tag"/></svg></div><div style="flex:1"><b>2 offers waiting</b><span>Sofa · Road bike</span></div><svg class="i" style="color:var(--ink2)"><use href="#chev"/></svg></div>
+      <div class="drow"><div class="di" style="background:var(--bt);color:var(--b)"><svg class="i"><use href="#truck"/></svg></div><div style="flex:1"><b>Pickup tomorrow, 9:00</b><span>Boxes with Daniel</span></div><svg class="i" style="color:var(--ink2)"><use href="#chev"/></svg></div>
+      <div class="drow"><div class="di" style="background:#FDEFD0;color:#7A5200"><svg class="i"><use href="#bell"/></svg></div><div style="flex:1"><b>Price drop on a saved bike</b><span>Now $520, was $620</span></div><svg class="i" style="color:var(--ink2)"><use href="#chev"/></svg></div></div>
+    <div class="card"><div class="row"><h2 class="h">Heading your way</h2><span class="sp"></span><span class="more" style="color:var(--b)">Move</span></div>
+      <div style="margin-top:12px;padding:12px;border-radius:18px;background:var(--bt)"><div class="row"><b style="font-size:14px">Toronto → Calgary</b><span class="sp"></span><b style="color:var(--gd)">$85</b></div><div class="rline"><i></i><u></u><i class="e"></i></div><div class="row" style="font-size:12px;color:#2B4A9B;font-weight:700;margin-top:6px"><span>Daniel · Sat 28</span><span class="sp"></span><span>320 kg left</span></div></div></div>
+    <div class="card" style="background:linear-gradient(135deg,var(--g),#0A9E78);color:#fff;box-shadow:none"><b style="font-size:16px">Invite a friend, earn $5</b><div style="font-size:12.5px;opacity:.92;margin:4px 0 12px;line-height:1.45">When they finish their first deal you get twiqo credit for boosts.</div><div class="btn s" style="background:#fff;color:var(--gd)">Copy my link</div></div>
+  </div></div></div>
+<div class="cap" style="width:1100px"><b>Desktop</b>The mode switch (Shop · Move · Community) replaces the usual nav bar items; there is no left menu and no contacts column. The wide column is for doing things, the narrow one is “Your day”.</div>
+
+<div class="sec">What would stay the same</div>
+<div class="notes"><div class="card"><b>All the features</b>Nothing is removed. Messages, offers, bookings, circles, clips and settings are all still there, just arranged differently.</div><div class="card"><b>The brand</b>Logo, name in lowercase, Plus Jakarta Sans, and the friendly rounded look. The logo's blue tick stays blue.</div><div class="card"><b>Accessibility</b>Every colour pairing here is chosen to pass WCAG AA text contrast (white on the green is 5.0:1).</div></div>
+</body></html>
