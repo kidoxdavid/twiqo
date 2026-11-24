@@ -1,3 +1,4 @@
+import { PriceHint } from '../components/tools';
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -79,6 +80,7 @@ export function CreateListing() {
           <div className="field" style={{ flex: 1 }}><label htmlFor="pt">Price</label><select id="pt" className="input" value={f.price_type} onChange={(e) => set('price_type', e.target.value)}><option value="negotiable">Negotiable</option><option value="fixed">Fixed price</option><option value="free">Free</option></select></div>
           {f.price_type !== 'free' && <div className="field" style={{ flex: 1 }}><label htmlFor="p">Amount (CAD)</label><input id="p" className="input" inputMode="decimal" value={f.price} onChange={(e) => set('price', e.target.value.replace(/[^\d.]/g, ''))} required /></div>}
         </div>
+        {f.price_type !== 'free' && <PriceHint path="/listings/price-guidance" query={{ category_id: f.category_id, condition: f.condition }} />}
         <div className="row wrap">
           <div className="field" style={{ flex: 1 }}><label htmlFor="cn">Condition</label><select id="cn" className="input" value={f.condition} onChange={(e) => set('condition', e.target.value)}><option value="new">New</option><option value="like_new">Like new</option><option value="good">Good</option><option value="fair">Fair</option><option value="for_parts">For parts</option></select></div>
           <div className="field" style={{ width: 110 }}><label htmlFor="q">Quantity</label><input id="q" className="input" inputMode="numeric" value={f.quantity} onChange={(e) => set('quantity', e.target.value.replace(/\D/g, ''))} /></div>

@@ -29,6 +29,15 @@ const BusinessPage = lazy(() => import('./pages/Business').then((m) => ({ defaul
 const CreateBusiness = lazy(() => import('./pages/Business').then((m) => ({ default: m.CreateBusiness })));
 const InvitePage = lazy(() => import('./pages/Growth').then((m) => ({ default: m.InvitePage })));
 const ProPage = lazy(() => import('./pages/Growth').then((m) => ({ default: m.ProPage })));
+const SecurityPage = lazy(() => import('./pages/Account').then((m) => ({ default: m.SecurityPage })));
+const VerifyEmailPage = lazy(() => import('./pages/Account').then((m) => ({ default: m.VerifyEmailPage })));
+const ResetPasswordPage = lazy(() => import('./pages/Account').then((m) => ({ default: m.ResetPasswordPage })));
+const SettingsHub = lazy(() => import('./pages/Settings').then((m) => ({ default: m.SettingsHub })));
+const NotificationSettings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.NotificationSettings })));
+const VerificationPage = lazy(() => import('./pages/Settings').then((m) => ({ default: m.VerificationPage })));
+const SafetySettings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.SafetySettings })));
+const TripPage = lazy(() => import('./pages/Trip').then((m) => ({ default: m.TripPage })));
+const LegalPage = lazy(() => import('./pages/Legal').then((m) => ({ default: m.LegalPage })));
 const InsightsPage = lazy(() => import('./pages/Growth').then((m) => ({ default: m.InsightsPage })));
 
 function CreateSheet({ onClose }: { onClose: () => void }) {
@@ -97,6 +106,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </div></header>
       {children}
+      <footer className="row wrap sm muted" style={{ justifyContent: 'center', gap: 14, padding: '18px 16px 90px' }}><Link to="/legal/terms">Terms</Link><Link to="/legal/privacy">Privacy</Link><Link to="/legal/guidelines">Guidelines</Link><Link to="/legal/refunds">Refunds</Link><Link to="/legal/prohibited">Prohibited items</Link></footer>
       {create && <CreateSheet onClose={() => setCreate(false)} />}
     </div>
   );
@@ -115,6 +125,8 @@ export function App() {
     <Suspense fallback={<div className="state" style={{ paddingTop: 120 }}><Ticks w={64} /></div>}>
     <Routes>
       <Route path="/login" element={<AuthPage />} />
+      <Route path="/trip/:token" element={<TripPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/clips" element={<Clips />} />
       <Route path="*" element={
         <Shell>
@@ -142,6 +154,13 @@ export function App() {
             <Route path="/bookings/:id" element={<Private><BookingPage /></Private>} />
             <Route path="/orders/:id" element={<Private><OrderPage /></Private>} />
             <Route path="/u/:username" element={<Profile />} />
+            <Route path="/settings" element={<Private><SettingsHub /></Private>} />
+            <Route path="/settings/security" element={<Private><SecurityPage /></Private>} />
+            <Route path="/settings/notifications" element={<Private><NotificationSettings /></Private>} />
+            <Route path="/settings/verification" element={<Private><VerificationPage /></Private>} />
+            <Route path="/settings/safety" element={<Private><SafetySettings /></Private>} />
+            <Route path="/verify-email" element={<VerifyEmailPage />} />
+            <Route path="/legal/:doc" element={<LegalPage />} />
             <Route path="/settings/invite" element={<Private><InvitePage /></Private>} />
             <Route path="/settings/pro" element={<Private><ProPage /></Private>} />
             <Route path="/insights" element={<Private><InsightsPage /></Private>} />

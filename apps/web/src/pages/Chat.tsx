@@ -83,7 +83,7 @@ export function Thread() {
             if (m.kind === 'booking') return <div key={m.id} className="sm muted" style={{ alignSelf: 'center', textAlign: 'center', padding: '4px 10px', background: 'var(--cloud)', borderRadius: 12 }}>{({ pickup_confirmed: 'Pickup confirmed', in_transit: 'On the way', update: 'New update', delivered: 'Delivery confirmed', cancelled: 'Booking cancelled' } as Record<string, string>)[m.payload.event] ?? 'Booking update'} · <Link style={{ color: 'var(--blue)', fontWeight: 700 }} to={`/bookings/${m.payload.booking_id}`}>View</Link></div>;
             return (
               <div key={m.id} className={`msg ${mine ? 'out' : 'in'}`} onContextMenu={(e) => { if (!mine) { e.preventDefault(); setReport(m.id); } }}>
-                {m.removed ? <i>Message removed</i> : m.image_url ? <img src={m.image_url} alt="Shared" /> : m.body}
+                {m.removed ? <i>Message removed</i> : m.image_url ? <img src={m.image_url} alt="Shared" /> : m.body}{m.warning && <div role="alert" style={{ marginTop: 6, padding: '8px 10px', borderRadius: 10, background: '#FFF1D6', color: '#6B4300', fontSize: 12.5, fontWeight: 600 }}>⚠ {m.warning}</div>}
                 <div className="tm">{ago(m.created_at)}{mine && <svg width="16" height="12" viewBox="0 0 70 50" fill="none" strokeWidth="9" strokeLinecap="round" strokeLinejoin="round" aria-label={m.read ? 'Read' : 'Sent'}><path d="M5 25L17 37L39 9" stroke={m.read ? '#7FF0E8' : 'rgba(255,255,255,.55)'} />{m.read && <path d="M23 27L35 39L61 9" stroke="#7FF0E8" />}</svg>}</div>
                 {!mine && !m.removed && <button className="sm" style={{ opacity: 0.6, fontSize: 11, marginTop: 4 }} onClick={() => setReport(m.id)}>Report</button>}
               </div>);

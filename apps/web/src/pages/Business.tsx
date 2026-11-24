@@ -1,3 +1,4 @@
+import { BulkUpload } from '../components/tools';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -26,7 +27,7 @@ export function BusinessPage() {
         <div className="muted sm">{x.category ?? 'Business'}{x.city ? ` · ${x.city}, ${x.province}` : ''}{x.service_radius_km ? ` · serves ${x.service_radius_km} km` : ''}</div>
         {x.description && <p style={{ margin: '10px 0', lineHeight: 1.5 }}>{x.description}</p>}
         <div className="stats"><div className="stat"><b>{x.follower_count}</b><span>Followers</span></div><div className="stat"><b>{x.listing_count}</b><span>Products</span></div></div>
-        <div className="row wrap">{x.viewer.role ? <><Link className="btn" to="/create/listing">Add a product</Link><span className="pill b">You are {x.viewer.role.replace('_', ' ')}</span></> :
+        <div className="row wrap">{x.viewer.role ? <><Link className="btn" to="/create/listing">Add a product</Link>{['owner', 'manager', 'listing_manager'].includes(x.viewer.role) && <BulkUpload businessId={x.id} />}<span className="pill b">You are {x.viewer.role.replace('_', ' ')}</span></> :
           <button className={`btn ${x.viewer.following ? 'soft' : ''}`} style={{ flex: 1 }} onClick={() => guard(async () => { try { await api(`/follows/business/${x.id}`, { method: x.viewer.following ? 'DELETE' : 'POST' }); qc.invalidateQueries({ queryKey: ['biz'] }); } catch (e) { toast(errMsg(e), 'err'); } })}>{x.viewer.following ? 'Following' : 'Follow'}</button>}
           {x.contact_email && <a className="btn ghost" href={`mailto:${x.contact_email}`}>Contact</a>}</div>
       </div>

@@ -8,6 +8,7 @@ import { Icon } from '../components/Icon';
 import { useToast } from '../components/Toast';
 import { CATEGORIES, CityInput, JourneyCard, OfferCard, OfferDialog, RequestCard, RouteMap, ServiceCard, Stars, VEHICLES, fmtDate, fmtDateTime, windowText, type Match } from '../components/transport';
 import { BoostButton } from '../components/payments';
+import { ReturnSuggestions, SaveSearchButton } from '../components/tools';
 import { Avatar, Menu, ReportDialog, State, Verified, errMsg, money } from '../components/ui';
 
 type Tab = 'journeys' | 'requests' | 'services';
@@ -36,6 +37,7 @@ export function Move() {
           {tab !== 'services' && <div style={{ flex: 1, minWidth: 130 }}><CityInput id="mt" label="To" value={to} onChange={setTo} /></div>}
           {tab !== 'services' && <div className="field" style={{ minWidth: 140 }}><label htmlFor="md">{tab === 'journeys' ? 'Departing after' : 'Pickup after'}</label><input id="md" type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} /></div>}
           <button className="btn">Search</button></div>
+        {tab !== 'services' && sp.get('from') && sp.get('to') && <div className="row"><SaveSearchButton kind={tab === 'journeys' ? 'journey' : 'request'} suggestedName={`${sp.get('from')} → ${sp.get('to')}`} params={{ from: sp.get('from'), to: sp.get('to'), ...(sp.get('date') ? { earliest: sp.get('date') } : {}) }} /></div>}
         {tab === 'journeys' && <div className="muted sm">We look for drivers who pass through your pickup and drop-off, not only drivers with the exact same start and end.</div>}
       </form>
       <div className="row wrap" style={{ padding: '0 16px 12px' }}>
@@ -97,6 +99,7 @@ export function JourneyPage() {
         </div>
         <Actions type="journey" id={j.id} liked={j.viewer.liked} likes={j.counts.likes} saved={j.viewer.saved} title="twiqo journey" owner={!!owner} path={`/j/${j.id}`} onReport={() => setReport(true)} />
         {!owner && <div className="muted sm">Agree payment directly with the driver. twiqo doesn't hold funds yet, and insurance depends on the driver's own coverage.</div>}
+        {owner && ['open', 'full', 'departed'].includes(j.status) && <ReturnSuggestions journeyId={j.id} />}
         {owner && j.status === 'open' && <><h2 className="sec">Requests that could fit this trip</h2>{matches.isLoading ? <State kind="loading" /> : matches.data?.requests.length ? matches.data.requests.map((m: any) => <div key={m.request.id} style={{ margin: '0 -16px' }}><RequestCard r={m.request} match={m.match as Match} /></div>) : <div className="muted">No matching requests yet. We'll notify you when one appears.</div>}</>}
         <h2 className="sec">Questions</h2><Comments target={{ type: 'journey' as any, id: j.id }} />
       </div>

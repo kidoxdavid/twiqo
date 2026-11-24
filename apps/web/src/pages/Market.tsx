@@ -8,6 +8,7 @@ import { Icon } from '../components/Icon';
 import { useToast } from '../components/Toast';
 import { OfferDialog } from '../components/transport';
 import { BoostButton } from '../components/payments';
+import { SaveSearchButton } from '../components/tools';
 import { DiscoverStrip, RecommendedListings, SimilarListings } from '../components/growth';
 import { t, useLocale } from '../i18n';
 import { Avatar, CONDITIONS, Menu, ReportDialog, State, Verified, ago, errMsg, money } from '../components/ui';
@@ -43,6 +44,7 @@ export function Market() {
           <div className="field"><label htmlFor="so">Sort</label><select id="so" className="input" value={get('sort') || 'newest'} onChange={(e) => set('sort', e.target.value)}><option value="newest">Newest</option><option value="price_asc">Price: low to high</option><option value="price_desc">Price: high to low</option><option value="distance" disabled={!get('city')}>Nearest{!get('city') ? ' (pick a city)' : ''}</option></select></div>
         </div>
       )}
+      {(get('q') || get('category') || get('city') || get('min') || get('max') || get('condition')) && <div className="row" style={{ padding: '0 16px 8px' }}><SaveSearchButton kind="listing" suggestedName={get('q') || cats.data?.items.find((c: any) => c.slug === get('category'))?.name || 'My search'} params={{ ...(get('q') ? { q: get('q') } : {}), ...(get('category') ? { category: get('category') } : {}), ...(params.min_price !== undefined ? { min_price: params.min_price } : {}), ...(params.max_price !== undefined ? { max_price: params.max_price } : {}), ...(get('condition') ? { condition: get('condition') } : {}), ...(get('city') ? { city: get('city'), radius_km: Number(get('radius') || 25) } : {}) }} /></div>}
       {!get('q') && !get('category') && !get('city') && !get('min') && !get('max') && !get('condition') && <><DiscoverStrip /><RecommendedListings /></>}
       {q.isLoading ? <State kind="loading" /> : q.isError ? <State kind="error" text={(q.error as Error).message} /> : items.length === 0
         ? <State kind="empty" title={t('market.none')} text={t('market.none_text')} action={<div className="row" style={{ justifyContent: 'center' }}><button className="btn ghost" onClick={() => setSp({}, { replace: true })}>{t('market.clear')}</button><Link className="btn" to="/create/listing">{t('market.sell')}</Link></div>} />
@@ -87,6 +89,7 @@ export function ListingDetail() {
               <button className="btn ghost" onClick={async () => { if (confirm('Remove this listing?')) { try { await api(`/listings/${id}`, { method: 'DELETE' }); nav('/market'); } catch (e) { toast(errMsg(e), 'err'); } } }}>Remove</button>
               <Link className="btn soft" to="/offers">View offers</Link>
               {l.status === 'active' && !l.featured && <BoostButton targetType="listing" targetId={l.id} />}
+              {['active', 'expired'].includes(l.status) && <button className="btn soft" onClick={async () => { try { await api(`/listings/${id}/renew`, { body: {} }); toast('Renewed for another 30 days'); q.refetch(); } catch (e) { toast(errMsg(e), 'err'); } }}>{l.status === 'expired' ? 'Relist' : 'Renew'}</button>}
             </> : <>
               {l.status === 'active' && <button className="btn" style={{ flex: 1 }} onClick={() => guard(() => setOffer(true))}>{l.price_type === 'fixed' ? 'Buy at listed price' : l.price_type === 'free' ? 'Ask for it' : 'Make offer'}</button>}
               <button className="btn ghost" onClick={() => guard(() => nav(`/messages/new?to=${l.seller.id}&listing=${l.id}`))}><Icon name="chat" />Message</button>

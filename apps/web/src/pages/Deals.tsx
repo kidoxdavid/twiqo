@@ -6,6 +6,7 @@ import { useToast } from '../components/Toast';
 import { OfferCard, RouteLine, fmtDate, fmtDateTime, windowText } from '../components/transport';
 import { Icon, Ticks } from '../components/Icon';
 import { t, useLocale } from '../i18n';
+import { SafetyPanel, tryPosition } from '../components/safety';
 import { PaymentPanel, ReportProblem } from '../components/payments';
 import { Avatar, ImageUploader, Modal, State, ago, errMsg, money, type Uploaded } from '../components/ui';
 
@@ -75,10 +76,11 @@ function PinBox({ label, pin, hint }: { label: string; pin: string; hint: string
 function PinForm({ id, kind, onDone }: { id: string; kind: 'pickup' | 'deliver'; onDone: () => void }) {
   const toast = useToast(); const [pin, setPin] = useState(''); const [photo, setPhoto] = useState<Uploaded[]>([]); const [busy, setBusy] = useState(false); const [err, setErr] = useState<string | null>(null);
   return (
-    <form className="col" onSubmit={async (e) => { e.preventDefault(); setBusy(true); setErr(null); try { await api(`/bookings/${id}/${kind}`, { body: { pin, photo_media_id: photo[0]?.id } }); toast(kind === 'pickup' ? 'Pickup confirmed' : 'Delivery confirmed'); setPin(''); onDone(); } catch (x) { setErr(errMsg(x)); } finally { setBusy(false); } }}>
+    <form className="col" onSubmit={async (e) => { e.preventDefault(); setBusy(true); setErr(null); try { const gps = await tryPosition(); await api(`/bookings/${id}/${kind}`, { body: { pin, photo_media_id: photo[0]?.id, ...(gps ?? {}) } }); toast(kind === 'pickup' ? 'Pickup confirmed' : 'Delivery confirmed'); setPin(''); onDone(); } catch (x) { setErr(errMsg(x)); } finally { setBusy(false); } }}>
       <div className="field"><label htmlFor={`pin-${kind}`}>{kind === 'pickup' ? 'Ask the shipper for the pickup PIN' : 'Ask the receiver for the delivery PIN'}</label>
         <input id={`pin-${kind}`} className="input" inputMode="numeric" autoComplete="one-time-code" maxLength={4} pattern="\d{4}" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} style={{ fontSize: 24, letterSpacing: 12, textAlign: 'center', fontWeight: 800 }} placeholder="••••" /></div>
       <div className="field"><label>Photo evidence (optional)</label><ImageUploader value={photo} onChange={setPhoto} max={1} /></div>
+      <div className="muted sm">If you allow it, your phone's location is saved with this confirmation. Only you and the other person can see it.</div>
       {err && <div className="err" role="alert">{err}</div>}
       <button className="btn teal" disabled={busy || pin.length !== 4}>{kind === 'pickup' ? 'Confirm pickup' : 'Confirm delivery'}</button>
     </form>
@@ -119,6 +121,7 @@ export function BookingPage() {
         {!ship && has('confirm_delivery') && <div className="card pad"><h2 className="sec">Confirm delivery</h2><PinForm id={b.id} kind="deliver" onDone={refresh} />{b.pin_locked_until && <div className="err" style={{ marginTop: 8 }}>PIN entry is locked until {fmtDateTime(b.pin_locked_until)}.</div>}</div>}
         {ship && has('confirm_receipt') && <div className="card pad col"><b>Your item was delivered</b><div className="muted sm">Confirm you received it to complete the move. If you don't, it completes automatically after a few days.</div><button className="btn teal" disabled={busy} onClick={() => call('complete', {}, 'Move completed')}>Confirm I received it</button></div>}
 
+        <SafetyPanel booking={b} onChanged={refresh} />
         {b.status !== 'cancelled' && <PaymentPanel kind="booking" id={b.id} status={b.payment_status} buyerSide={ship} canPay={has('pay')} disputeId={b.dispute_id} onChanged={refresh} />}
         {['pickup_confirmed', 'in_transit', 'delivered', 'completed'].includes(b.status) && !b.dispute_id && <ReportProblem subject={{ booking_id: b.id }} onDone={(d) => nav(`/disputes/${d}`)} />}
 
@@ -135,7 +138,7 @@ export function BookingPage() {
               <div><b>Pickup:</b> {a.pickup_address ?? '—'}{a.pickup_notes ? ` (${a.pickup_notes})` : ''}</div><div><b>Delivery:</b> {a.delivery_address ?? '—'}{a.delivery_notes ? ` (${a.delivery_notes})` : ''}</div>{a.contact_phone && <div><b>Phone:</b> <a href={`tel:${a.contact_phone}`} style={{ color: 'var(--blue)' }}>{a.contact_phone}</a></div>}</> : <span className="muted">{ship ? 'Add them so your driver can find you.' : 'The shipper has not shared addresses yet.'}</span>}</div>}
         </div>}
 
-        {has('review') && <div className="card pad col"><h2 className="sec" style={{ margin: 0 }}>How was {b.counterparty.display_name}?</h2>
+        {has('review') && <div className="card pad col"><h2 className="sec" style={{ margin: 0 }}>How was {b.counterparty.display_name}?</h2><div className="muted sm">Reviews are revealed together: yours is shown once they review you too, or after 7 days.</div>
           <div className="row" role="radiogroup" aria-label="Rating">{[1, 2, 3, 4, 5].map((n) => <button key={n} role="radio" aria-checked={stars === n} aria-label={`${n} star${n > 1 ? 's' : ''}`} onClick={() => setStars(n)} style={{ fontSize: 30, color: n <= stars ? 'var(--amber)' : '#D5DCEC' }}>★</button>)}</div>
           <textarea className="input" aria-label="Review" placeholder="Share a few words (optional)" value={comment} onChange={(e) => setComment(e.target.value)} style={{ minHeight: 70 }} />
           <button className="btn" disabled={busy} onClick={() => call('reviews', { rating: stars, comment: comment || undefined }, 'Thanks for your review')}>Submit review</button></div>}

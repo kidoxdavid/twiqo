@@ -25,6 +25,8 @@ import { payments, webhookHandler } from './modules/payments.js';
 import { disputes } from './modules/disputes.js';
 import { boosts } from './modules/boosts.js';
 import { commerce } from './modules/commerce.js';
+import { ops, readyRouter, writeLimiter } from './modules/ops.js';
+import { requestLogger } from './lib/logger.js';
 import { trust } from './modules/trust.js';
 import { notifications } from './modules/notifications.js';
 import { security } from './modules/security.js';
@@ -36,6 +38,8 @@ import { adminPayments } from './modules/adminPayments.js';
 export function createApp() {
   const app = express();
   app.set('trust proxy', 1);
+  app.disable('x-powered-by');
+  app.use(requestLogger);
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(compression());
   app.use(cors({ origin: config.WEB_ORIGIN.split(','), credentials: true }));
@@ -44,7 +48,9 @@ export function createApp() {
   app.use(express.json({ limit: '200kb' }));
   app.use('/media', express.static(storage.root, { maxAge: '30d', immutable: true, index: false, dotfiles: 'deny' }));
   app.get('/health', (_req, res) => res.json({ ok: true }));
-  app.use('/api', identity, users, business, media, content, commerce, marketplace, feed, messaging, search, transport, offers, bookings, videos, circles, clips, stories, payments, disputes, boosts, adminPayments, growth, subscriptions, security, notifications, trust, admin);
+  app.use(readyRouter);
+  app.use('/api', writeLimiter);
+  app.use('/api', ops, identity, users, business, media, content, commerce, marketplace, feed, messaging, search, transport, offers, bookings, videos, circles, clips, stories, payments, disputes, boosts, adminPayments, growth, subscriptions, security, notifications, trust, admin);
   app.use('/api', (_req, res) => res.status(404).json({ error: { code: 'not_found', message: 'Not found' } }));
   app.use(errorMiddleware);
   return app;

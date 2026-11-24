@@ -1,3 +1,4 @@
+import { PriceHint } from '../components/tools';
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -69,7 +70,7 @@ export function CreateRequest() {
 
 export function CreateJourney() {
   const { me } = useAuth();
-  const [f, setF] = useState({ from: me?.city ?? '', to: '', depart: '', arrive: '', vehicle: 'pickup_truck', kg: '', m3: '', len: '', wid: '', hei: '', price: '', ptype: 'negotiable', detour: '20', loading: false, pref: '', dpref: '', desc: '' });
+  const [f, setF] = useState({ from: me?.city ?? '', to: '', depart: '', arrive: '', vehicle: 'pickup_truck', kg: '', m3: '', len: '', wid: '', hei: '', price: '', ptype: 'negotiable', instant: false, detour: '20', loading: false, pref: '', dpref: '', desc: '' });
   const [via, setVia] = useState<string[]>([]); const [restr, setRestr] = useState<string[]>([]);
   const set = (k: string, v: unknown) => setF((p) => ({ ...p, [k]: v }));
   const s = useSubmit('/transport/journeys', (r) => `/j/${r.id}`);
@@ -79,7 +80,7 @@ export function CreateJourney() {
       <form className="card pad col" style={{ margin: '0 16px' }} onSubmit={(e) => { e.preventDefault(); s.run({
         origin_city: f.from, dest_city: f.to, waypoints: via.filter(Boolean).map((city) => ({ city })), max_detour_km: parseInt(f.detour) || 0, departure_at: local(f.depart), arrival_at: local(f.arrive),
         vehicle_type: f.vehicle, capacity_kg: num(f.kg), capacity_m3: num(f.m3), max_length_cm: num(f.len), max_width_cm: num(f.wid), max_height_cm: num(f.hei), item_restrictions: restr,
-        price_cents: cents(f.price), price_type: f.ptype, pickup_preferences: f.pref || undefined, delivery_preferences: f.dpref || undefined, helps_loading: f.loading, description: f.desc }, 'Journey published'); }}>
+        price_cents: cents(f.price), price_type: f.ptype, pickup_preferences: f.pref || undefined, delivery_preferences: f.dpref || undefined, helps_loading: f.loading, description: f.desc, instant_book: f.instant && f.ptype === 'fixed' }, 'Journey published'); }}>
         <div className="row wrap"><div style={{ flex: 1, minWidth: 150 }}><CityInput id="jf" label="Leaving from" value={f.from} onChange={(v) => set('from', v)} required /></div><div style={{ flex: 1, minWidth: 150 }}><CityInput id="jt" label="Going to" value={f.to} onChange={(v) => set('to', v)} required /></div></div>
         <div className="field"><label>Stops along the way (so people on your route can find you)</label>
           {via.map((v, i) => <div key={i} className="row" style={{ marginBottom: 6 }}><div style={{ flex: 1 }}><CityInput id={`via${i}`} value={v} onChange={(x) => setVia(via.map((y, k) => (k === i ? x : y)))} placeholder={`Stop ${i + 1}`} /></div><button type="button" className="btn soft sm" onClick={() => setVia(via.filter((_, k) => k !== i))} aria-label="Remove stop">✕</button></div>)}
@@ -93,6 +94,8 @@ export function CreateJourney() {
         <div className="row wrap"><div className="field" style={{ flex: 1, minWidth: 140 }}><label htmlFor="pr">Starting price (CAD)</label><input id="pr" className="input" inputMode="decimal" value={f.price} onChange={(e) => set('price', e.target.value.replace(/[^\d.]/g, ''))} required /></div>
           <div className="field" style={{ flex: 1, minWidth: 140 }}><label htmlFor="pt">Price type</label><select id="pt" className="input" value={f.ptype} onChange={(e) => set('ptype', e.target.value)}><option value="negotiable">Negotiable</option><option value="fixed">Fixed</option></select></div>
           <div className="field" style={{ width: 150 }}><label htmlFor="dt">Max detour (km)</label><input id="dt" className="input" inputMode="numeric" value={f.detour} onChange={(e) => set('detour', e.target.value.replace(/\D/g, ''))} /></div></div>
+        <PriceHint path="/transport/price-guidance" query={{ from: f.from, to: f.to, weight_kg: f.kg || undefined }} />
+        {f.ptype === 'fixed' && <label className="row sm" style={{ alignItems: 'flex-start', gap: 8 }}><input type="checkbox" checked={f.instant} onChange={(e) => set('instant', e.target.checked)} style={{ marginTop: 3 }} /><span><b>Instant book</b> — confirm bookings automatically at your fixed price for shippers with a verified email. Available once your identity is verified or after a few successful deliveries.{s.fe.instant_book && <span className="err"> {s.fe.instant_book}</span>}</span></label>}
         <div className="field"><label>I can't carry…</label><div className="row wrap">{[['fragile', 'Fragile items'], ['appliances', 'Appliances'], ['furniture', 'Furniture'], ['tires', 'Tires'], ['bikes', 'Bikes'], ['building_materials', 'Building materials']].map(([k, l]) => <label key={k} className="chip" style={{ cursor: 'pointer', ...(restr.includes(k) ? { background: 'var(--navy)', color: '#fff' } : {}) }}><input type="checkbox" hidden checked={restr.includes(k)} onChange={(e) => setRestr(e.target.checked ? [...restr, k] : restr.filter((x) => x !== k))} />{l}</label>)}</div></div>
         <Check label="I can help load and unload" v={f.loading} on={(b) => set('loading', b)} />
         <div className="field"><label htmlFor="pp">Pickup preferences</label><input id="pp" className="input" value={f.pref} onChange={(e) => set('pref', e.target.value)} placeholder="Evenings, weekends…" /></div>

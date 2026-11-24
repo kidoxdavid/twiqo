@@ -20,3 +20,6 @@ createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={qc}><BrowserRouter><ToastProvider><AuthProvider><LocaleProvider><App /></LocaleProvider></AuthProvider></ToastProvider></BrowserRouter></QueryClientProvider>
   </React.StrictMode>,
 );
+
+// Offline page, asset cache and web push. Skipped in dev so hot reload isn't cached.
+if ('serviceWorker' in navigator && import.meta.env.PROD) window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => undefined); });
