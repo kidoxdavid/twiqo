@@ -150,7 +150,7 @@ export function OfferDialog({ target, onClose }: {
         <div className="field"><label htmlFor="ex">Offer expires after</label><select id="ex" className="input" value={hours} onChange={(e) => setHours(+e.target.value)}>{[[24, '24 hours'], [48, '2 days'], [72, '3 days'], [168, '7 days']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
         {err && <div className="err" role="alert">{err}</div>}
         <button className="btn" disabled={busy || !amount || (asShipper && !requestId)} onClick={send}>{busy ? 'Sending…' : fixed !== null ? 'Send request' : 'Send offer'}</button>
-        <div className="muted sm">No money changes hands on TWIQO yet — payments arrive in a later release. Agree payment directly with the other person.</div>
+        <div className="muted sm">No money changes hands on twiqo yet — payments arrive in a later release. Agree payment directly with the other person.</div>
       </div>
     </Modal>
   );

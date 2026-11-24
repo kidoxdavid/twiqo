@@ -23,9 +23,9 @@ export function AuthPage() {
   }
   return (
     <main className="auth">
-      <div className="hero-auth"><Ticks w={72} /><h1>TWIQO</h1><div className="muted">Connect. Discover. Move.</div></div>
+      <div className="hero-auth"><Ticks w={72} /><h1>twiqo</h1><div className="muted">Connect. Discover. Move.</div></div>
       <form className="card pad col" onSubmit={submit} noValidate>
-        <h2 className="sec" style={{ margin: 0 }}>{mode === 'in' ? 'Welcome back' : 'Join TWIQO'}</h2>
+        <h2 className="sec" style={{ margin: 0 }}>{mode === 'in' ? 'Welcome back' : 'Join twiqo'}</h2>
         {mode === 'up' && <>
           <div className="field"><label htmlFor="dn">Your name</label><input id="dn" className="input" value={f.display_name} onChange={set('display_name')} autoComplete="name" required />{fieldErr.display_name && <span className="err">{fieldErr.display_name}</span>}</div>
           <div className="field"><label htmlFor="em">Email</label><input id="em" type="email" className="input" value={f.email} onChange={set('email')} autoComplete="email" required />{fieldErr.email && <span className="err">{fieldErr.email}</span>}</div>

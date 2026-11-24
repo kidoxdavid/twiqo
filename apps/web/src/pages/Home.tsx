@@ -21,7 +21,7 @@ export function Home() {
   return (
     <main className="main">
       <div className="tabs" role="tablist" aria-label="Feed">{TABS.map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={`tab ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}</div>
-      {!me && <div className="card pad" style={{ margin: '0 16px 12px' }}><b>Discover, buy, sell and move almost anything.</b><div className="muted sm" style={{ margin: '4px 0 10px' }}>Join TWIQO to follow people, make offers and message sellers.</div><Link to="/login" className="btn sm">Sign up or sign in</Link></div>}
+      {!me && <div className="card pad" style={{ margin: '0 16px 12px' }}><b>Discover, buy, sell and move almost anything.</b><div className="muted sm" style={{ margin: '4px 0 10px' }}>Join twiqo to follow people, make offers and message sellers.</div><Link to="/login" className="btn sm">Sign up or sign in</Link></div>}
       {tab === 'nearby' && (!me || q.isError) && <div className="row" style={{ padding: '0 16px 12px' }}><input className="input" aria-label="City" placeholder="Enter a city, e.g. Calgary" value={city} onChange={(e) => setCity(e.target.value)} /></div>}
       {tab === 'following' && !me ? <State kind="empty" title="Sign in to see who you follow" action={<Link className="btn" to="/login">Sign in</Link>} />
         : q.isLoading ? <State kind="loading" />

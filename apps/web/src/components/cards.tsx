@@ -107,7 +107,7 @@ export function PostCard({ p, onRemoved }: { p: any; onRemoved?: () => void }) {
       <div className="actions">
         <button className={`act ${like.on ? 'on' : ''}`} onClick={like.toggle} aria-pressed={like.on} aria-label="Like"><Icon name="heart" />{like.count}</button>
         <button className="act" onClick={() => setComments(true)} aria-label="Comments"><Icon name="chat" />{cc}</button>
-        <button className="act" onClick={() => shareLink(`/post/${p.id}`, 'TWIQO post', toast)} aria-label="Share"><Icon name="share" />Share</button>
+        <button className="act" onClick={() => shareLink(`/post/${p.id}`, 'twiqo post', toast)} aria-label="Share"><Icon name="share" />Share</button>
         <span className="sp" />
         <button className={`act ${save.on ? 'saved' : ''}`} onClick={save.toggle} aria-pressed={save.on} aria-label="Save"><Icon name="save" /></button>
       </div>

@@ -74,7 +74,7 @@ for (const [i, [name, slug, kids, restricted]] of CATEGORIES.entries()) {
   }
 }
 
-const admin = await mkUser('admin', 'TWIQO Admin', 'Calgary', 'Platform administrator', 'super_admin');
+const admin = await mkUser('admin', 'twiqo admin', 'Calgary', 'Platform administrator', 'super_admin');
 const mod = await mkUser('moderator', 'Mia Moderator', 'Calgary', 'Community safety', 'moderator');
 const amara = await mkUser('amara', 'Amara O.', 'Calgary', 'Moving out — selling a few things. Open to offers.');
 const marcus = await mkUser('marcus', 'Marcus T.', 'Calgary', 'Bike nerd. Weekend trail rider.');

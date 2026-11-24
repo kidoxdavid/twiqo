@@ -56,7 +56,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="app">
       <header className="top"><div className="in">
-        <Link to="/" className="brand"><Ticks />TWIQO</Link>
+        <Link to="/" className="brand"><Ticks />twiqo</Link>
         <nav className="navwrap" aria-label="Main">
           <div className="nav">
             <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}><Icon name="home" />Home</NavLink>

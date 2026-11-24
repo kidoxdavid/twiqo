@@ -90,7 +90,7 @@ export function ListingDetail() {
             <button className="btn soft" onClick={() => shareLink(`/l/${l.id}`, l.title, toast)} aria-label="Share"><Icon name="share" /></button>
             {!mine && <Menu items={[{ label: 'Report listing', onClick: () => guard(() => setReport(true)) }]} />}
           </div>
-          <div className="muted sm">Meet in a public place and never send money before you've seen the item. TWIQO doesn't hold funds yet — agree payment directly.</div>
+          <div className="muted sm">Meet in a public place and never send money before you've seen the item. twiqo doesn't hold funds yet — agree payment directly.</div>
           <h2 className="sec" style={{ marginTop: 14 }}>Questions &amp; comments</h2>
           <Comments target={{ type: 'listing', id: l.id }} />
         </div>

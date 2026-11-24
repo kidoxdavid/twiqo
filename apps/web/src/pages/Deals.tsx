@@ -140,7 +140,7 @@ export function BookingPage() {
           <div style={{ flex: 1 }}><b className="sm" style={{ textTransform: 'capitalize' }}>{e.kind.replace('_', ' ')}</b>{e.location_label && <span className="muted sm"> · {e.location_label}</span>}<div className="sm">{e.note}</div>{e.photo_url && <img src={e.photo_url} alt="Evidence" style={{ width: 120, borderRadius: 12, marginTop: 6 }} />}<div className="muted sm">{e.actor ? `@${e.actor} · ` : ''}{fmtDateTime(e.created_at)}</div></div></div>)}</div>
 
         {has('cancel') && <button className="btn ghost" style={{ color: 'var(--red)', borderColor: 'var(--red)' }} onClick={() => setCancel(true)}>Cancel this booking</button>}
-        <div className="muted sm">Pickup and delivery are verified with PINs and photos. Insurance depends on the transporter's own coverage; TWIQO doesn't insure items or hold payment yet.</div>
+        <div className="muted sm">Pickup and delivery are verified with PINs and photos. Insurance depends on the transporter's own coverage; twiqo doesn't insure items or hold payment yet.</div>
       </div>
       {cancel && <Modal onClose={() => setCancel(false)} title="Cancel this booking?"><div className="col"><div className="muted sm">Cancelling is only possible before pickup. {ship ? 'Your shipment goes back to open.' : 'The space on your journey is released.'}</div>
         <textarea className="input" aria-label="Reason" placeholder="Reason (the other person will see it)" value={reason} onChange={(e) => setReason(e.target.value)} /><button className="btn danger" disabled={reason.trim().length < 3 || busy} onClick={async () => { if (await call('cancel', { reason }, 'Booking cancelled')) setCancel(false); }}>Cancel booking</button></div></Modal>}
@@ -161,7 +161,7 @@ export function OrderPage() {
       <div className="col" style={{ padding: '0 16px' }}>
         <Link to={`/l/${o.listing.id}`} className="attach"><div className="th">{o.listing.image_url && <img src={o.listing.image_url} alt="" />}</div><div className="tx"><b>{o.listing.title}</b><span className="muted sm">{o.quantity > 1 ? `${o.quantity} × ` : ''}agreed {money(o.total_cents)}</span></div></Link>
         <div className="card pad row"><Link to={`/u/${o.counterparty.username}`} className="row" style={{ flex: 1 }}><Avatar user={o.counterparty} size={42} /><div><b>{o.counterparty.display_name}</b><div className="muted sm">{o.my_role === 'buyer' ? 'Seller' : 'Buyer'}</div></div></Link>{o.my_role === 'buyer' && <Link className="btn sm soft" to={`/messages/new?to=${o.counterparty.id}&listing=${o.listing.id}`}><Icon name="chat" />Message</Link>}</div>
-        <div className="card pad sm">Agreed on {fmtDate(o.created_at)}. Arrange pickup or delivery and payment directly with {o.counterparty.display_name} — TWIQO doesn't hold funds for sales yet.</div>
+        <div className="card pad sm">Agreed on {fmtDate(o.created_at)}. Arrange pickup or delivery and payment directly with {o.counterparty.display_name} — twiqo doesn't hold funds for sales yet.</div>
         {has('arrange_transport') && <Link className="btn teal" to={`/create/request?listing=${o.listing.id}`}><Icon name="truck" />Arrange transport for this item</Link>}
         {o.transport_request && <Link className="btn ghost" to={`/r/${o.transport_request.id}`}>Transport request: {o.transport_request.status}</Link>}
         {has('complete') && <button className="btn" disabled={busy} onClick={() => call('complete', {}, 'Order completed')}>Mark as completed</button>}

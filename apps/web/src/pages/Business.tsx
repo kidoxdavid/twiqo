@@ -59,7 +59,7 @@ export function CreateBusiness() {
         <div className="field"><label htmlFor="ci">City</label><input id="ci" className="input" value={f.city} onChange={set('city')} /></div>
         <div className="field"><label htmlFor="e">Contact email</label><input id="e" type="email" className="input" value={f.contact_email} onChange={set('contact_email')} /></div>
         <div className="field"><label htmlFor="d">About</label><textarea id="d" className="input" value={f.description} onChange={set('description')} /></div>
-        <div className="muted sm">Verification badges are granted by TWIQO after review.</div>
+        <div className="muted sm">Verification badges are granted by twiqo after review.</div>
         {err && <div className="err" role="alert">{err}</div>}
         <button className="btn" disabled={busy}>{busy ? 'Creating…' : 'Create page'}</button>
       </form>

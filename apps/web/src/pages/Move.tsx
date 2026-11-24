@@ -94,8 +94,8 @@ export function JourneyPage() {
           {!owner && <button className="btn ghost" onClick={() => guard(() => nav(`/messages/new?to=${j.driver.id}&subject_type=journey&subject_id=${j.id}`))}><Icon name="chat" />Message</button>}
           {owner && ['open', 'full'].includes(j.status) && <><button className="btn soft" onClick={() => confirm('Mark this journey as departed? New offers will be closed.') && act('/depart')}>Mark departed</button><button className="btn ghost" onClick={() => confirm('Cancel this journey?') && act('', 'DELETE').then(() => nav('/move'))}>Cancel journey</button></>}
         </div>
-        <Actions type="journey" id={j.id} liked={j.viewer.liked} likes={j.counts.likes} saved={j.viewer.saved} title="TWIQO journey" owner={!!owner} path={`/j/${j.id}`} onReport={() => setReport(true)} />
-        {!owner && <div className="muted sm">Agree payment directly with the driver. TWIQO doesn't hold funds yet, and insurance depends on the driver's own coverage.</div>}
+        <Actions type="journey" id={j.id} liked={j.viewer.liked} likes={j.counts.likes} saved={j.viewer.saved} title="twiqo journey" owner={!!owner} path={`/j/${j.id}`} onReport={() => setReport(true)} />
+        {!owner && <div className="muted sm">Agree payment directly with the driver. twiqo doesn't hold funds yet, and insurance depends on the driver's own coverage.</div>}
         {owner && j.status === 'open' && <><h2 className="sec">Requests that could fit this trip</h2>{matches.isLoading ? <State kind="loading" /> : matches.data?.requests.length ? matches.data.requests.map((m: any) => <div key={m.request.id} style={{ margin: '0 -16px' }}><RequestCard r={m.request} match={m.match as Match} /></div>) : <div className="muted">No matching requests yet. We'll notify you when one appears.</div>}</>}
         <h2 className="sec">Questions</h2><Comments target={{ type: 'journey' as any, id: j.id }} />
       </div>

@@ -106,7 +106,7 @@ export function SearchPeople() {
   return (
     <main className="main"><h1 className="page">Find people &amp; businesses</h1>
       <div style={{ padding: '0 16px 12px' }}><input className="input" autoFocus aria-label="Search people" placeholder="Search by name or username" value={q} onChange={(e) => setQ(e.target.value)} /></div>
-      {!q.trim() ? <State kind="empty" title="Search TWIQO" text="Look up neighbours, sellers, drivers and local businesses." />
+      {!q.trim() ? <State kind="empty" title="Search twiqo" text="Look up neighbours, sellers, drivers and local businesses." />
         : r.isLoading ? <State kind="loading" /> : !r.data?.people.length && !r.data?.businesses.length ? <State kind="empty" title={`No one found for “${q}”`} />
         : <div className="card" style={{ margin: '0 16px' }}>
           {r.data.businesses.map((b: any) => <Link key={b.id} to={`/b/${b.slug}`} className="row pad"><Avatar user={{ display_name: b.name }} /><div><b>{b.name}</b> {b.verification_status === 'verified' && <Verified />}<div className="muted sm">Business{b.city ? ` · ${b.city}` : ''}</div></div></Link>)}
