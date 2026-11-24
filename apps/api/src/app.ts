@@ -24,6 +24,7 @@ import { stories } from './modules/stories.js';
 import { payments, webhookHandler } from './modules/payments.js';
 import { disputes } from './modules/disputes.js';
 import { boosts } from './modules/boosts.js';
+import { security } from './modules/security.js';
 import { subscriptions } from './modules/subscriptions.js';
 import { growth } from './modules/growth.js';
 import compression from 'compression';
@@ -40,7 +41,7 @@ export function createApp() {
   app.use(express.json({ limit: '200kb' }));
   app.use('/media', express.static(storage.root, { maxAge: '30d', immutable: true, index: false, dotfiles: 'deny' }));
   app.get('/health', (_req, res) => res.json({ ok: true }));
-  app.use('/api', identity, users, business, media, content, marketplace, feed, messaging, search, transport, offers, bookings, videos, circles, clips, stories, payments, disputes, boosts, adminPayments, growth, subscriptions, admin);
+  app.use('/api', identity, users, business, media, content, marketplace, feed, messaging, search, transport, offers, bookings, videos, circles, clips, stories, payments, disputes, boosts, adminPayments, growth, subscriptions, security, admin);
   app.use('/api', (_req, res) => res.status(404).json({ error: { code: 'not_found', message: 'Not found' } }));
   app.use(errorMiddleware);
   return app;

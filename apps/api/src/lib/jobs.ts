@@ -3,6 +3,8 @@ import { setting } from './policy.js';
 import { expireOffers, rejectOpenOffers } from '../modules/offers.js';
 import { completeBooking } from '../modules/bookings.js';
 import { notify } from './notify.js';
+import { enqueue, registerJob, runQueue } from './queue.js';
+import './email.js';
 import { refundPayment } from '../modules/payments.js';
 import { paymentProvider } from './payments.js';
 
@@ -60,4 +62,13 @@ export async function runHousekeeping() {
   for (const p of owed) { try { await refundPayment(p.id, { reason: 'Cancelled before completion', source: 'cancellation', initiatedBy: null }); out.retried_refunds++; } catch (e) { console.error('refund retry failed', (e as Error).message); } }
   out.pruned_events = (await pool.query(`DELETE FROM analytics_events WHERE created_at < now() - interval '180 days'`)).rowCount ?? 0;
   return out;
+}
+
+/** Housekeeping runs as a queued job that schedules its own next run, so with several API servers only one runs it at a time. */
+registerJob('housekeeping', async () => {
+  try { await runHousekeeping(); } finally { await enqueue(pool, 'housekeeping', {}, { runAt: new Date(Date.now() + 5 * 60_000), dedupeKey: 'housekeeping' }); }
+});
+export async function startWorker() {
+  await enqueue(pool, 'housekeeping', {}, { dedupeKey: 'housekeeping' });
+  setInterval(() => { runQueue().catch((e) => console.error('queue worker failed', e)); }, 3000).unref();
 }

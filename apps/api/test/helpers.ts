@@ -10,7 +10,7 @@ export interface TestUser { id: string; username: string; token: string; refresh
 
 export async function makeUser(prefix = 'u', city = 'Calgary'): Promise<TestUser> {
   const username = `${prefix.toLowerCase().replace(/[^a-z0-9_.]/g, '')}${crypto.randomBytes(3).toString('hex')}`;
-  const r = await api().post('/api/auth/register').send({ email: `${username}@t.test`, username, password: 'password123', display_name: prefix, city });
+  const r = await api().post('/api/auth/register').send({ email: `${username}@t.test`, username, password: 'password123', display_name: prefix, city, accept_terms: true });
   if (r.status !== 201) throw new Error(`register failed ${r.status} ${JSON.stringify(r.body)}`);
   return { id: r.body.user.id, username, token: r.body.access_token, refresh: r.body.refresh_token };
 }

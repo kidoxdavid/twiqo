@@ -25,6 +25,14 @@ const schema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().optional(),            // endpoint for account events (payments, refunds)
   STRIPE_PRICE_BUSINESS_PRO: z.string().optional(),        // Stripe Price id (price_...) for the Business Pro monthly subscription
   STRIPE_CONNECT_WEBHOOK_SECRET: z.string().optional(),    // endpoint for events from connected accounts (account.updated, payouts)
+  // Email: 'fake' records messages in outbox_emails only (development/tests); 'smtp' sends through SMTP_URL (e.g. smtps://user:pass@smtp.example.com)
+  EMAIL_PROVIDER: z.enum(['fake', 'smtp']).default('fake'),
+  SMTP_URL: z.string().optional(),
+  EMAIL_FROM: z.string().default('twiqo <no-reply@twiqo.example>'),
+  // Web push (VAPID). Generate with: npx web-push generate-vapid-keys
+  VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  VAPID_SUBJECT: z.string().default('mailto:support@twiqo.example'),
 });
 
 export const config = schema.parse(process.env);
@@ -40,3 +48,5 @@ if (config.NODE_ENV === 'production' && config.PAYMENT_PROVIDER === 'fake') {
 if (config.NODE_ENV === 'production' && config.JWT_SECRET.startsWith('dev-only')) {
   throw new Error('JWT_SECRET must be set in production');
 }
+if (config.EMAIL_PROVIDER === 'smtp' && !config.SMTP_URL) throw new Error('EMAIL_PROVIDER=smtp needs SMTP_URL');
+if (config.NODE_ENV === 'production' && config.EMAIL_PROVIDER === 'fake') throw new Error('EMAIL_PROVIDER=fake would silently drop every email. Set EMAIL_PROVIDER=smtp in production.');

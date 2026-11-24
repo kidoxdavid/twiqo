@@ -10,9 +10,9 @@ describe('identity', () => {
     expect(me.body.user.username).toBe(u.username);
     expect(me.body.user.city).toBe('Calgary');
     expect(me.body.user.password_hash).toBeUndefined();
-    const dup = await api().post('/api/auth/register').send({ email: `${u.username}@t.test`, username: 'other_name', password: 'password123', display_name: 'x' });
+    const dup = await api().post('/api/auth/register').send({ email: `${u.username}@t.test`, username: 'other_name', password: 'password123', display_name: 'x', accept_terms: true });
     expect(dup.status).toBe(409);
-    const dupName = await api().post('/api/auth/register').send({ email: 'new@t.test', username: u.username.toUpperCase(), password: 'password123', display_name: 'x' });
+    const dupName = await api().post('/api/auth/register').send({ email: 'new@t.test', username: u.username.toUpperCase(), password: 'password123', display_name: 'x', accept_terms: true });
     expect(dupName.status).toBe(409);
   });
 
@@ -56,7 +56,9 @@ describe('identity', () => {
     expect((await api().get('/api/me').set(auth(u))).status).toBe(403);
     expect((await api().post('/api/auth/refresh').send({ refresh_token: u.refresh })).status).toBe(401);
     await pool.query(`UPDATE users SET suspended_until = now() - interval '1 minute' WHERE id=$1`, [u.id]);
-    expect((await api().get('/api/me').set(auth(u))).status).toBe(200);
+    expect((await api().get('/api/me').set(auth(u))).status).toBe(401);   // the suspension revoked this session; sign in again
+    const again = await api().post('/api/auth/login').send({ identifier: u.username, password: 'password123' });
+    expect((await api().get('/api/me').set({ Authorization: `Bearer ${again.body.access_token}` })).status).toBe(200);
   });
 
   it('stores only a hash of passwords and refresh tokens', async () => {

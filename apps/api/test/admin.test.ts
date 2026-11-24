@@ -55,9 +55,10 @@ describe('administration', () => {
 
   it('keeps configuration in the database: settings and fee rules are editable and audited', async () => {
     const sup = await makeStaff('super_admin');
-    expect((await api().put('/api/admin/settings/story.expiry_hours').set(auth(sup)).send({ value: 12 })).status).toBe(204);
+    await pool.query(`INSERT INTO platform_settings(key,value,description) VALUES ('test.admin_edit','1','used only by the admin test') ON CONFLICT DO NOTHING`);   // not a shared setting, so parallel test files can't see the change
+    expect((await api().put('/api/admin/settings/test.admin_edit').set(auth(sup)).send({ value: 12 })).status).toBe(204);
     const s = await api().get('/api/admin/settings').set(auth(sup));
-    expect(s.body.items.find((x: any) => x.key === 'story.expiry_hours').value).toBe(12);
+    expect(s.body.items.find((x: any) => x.key === 'test.admin_edit').value).toBe(12);
     expect((await api().put('/api/admin/settings/does.not.exist').set(auth(sup)).send({ value: 1 })).status).toBe(404);
     const rules = (await api().get('/api/admin/fee-rules').set(auth(sup))).body.items;
     const rule = rules.find((r: any) => r.scope === 'product_sale');
@@ -92,6 +93,8 @@ describe('administration', () => {
     expect((await api().post('/api/appeals').send({ identifier: u.username, password: 'password123', message: 'Second appeal attempt here' })).status).toBe(409);
     const open = (await api().get('/api/admin/appeals').set(auth(admin))).body.items.find((a: any) => a.username === u.username);
     expect((await api().post(`/api/admin/appeals/${open.id}/decide`).set(auth(admin)).send({ decision: 'overturn', reason: 'verified seller' })).status).toBe(204);
-    expect((await api().get('/api/me').set(auth(u))).status).toBe(200);
+    expect((await api().get('/api/me').set(auth(u))).status).toBe(401);                                  // suspension signed them out; the old session stays dead
+    const again = await api().post('/api/auth/login').send({ identifier: u.username, password: 'password123' }); expect(again.status).toBe(200);
+    expect((await api().get('/api/me').set({ Authorization: `Bearer ${again.body.access_token}` })).status).toBe(200);
   });
 });

@@ -17,7 +17,7 @@ const credit = async (u: TestUser) => (await api().get('/api/credits').set(auth(
 const giveCredit = (userId: string, cents: number) => pool.query(`INSERT INTO credit_ledger(user_id,amount_cents,reason,note) VALUES ($1,$2,'admin_adjustment','test')`, [userId, cents]);
 async function register(ref?: string) {
   const username = `ref${Math.random().toString(36).slice(2, 8)}`;
-  const r = await api().post('/api/auth/register').send({ email: `${username}@t.test`, username, password: 'password123', display_name: 'Ref', ...(ref ? { ref } : {}) });
+  const r = await api().post('/api/auth/register').send({ email: `${username}@t.test`, username, password: 'password123', display_name: 'Ref', accept_terms: true, ...(ref ? { ref } : {}) });
   expect(r.status).toBe(201); return { id: r.body.user.id as string, username, token: r.body.access_token as string, refresh: '', code: r.body.user.referral_code as string };
 }
 
@@ -37,8 +37,9 @@ describe('trending and discovery', () => {
     expect((await api().get('/api/discover')).status).toBe(200);                       // public
   });
   it('lists circles that gained members', async () => {
-    const owner = await makeUser('own'), joiner = await makeUser('joi'); const c = await makeCircle(owner);
-    await api().post(`/api/circles/${c.slug}/join`).set(auth(joiner)); clearGrowthCache();
+    const owner = await makeUser('own'); const c = await makeCircle(owner);
+    for (let i = 0; i < 9; i++) await api().post(`/api/circles/${c.slug}/join`).set(auth(await makeUser('joi')));   // enough to rank among other circles growing in parallel tests
+    clearGrowthCache();
     const d = (await api().get('/api/discover')).body; expect(d.circles.some((x: any) => x.slug === c.slug)).toBe(true);
   });
 });

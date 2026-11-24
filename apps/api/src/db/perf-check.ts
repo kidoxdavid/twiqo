@@ -33,7 +33,7 @@ await pool.query(`INSERT INTO reactions(user_id,target_type,target_id,created_at
 await pool.query('ANALYZE');
 console.log(`Seeded in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 
-const reg = await api().post('/api/auth/register').send({ email: `perf_viewer${Date.now()}@perf.test`, username: `perf_viewer${Date.now() % 100000}`, password: 'password123', display_name: 'Perf Viewer', city: 'Calgary' });
+const reg = await api().post('/api/auth/register').send({ email: `perf_viewer${Date.now()}@perf.test`, username: `perf_viewer${Date.now() % 100000}`, password: 'password123', display_name: 'Perf Viewer', city: 'Calgary', accept_terms: true });
 const auth = { Authorization: `Bearer ${reg.body.access_token}` };
 const anId = (await pool.query(`SELECT l.id FROM listings l JOIN users u ON u.id=l.seller_id WHERE u.username LIKE 'perf\\_%' LIMIT 1`)).rows[0].id;
 await api().put(`/api/saves/listing/${anId}`).set(auth);

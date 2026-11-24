@@ -5,7 +5,7 @@ import { config } from '../config.js';
 import { pool } from '../db/pool.js';
 import { HttpError, forbidden } from './errors.js';
 
-export interface AuthUser { id: string; roles: string[]; permissions: string[]; }
+export interface AuthUser { id: string; roles: string[]; permissions: string[]; sid?: string }
 declare module 'express-serve-static-core' { interface Request { user?: AuthUser } }
 
 export async function hashPassword(pw: string): Promise<string> {
@@ -19,33 +19,36 @@ export async function verifyPassword(pw: string, stored: string): Promise<boolea
   return crypto.timingSafeEqual(key, Buffer.from(k, 'base64'));
 }
 
-export const signAccess = (userId: string) =>
-  jwt.sign({ sub: userId }, config.JWT_SECRET, { expiresIn: `${config.ACCESS_TOKEN_TTL_MIN}m` });
+export const signAccess = (userId: string, sid?: string) =>
+  jwt.sign({ sub: userId, ...(sid ? { sid } : {}) }, config.JWT_SECRET, { expiresIn: `${config.ACCESS_TOKEN_TTL_MIN}m` });
 export const newRefreshToken = () => crypto.randomBytes(32).toString('base64url');
 export const hashToken = (t: string) => crypto.createHash('sha256').update(t).digest('hex');
 
-async function loadUser(id: string): Promise<AuthUser | null> {
+async function loadUser(id: string, sid?: string): Promise<AuthUser | null> {
   const { rows } = await pool.query(
     `SELECT u.status, u.suspended_until,
             coalesce(array_agg(DISTINCT ur.role_key) FILTER (WHERE ur.role_key IS NOT NULL), '{}') AS roles,
-            coalesce(array_agg(DISTINCT rp.permission_key) FILTER (WHERE rp.permission_key IS NOT NULL), '{}') AS perms
+            coalesce(array_agg(DISTINCT rp.permission_key) FILTER (WHERE rp.permission_key IS NOT NULL), '{}') AS perms,
+            ($2::uuid IS NULL OR EXISTS (SELECT 1 FROM sessions s WHERE s.id = $2::uuid AND s.user_id = u.id AND s.revoked_at IS NULL)) AS session_ok
      FROM users u
      LEFT JOIN user_roles ur ON ur.user_id = u.id
      LEFT JOIN role_permissions rp ON rp.role_key = ur.role_key
-     WHERE u.id = $1 GROUP BY u.id`, [id]);
+     WHERE u.id = $1 GROUP BY u.id`, [id, sid ?? null]);
   const r = rows[0];
   if (!r) return null;
+  if (r.status === 'deleted') throw new HttpError(401, 'This account no longer exists', 'unauthorized');
   const suspended = r.status === 'suspended' && (!r.suspended_until || new Date(r.suspended_until) > new Date());
   if (r.status === 'banned' || r.status === 'deleted' || suspended) throw new HttpError(403, 'This account is suspended', 'suspended');
-  return { id, roles: r.roles, permissions: r.perms };
+  if (!r.session_ok) throw new HttpError(401, 'This session was signed out', 'unauthorized');   // revoked from Settings or by a password change
+  return { id, roles: r.roles, permissions: r.perms, sid };
 }
 
 async function authenticate(req: Request): Promise<void> {
   const h = req.headers.authorization;
   if (!h?.startsWith('Bearer ')) return;
   try {
-    const p = jwt.verify(h.slice(7), config.JWT_SECRET) as { sub: string };
-    const u = await loadUser(p.sub);
+    const p = jwt.verify(h.slice(7), config.JWT_SECRET) as { sub: string; sid?: string };
+    const u = await loadUser(p.sub, p.sid);
     if (u) req.user = u;
   } catch (e) {
     if (e instanceof HttpError) throw e;
