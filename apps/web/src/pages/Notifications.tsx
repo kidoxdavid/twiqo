@@ -18,10 +18,13 @@ const text = (n: any) => {
     case 'match': return <>New match ({n.data?.score}%): <b>{n.data?.title}</b></>;
     case 'journey_posted': return <><b>{who}</b> posted a journey: {n.data?.title}</>;
     case 'review_received': return <><b>{who}</b> left you a {n.data?.rating}★ review</>;
+    case 'group_invite': return <><b>{who}</b> invited you to join <b>{n.data?.name}</b></>;
+    case 'group_activity': return <>{({ join_request: <><b>{who}</b> asked to join <b>{n.data?.name}</b></>, approved: <>You're in! <b>{n.data?.name}</b> approved your request</>, role: <>You are now {n.data?.role} of <b>{n.data?.name}</b></>, new_event: <>New event in <b>{n.data?.name}</b>: {n.data?.title}</>, cancelled: <>Event cancelled: {n.data?.title}</> } as Record<string, import('react').ReactNode>)[n.data?.event] ?? <>Activity in a circle</>}</>;
+    case 'event_reminder': return <>Coming up: <b>{n.data?.title}</b></>;
     default: return <>New activity from <b>{who}</b></>;
   }
 };
-const href = (n: any) => (['offer_received', 'offer_countered', 'offer_rejected'].includes(n.type) ? '/offers' : n.target_type === 'booking' ? `/bookings/${n.target_id}` : n.target_type === 'order' ? `/orders/${n.target_id}` : n.type === 'match' || n.target_type === 'journey' ? (n.data?.request_id ? `/j/${n.target_id}` : `/r/${n.target_id}`) : n.target_type === 'transport_request' ? `/r/${n.target_id}` : n.type === 'review_received' ? '/bookings' : n.type === 'follow' ? `/u/${n.actor_username}` : n.target_type === 'post' ? `/post/${n.target_id}` : n.target_type === 'listing' ? `/l/${n.target_id}` : '/');
+const href = (n: any) => (n.target_type === 'group' ? `/c/${n.data?.slug ?? ''}` : n.target_type === 'event' ? '/circles' : ['offer_received', 'offer_countered', 'offer_rejected'].includes(n.type) ? '/offers' : n.target_type === 'booking' ? `/bookings/${n.target_id}` : n.target_type === 'order' ? `/orders/${n.target_id}` : n.type === 'match' || n.target_type === 'journey' ? (n.data?.request_id ? `/j/${n.target_id}` : `/r/${n.target_id}`) : n.target_type === 'transport_request' ? `/r/${n.target_id}` : n.type === 'review_received' ? '/bookings' : n.type === 'follow' ? `/u/${n.actor_username}` : n.target_type === 'post' ? `/post/${n.target_id}` : n.target_type === 'listing' ? `/l/${n.target_id}` : '/');
 
 export function Notifications() {
   const qc = useQueryClient();

@@ -6,6 +6,9 @@ import { runMigrations } from './migrate.js';
 import { hashPassword } from '../lib/auth.js';
 import { storage } from '../lib/storage.js';
 import { config } from '../config.js';
+import fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { localProvider } from '../lib/video.js';
 
 if (config.NODE_ENV === 'production') throw new Error('Refusing to seed production');
 
@@ -214,6 +217,87 @@ await pool.query(`INSERT INTO booking_addresses(booking_id,pickup_address,pickup
 for (const [k, n, loc, h, a] of [['booked', 'Booking confirmed', null, 50, amara], ['address_set', 'Addresses shared with your transporter', null, 49, amara], ['pickup_confirmed', 'Pickup confirmed with PIN', null, 24, daniel], ['in_transit', 'On the way', 'Toronto, ON', 23, daniel], ['in_transit', 'Thunder Bay for the night', 'Thunder Bay, ON', 6, daniel]] as const) {
   await pool.query(`INSERT INTO delivery_events(booking_id,actor_id,kind,note,location_label,created_at) VALUES ($1,$2,$3,$4,$5, now() - ($6 || ' hours')::interval)`, [live, a, k, n, loc, String(h)]);
 }
+
+// ------------------------------------------------------------------ Phase 3: circles, clips, stories
+const mkVideo = async (owner: string, source: string, title: string, secs = 6) => {
+  const id = crypto.randomUUID(); const prov = localProvider();
+  execFileSync('ffmpeg', ['-y', '-v', 'error', '-t', String(secs), '-f', 'lavfi', '-i', source, '-f', 'lavfi', '-i', `sine=frequency=${300 + Math.floor(Math.random() * 300)}:duration=${secs}`, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', prov.uploadPath(id) + '.mp4']);
+  fs.renameSync(prov.uploadPath(id) + '.mp4', prov.uploadPath(id));
+  await pool.query(`INSERT INTO videos(id,owner_id,provider,provider_video_id,title,status) VALUES ($1::uuid,$2,'local',$1::text,$3,'processing')`, [id, owner, title]);
+  const st = await prov.process(id, 90);
+  await pool.query(`UPDATE videos SET status=$2, duration_s=$3, width=$4, height=$5, ready_at=now() WHERE id=$1`, [id, st.status === 'ready' ? 'ready' : 'rejected', st.durationS ?? null, st.width ?? null, st.height ?? null]);
+  return id;
+};
+const mkCircle = async (name: string, slug: string, owner: string, o: { desc: string; cat: string; city: string; vis?: string; join?: string; rules?: string; commerce?: boolean }) => {
+  const pl = await place(o.city);
+  const g = (await pool.query(`INSERT INTO groups(slug,name,description,category,city,province,location,visibility,join_policy,rules,allow_commerce,member_count,created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,1,$12) RETURNING id`,
+    [slug, name, o.desc, o.cat, pl.city, pl.province, pl.location, o.vis ?? 'public', o.vis === 'private' ? 'approval' : o.join ?? 'open', o.rules ?? '', o.commerce ?? true, owner])).rows[0].id as string;
+  await pool.query(`INSERT INTO group_members(group_id,user_id,role,status) VALUES ($1,$2,'owner','active')`, [g, owner]);
+  return g;
+};
+const addMember = async (g: string, u: string, role = 'member', status = 'active') => {
+  await pool.query(`INSERT INTO group_members(group_id,user_id,role,status) VALUES ($1,$2,$3,$4)`, [g, u, role, status]);
+  if (status === 'active') await pool.query(`UPDATE groups SET member_count = member_count + 1 WHERE id=$1`, [g]);
+};
+const gpost = async (g: string, author: string, body: string, hours: number, o: { attach?: [string, string]; poll?: string[]; video?: string; pin?: boolean; priv?: boolean } = {}) => {
+  const p = (await pool.query(`INSERT INTO posts(author_id,group_id,kind,body,attachment_type,attachment_id,visibility,video_id,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8, now() - ($9 || ' hours')::interval) RETURNING id`,
+    [author, g, o.poll ? 'poll' : o.video ? 'video' : o.attach ? 'share' : 'text', body, o.attach?.[0] ?? null, o.attach?.[1] ?? null, o.priv ? 'group' : 'public', o.video ?? null, String(hours)])).rows[0].id as string;
+  for (const [i, t] of (o.poll ?? []).entries()) await pool.query(`INSERT INTO poll_options(post_id,text,position) VALUES ($1,$2,$3)`, [p, t, i]);
+  await pool.query(`INSERT INTO feed_items(item_type,item_id,author_id,group_id,visibility,status,created_at) VALUES ('post',$1,$2,$3,$4,'active', now() - ($5 || ' hours')::interval)`, [p, author, g, o.priv ? 'group' : 'public', String(hours)]);
+  if (o.pin) await pool.query(`INSERT INTO group_pins(group_id,post_id,pinned_by) SELECT $1,$2,user_id FROM group_members WHERE group_id=$1 AND role='owner'`, [g, p]);
+  return p;
+};
+
+const yycBuy = await mkCircle('Calgary Buy and Sell', 'calgary-buy-and-sell', calgaryLife, { desc: 'Buy, sell and swap with your Calgary neighbours. Be kind, be safe.', cat: 'Marketplace', city: 'Calgary', rules: '1. Be respectful.\n2. No scams, no prohibited items.\n3. Meet in public places.\n4. One listing per item, please.' });
+for (const [u, r] of [[amara, 'member'], [marcus, 'moderator'], [omar, 'member'], [owner, 'admin']] as const) await addMember(yycBuy, u, r);
+const yycFurn = await mkCircle('Calgary Furniture Marketplace', 'calgary-furniture-marketplace', owner, { desc: 'New, used and vintage furniture in and around Calgary.', cat: 'Furniture', city: 'Calgary' });
+for (const u of [amara, priya, marcus]) await addMember(yycFurn, u);
+const torCal = await mkCircle('Toronto to Calgary Transport', 'toronto-to-calgary-transport', daniel, { desc: 'Drivers and senders coordinating moves along the Toronto ⇄ Calgary corridor.', cat: 'Transport', city: 'Toronto', rules: 'Post real journeys and real requests. Agree prices clearly.' });
+for (const u of [omar, amara, marcus, priya]) await addMember(torCal, u);
+const biz2 = await mkCircle('Alberta Small Business Community', 'alberta-small-business', owner, { desc: 'Local business owners sharing tips, leads and events.', cat: 'Business', city: 'Calgary', join: 'approval' });
+await addMember(biz2, marcus); await addMember(biz2, lena, 'member', 'pending');
+const homeowners = await mkCircle('Calgary Homeowners', 'calgary-homeowners', amara, { desc: 'Private group for homeowners — renovations, trades and neighbourhood tips.', cat: 'Home', city: 'Calgary', vis: 'private' });
+await addMember(homeowners, marcus);
+await mkCircle('Canadian Road Trip Network', 'canadian-road-trip-network', daniel, { desc: 'Share routes, stops and spare space in the truck on long Canadian drives.', cat: 'Travel', city: 'Winnipeg' });
+
+const welcome = await gpost(yycBuy, calgaryLife, 'Welcome to Calgary Buy and Sell! Please read the rules above before posting. Happy trading 👋', 70, { pin: true });
+await gpost(yycBuy, amara, 'Selling my sofa this weekend — open to offers, delivery possible.', 3, { attach: ['listing', sofa] });
+await gpost(yycBuy, marcus, 'Quick poll: what is the best way to move a sofa across town?', 20, { poll: ['Pickup truck', 'Cargo van', 'Borrow a friend\'s SUV', 'Pay a mover'] });
+await gpost(torCal, daniel, 'Leaving Toronto Nov 28 → Calgary with space for boxes, tires and small furniture. Stopping in Winnipeg and Regina.', 9, { attach: ['journey', tor] });
+await gpost(torCal, omar, 'Looking for someone to carry four winter tires Winnipeg → Calgary this week.', 14, { attach: ['transport_request', (await pool.query(`SELECT id FROM transport_requests WHERE title LIKE 'Winter tires%' LIMIT 1`)).rows[0].id] });
+await gpost(homeowners, amara, 'Anyone recommend a good furnace technician? Ours is making a rattling noise.', 5, { priv: true });
+await pool.query(`UPDATE group_members SET status='active' WHERE group_id=$1 AND user_id=$2 AND status='pending' AND false`, [biz2, lena]);
+for (const [g, title, d, venue, host] of [[yycBuy, 'Community garage sale meetup', 5, 'Eau Claire Market', calgaryLife], [biz2, 'Small business networking night', 9, 'Beltline Co-working', owner], [torCal, 'Drivers & senders coffee chat', 12, 'Online', daniel]] as const) {
+  const pl = await place('Calgary');
+  const ev = (await pool.query(`INSERT INTO events(group_id,host_id,title,description,starts_at,city,province,location,venue) VALUES ($1,$2,$3,'Come say hi, meet your neighbours and trade.', $4, $5,$6,$7,$8) RETURNING id`, [g, host, title, day(d, 23), pl.city, pl.province, pl.location, venue])).rows[0].id;
+  await pool.query(`INSERT INTO event_rsvps(event_id,user_id,status) SELECT $1, user_id, 'going' FROM group_members WHERE group_id=$2 AND status='active' LIMIT 3`, [ev, g]);
+  await pool.query(`UPDATE events SET going_count = (SELECT count(*) FROM event_rsvps WHERE event_id=$1 AND status='going') WHERE id=$1`, [ev]);
+}
+
+// clips (real transcoded videos) tagged with a product, a journey and a service
+const clipSrc = ['gradients=s=540x960:speed=0.04', 'testsrc2=s=540x960:rate=24', 'mandelbrot=s=540x960:rate=24'];
+const clip = async (author: string, body: string, src: string, tag: [string, string], hours: number, group?: string) => {
+  const v = await mkVideo(author, src, body.slice(0, 40)); const pl = await place('Calgary');
+  const p = (await pool.query(`INSERT INTO posts(author_id,group_id,kind,body,attachment_type,attachment_id,video_id,view_count,location,created_at) VALUES ($1,$2,'video',$3,$4,$5,$6,$7,$8, now() - ($9 || ' hours')::interval) RETURNING id`,
+    [author, group ?? null, body, tag[0], tag[1], v, 100 + Math.floor(Math.random() * 900), group ? null : pl.location, String(hours)])).rows[0].id as string;
+  await pool.query(`INSERT INTO feed_items(item_type,item_id,author_id,group_id,status,location,created_at) VALUES ('post',$1,$2,$3,'active',(SELECT location FROM posts WHERE id=$1), now() - ($4 || ' hours')::interval)`, [p, author, group ?? null, String(hours)]);
+  return p;
+};
+const clipA = await clip(amara, 'Apartment move-out sale: the sofa goes first! DM me an offer or get it delivered.', clipSrc[0], ['listing', sofa], 4);
+await clip(daniel, 'Truck is packed and the route is set: Toronto → Calgary, Nov 28. Space for your boxes!', clipSrc[1], ['journey', tor], 7, torCal);
+await clip(marcus, 'Same-day furniture delivery around Calgary — I bring the straps and help carry.', clipSrc[2], ['transport_service', svc], 11);
+for (const [t, id, u] of [['post', clipA, marcus], ['post', clipA, omar], ['post', clipA, calgaryLife]] as const) { await pool.query(`INSERT INTO reactions(user_id,target_type,target_id) VALUES ($1,$2,$3)`, [u, t, id]); await pool.query(`UPDATE posts SET like_count = like_count + 1 WHERE id=$1`, [id]); }
+void welcome;
+
+// stories: expiry follows platform_settings story.expiry_hours (24h)
+const mkStory = async (author: string, o: { kind: string; text?: string; bg?: string; media?: string; link?: [string, string]; hoursAgo: number }) =>
+  (await pool.query(`INSERT INTO stories(author_id,kind,media_id,text_body,bg,link_type,link_id,expires_at,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7, now() + ($8 || ' hours')::interval, now() - ($9 || ' hours')::interval) RETURNING id`,
+    [author, o.kind, o.media ?? null, o.text ?? null, o.bg ?? null, o.link?.[0] ?? null, o.link?.[1] ?? null, String(24 - o.hoursAgo), String(o.hoursAgo)])).rows[0].id as string;
+await mkStory(calgaryLife, { kind: 'text', text: 'Chinook warning today ☀️ Expect wind and a 10°C jump by the afternoon.', bg: '#246BFD', hoursAgo: 2 });
+await mkStory(amara, { kind: 'photo', media: await image(amara, 'sofa', 0), link: ['listing', sofa], hoursAgo: 3 });
+await mkStory(daniel, { kind: 'text', text: 'Leaving Toronto Nov 28 — 480 kg of space left in the truck!', bg: '#13B9B0', hoursAgo: 5 });
+await mkStory(owner, { kind: 'text', text: 'Weekend sale: free delivery in Calgary over $500', bg: '#8E6CF5', link: ['business', biz], hoursAgo: 8 });
+await mkStory(marcus, { kind: 'text', text: 'Slots open for furniture delivery this Saturday', bg: '#F5A623', hoursAgo: 1 });
 
 await pool.query(`INSERT INTO banned_words(term,severity) VALUES ('counterfeit','block'),('western union','flag'),('wire transfer only','flag')`);
 await pool.query(`UPDATE fee_rules SET percent_bps=500 WHERE scope='product_sale'`);

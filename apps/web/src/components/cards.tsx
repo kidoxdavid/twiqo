@@ -5,6 +5,7 @@ import { api } from '../api';
 import { useAuth } from '../auth';
 import { Icon } from './Icon';
 import { useToast } from './Toast';
+import { InlineVideo, PollBox } from './media';
 import { Avatar, CONDITIONS, Menu, Modal, ReportDialog, State, Verified, ago, errMsg, money } from './ui';
 
 export function useRequireAuth() {
@@ -92,12 +93,14 @@ export function PostCard({ p, onRemoved }: { p: any; onRemoved?: () => void }) {
       <div className="who">
         <Link to={p.business ? `/b/${p.business.slug}` : `/u/${p.author.username}`}><Avatar user={p.author} /></Link>
         <div><b><Link to={p.business ? `/b/${p.business.slug}` : `/u/${p.author.username}`}>{name}</Link> {(p.business?.verified || (!p.business && p.author.verification_level === 'identity')) && <Verified />}</b>
-          <div className="muted sm">{ago(p.created_at)}{p.location ? ` · ${p.location.city}, ${p.location.province}` : ''}{p.visibility !== 'public' ? ` · ${p.visibility === 'followers' ? 'Followers' : 'Only me'}` : ''}{p.status === 'pending' ? ' · Under review' : ''}</div></div>
+          <div className="muted sm">{ago(p.created_at)}{p.location ? ` · ${p.location.city}, ${p.location.province}` : ''}{p.visibility === 'followers' ? ' · Followers' : p.visibility === 'private' ? ' · Only me' : ''}{p.status === 'pending' ? ' · Under review' : ''}{p.group && <> · in <Link to={`/c/${p.group.slug}`} style={{ color: 'var(--blue)', fontWeight: 700 }}>{p.group.name}</Link></>}</div></div>
         <span className="sp" />
         <Menu items={[...(mine ? [{ label: 'Delete post', onClick: async () => { if (!confirm('Delete this post?')) return; try { await api(`/posts/${p.id}`, { method: 'DELETE' }); toast('Post deleted'); onRemoved?.(); } catch (e) { toast(errMsg(e), 'err'); } } }] : [{ label: 'Report post', onClick: () => guard(() => setReport(true)) }]),
           ...(!mine ? [{ label: `Go to ${p.author.display_name}`, onClick: () => nav(`/u/${p.author.username}`) }] : [])]} />
       </div>
       {p.body && <div className="body">{p.body}</div>}
+      {p.poll && <PollBox post={p} />}
+      {p.video && <InlineVideo video={p.video} />}
       {g > 0 && <div className={`gallery g${g}`}>{p.media.slice(0, 4).map((m: any) => <img key={m.id} src={g === 1 ? m.url : m.thumb_url} alt="" loading="lazy" />)}</div>}
       {p.attachment?.listing && <ListingMini l={p.attachment.listing} />}
       {p.attachment?.request && <Link to={`/r/${p.attachment.id}`} className="attach"><div className="tx"><b>{p.attachment.request.title}</b><span className="muted sm">{p.attachment.request.origin.city} → {p.attachment.request.destination.city} · needs a driver</span></div><Icon name="back" className="muted" /></Link>}

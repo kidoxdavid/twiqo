@@ -184,7 +184,7 @@ erDiagram
 |---|---|---|
 | 1 Foundation | Auth, profiles, business profiles, navigation, feed, posts/photos, listings, search, follow, likes/comments, basic messaging, admin foundations | **Done** |
 | 2 Transport | Requests, journeys, services, matching, negotiation (offers), booking, transporter profiles, reviews | Planned |
-| 3 Communities & video | Circles + permissions, Clips, Stories, media processing | Planned |
+| 3 Communities & video | Circles + permissions, Clips, Stories, media processing | **Done** |
 | 4 Transactions & money | Payments, commissions, payouts, premium listings, promotions, PIN confirmations, disputes, advanced admin | Planned |
 | 5 Growth | Recommendations, trending, subscriptions, referrals, analytics, perf, i18n/international | Planned |
 
@@ -209,3 +209,13 @@ The schema in `apps/api/migrations` is written so later phases add tables and mo
 **Concurrency.** Locks are always taken in the order shared subject (listing or shipment) → offer → carrier (journey or service), with non-key locks so unrelated foreign-key inserts never block. Concurrent accepts therefore serialise instead of deadlocking (a real deadlock found by the test suite and fixed). A partial unique index allows only one live booking per shipment, and `CHECK` constraints stop capacity going negative.
 
 **Privacy.** Public objects expose city-level places only. Exact addresses live in `booking_addresses`. Pickup and delivery PINs are shown to the shipper and entered by the transporter; failures are recorded outside the request transaction so lockouts cannot be rolled back.
+
+## 8. Phase 3 design notes
+
+**Video behind an interface.** `VideoProvider` (`createUpload`, `refresh`, `urls`, `remove`) is the only thing the app knows about video. `LocalVideoProvider` streams the upload to disk and runs FFmpeg (720p H.264/AAC, faststart, poster frame). `BunnyVideoProvider` creates the video through Bunny's API and hands the browser a signed TUS upload, so large files never pass through our servers and the API key never reaches the client. Each `videos` row remembers its provider, so providers can be switched without breaking old videos. The webhook never trusts its payload; it re-reads the real status from the provider.
+
+**Posts wait for their video.** A clip is created immediately but is kept out of every feed until its video is `ready`; if processing fails the post is removed. Circle posts in private circles carry `visibility = 'group'`, so one `visibleTo` rule hides them from everyone but active members, and re-labelling happens when a circle changes visibility.
+
+**Circles.** Roles are ranks; every action checks rank, never just membership. A partial unique index guarantees one owner. Private circles return 404 to outsiders (no existence leak). Moderator removals write both `moderation_actions` (with the reason) and the audit log.
+
+**A lesson worth recording.** Zod 4 keeps `.default()` values inside `.partial()`, so PATCH endpoints built from create schemas silently reset untouched fields (it would have wiped listing photos and made private requests public). All update endpoints now use `patchOf()` and regression tests pin the behaviour.

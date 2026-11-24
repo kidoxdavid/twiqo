@@ -39,7 +39,7 @@ Sign in with any seeded user (`admin`, `moderator`, `amara`, `marcus`, `daniel`,
 ### Tests
 
 ```bash
-npm test                 # 102 integration tests against the real test database (TEST_DATABASE_URL to override)
+npm test                 # 138 integration tests against the real test database (TEST_DATABASE_URL to override)
 npm run typecheck
 ```
 
@@ -65,13 +65,33 @@ Web: `VITE_API_URL` (optional) points the SPA at a different API origin; by defa
 | Payments & payouts | Not built (Phase 4). Fee rules already live in the database; offers and bookings record agreed prices only | Stripe Connect (Canada) account + legal review of marketplace/KYC terms |
 | Map tiles & geocoding | Route preview is a schematic drawing; city list is built in (72 Canadian cities) | Map/geocoding provider key for street-level maps and every city |
 | Object storage & CDN | Local disk behind `StorageProvider` | S3-compatible bucket + CDN |
-| Video | Not built (Phase 3) | Transcoding provider or FFmpeg workers |
+| Video | Works with built-in FFmpeg today; Bunny Stream adapter included | Bunny account: Library ID, API key, CDN hostname (see below) |
 | Identity / business verification | Badge fields exist; granting is admin-manual | Provider (Stripe Identity / Persona) if automated |
 | Email / push | Not built | Postmark/SES, FCM/APNs credentials |
 | Trademark | **Not cleared** | CIPO search for "TWIQO", domains and handles |
 
+## Video: Bunny Stream setup
+
+Videos use the local FFmpeg provider by default (fine for development and small scale). To use [Bunny Stream](https://bunny.net/stream/):
+
+1. In the Bunny dashboard create a **Stream library**. Note its **Library ID**, the library **API key**, and the **CDN hostname** (looks like `vz-xxxxxxxx-xxx.b-cdn.net`).
+2. In the library settings enable the **MP4 fallback** (used when HLS is unavailable) and add your site's domain to the allowed referrers.
+3. Put the values in `apps/api/.env`:
+   ```
+   VIDEO_PROVIDER=bunny
+   BUNNY_LIBRARY_ID=...
+   BUNNY_API_KEY=...
+   BUNNY_CDN_HOSTNAME=vz-xxxxxxxx-xxx.b-cdn.net
+   BUNNY_WEBHOOK_SECRET=<any long random string>
+   ```
+4. Check the credentials (creates and deletes a throwaway video): `npm run video:check -w apps/api`
+5. In the library's **Webhooks** setting add `https://<your-api>/api/videos/webhook/bunny?secret=<BUNNY_WEBHOOK_SECRET>`. Without it the app still works: it checks Bunny for the status when the uploader's page polls.
+
+The adapter follows Bunny's documented API and is tested against a mocked HTTP server; confirm it with your own account before launch. Uploads go from the browser straight to Bunny (resumable TUS), so large files never pass through this server.
+
 ## Honest scope notes
 
-* Groups (Circles), stories, video (Clips) and payments are **not implemented yet**; the UI marks them as coming soon rather than faking them.
+* Payments are **not implemented yet** (Phase 4); the UI says so plainly instead of faking it.
+* Circles, Clips, Stories, polls and events **are implemented** (Phase 3). The Bunny Stream adapter is written but has not been run against a live Bunny account.
 * Offers, transport requests, journeys, services, matching, bookings with PIN confirmation and reviews **are implemented** (Phase 2). Payment between people happens outside TWIQO for now.
 * TWIQO makes **no escrow or insurance claims**. Listing pages say funds are not held and that insurance depends on the transporter.

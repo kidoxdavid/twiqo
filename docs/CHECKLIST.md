@@ -57,8 +57,25 @@ Legend: ✅ done and tested · 🟡 partial · ⬜ not started
 | Map tiles / geocoding | ⬜ | route preview is schematic; needs a map provider key |
 | Disputes, refunds, payments | ⬜ | Phase 4 — UI states plainly that funds are not held |
 
-## Phase 3 — Communities and video ⬜
-Circles + permissions · Clips · Stories · media processing.
+## Phase 3 — Communities and video (done)
+
+| Area | Status | Notes |
+|---|---|---|
+| Circles (groups) | ✅ | public / private (invisible to outsiders), open / approval / invite, rules, categories, location, cover, discover + search |
+| Roles | ✅ | owner > admin > moderator > member, enforced hierarchy, ownership transfer, exactly one owner (database-enforced) |
+| Membership flow | ✅ | join, request, approve / decline, invite, accept, leave, remove, ban |
+| Circle content | ✅ | posts, photos, polls, clips, shared listings / journeys / requests / services (live records, not copies), pinned posts (max 3), group feed |
+| Circle moderation | ✅ | moderators remove posts with a recorded reason, posting rules (members / moderators only), commerce on/off, platform admins can take down circles |
+| Events | ✅ | create, RSVP, cancel with notifications, reminders, discover nearby |
+| Polls | ✅ | 2–6 options, one vote each, closing time, live results |
+| Clips (short video) | ✅ | vertical snap-scroll player, autoplay on screen, sound toggle, like / comment / save / share / follow / report, product / journey / service tags, view counts, For You / Following / Nearby |
+| Clip ranking | ✅ | configurable weights; capped engagement; brand-new accounts only reach followers (spam guard) |
+| Stories | ✅ | text / photo / video, 24 h (admin-configurable), followers-only option, product / business links, tray with unseen ring, viewers visible to the author only |
+| Video pipeline | ✅ | provider interface; FFmpeg provider transcodes to 720p H.264 + poster; size and length limits enforced server-side |
+| Bunny Stream adapter | 🟡 | written to Bunny's documented API (TUS upload, status, HLS playback, webhook that re-verifies status), tested against a mocked API. **Not yet run against a live Bunny account** — use `npm run video:check` |
+| Audio captions / subtitles | ⬜ | clips have a text caption only |
+| Signed / private video URLs | ⬜ | clip URLs are unguessable but public |
+| Tests | ✅ | 138 API integration tests (Circles, roles, privacy, polls, stories, real FFmpeg uploads, Bunny adapter with mocked HTTP) + browser walkthrough |
 
 ## Phase 4 — Transactions and monetization ⬜
 Payments (Stripe Connect) · commissions from `fee_rules` · payouts · premium listings · promotions · disputes · refunds.

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
 import { useAuth } from '../auth';
@@ -10,25 +10,40 @@ import { ApiError } from '../api';
 function useBusinesses() { return useQuery({ queryKey: ['mybiz'], queryFn: () => api('/me/businesses') }); }
 
 export function CreatePost() {
-  const nav = useNavigate(); const toast = useToast(); const qc = useQueryClient(); const { me } = useAuth();
+  const nav = useNavigate(); const toast = useToast(); const qc = useQueryClient(); const { me } = useAuth(); const [sp] = useSearchParams();
   const biz = useBusinesses();
-  const [body, setBody] = useState(''); const [media, setMedia] = useState<Uploaded[]>([]); const [vis, setVis] = useState('public'); const [asBiz, setAsBiz] = useState(''); const [busy, setBusy] = useState(false); const [err, setErr] = useState<string | null>(null);
+  const circles = useQuery({ queryKey: ['mycircles'], queryFn: () => api('/circles', { query: { mine: 1, limit: 50 } }) });
+  const joined = (circles.data?.items ?? []).filter((c: any) => c.viewer?.status === 'active');
+  const [poll, setPoll] = useState(sp.get('poll') === '1'); const [options, setOptions] = useState(['', '']); const [hours, setHours] = useState(24);
+  const [body, setBody] = useState(''); const [media, setMedia] = useState<Uploaded[]>([]); const [vis, setVis] = useState('public'); const [asBiz, setAsBiz] = useState(''); const [circle, setCircle] = useState(sp.get('circle') ?? '');
+  const [busy, setBusy] = useState(false); const [err, setErr] = useState<string | null>(null);
+  const opts = options.map((o) => o.trim()).filter(Boolean);
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setErr(null);
-    try { await api('/posts', { body: { kind: media.length ? 'photo' : 'text', body: body.trim() || undefined, media_ids: media.map((m) => m.id), visibility: vis, business_id: asBiz || undefined } }); qc.invalidateQueries({ queryKey: ['feed'] }); toast('Posted!'); nav('/'); }
-    catch (x) { setErr(errMsg(x)); setBusy(false); }
+    try {
+      await api('/posts', { body: poll
+        ? { kind: 'poll', body: body.trim(), poll: { options: opts, closes_in_hours: hours }, visibility: vis, business_id: asBiz || undefined, group_id: circle || undefined }
+        : { kind: media.length ? 'photo' : 'text', body: body.trim() || undefined, media_ids: media.map((m) => m.id), visibility: vis, business_id: asBiz || undefined, group_id: circle || undefined } });
+      qc.invalidateQueries({ queryKey: ['feed'] }); qc.invalidateQueries({ queryKey: ['cposts'] }); toast('Posted!'); nav(circle ? `/c/${joined.find((c: any) => c.id === circle)?.slug ?? ''}` : '/');
+    } catch (x) { setErr(errMsg(x)); setBusy(false); }
   }
   return (
-    <main className="main"><h1 className="page">New post</h1>
+    <main className="main"><h1 className="page">{poll ? 'New poll' : 'New post'}</h1>
       <form className="card pad col" style={{ margin: '0 16px' }} onSubmit={submit}>
-        <div className="field"><label htmlFor="b">What's happening{me ? `, ${me.display_name.split(' ')[0]}` : ''}?</label><textarea id="b" className="input" maxLength={5000} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Share something with your community…" /></div>
-        <div className="field"><label>Photos</label><ImageUploader value={media} onChange={setMedia} max={10} /></div>
+        <div className="field"><label htmlFor="b">{poll ? 'Your question' : `What's happening${me ? `, ${me.display_name.split(' ')[0]}` : ''}?`}</label><textarea id="b" className="input" maxLength={poll ? 280 : 5000} value={body} onChange={(e) => setBody(e.target.value)} placeholder={poll ? 'Ask your community something…' : 'Share something with your community…'} /></div>
+        {poll ? <div className="col" style={{ gap: 8 }}>
+          {options.map((o, i) => <div key={i} className="row"><input className="input" aria-label={`Option ${i + 1}`} placeholder={`Option ${i + 1}`} maxLength={80} value={o} onChange={(e) => setOptions(options.map((x, k) => (k === i ? e.target.value : x)))} />{options.length > 2 && <button type="button" className="btn soft sm" aria-label={`Remove option ${i + 1}`} onClick={() => setOptions(options.filter((_, k) => k !== i))}>✕</button>}</div>)}
+          {options.length < 6 && <button type="button" className="btn soft sm" style={{ alignSelf: 'flex-start' }} onClick={() => setOptions([...options, ''])}>+ Add option</button>}
+          <div className="field"><label htmlFor="ph">Poll closes after</label><select id="ph" className="input" value={hours} onChange={(e) => setHours(+e.target.value)}>{[[1, '1 hour'], [24, '1 day'], [72, '3 days'], [168, '1 week'], [720, '30 days']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div></div>
+          : <div className="field"><label>Photos</label><ImageUploader value={media} onChange={setMedia} max={10} /></div>}
         <div className="row wrap">
-          <div className="field" style={{ flex: 1 }}><label htmlFor="v">Who can see this?</label><select id="v" className="input" value={vis} onChange={(e) => setVis(e.target.value)}><option value="public">Everyone</option><option value="followers">Followers</option><option value="private">Only me</option></select></div>
-          {biz.data?.items.length > 0 && <div className="field" style={{ flex: 1 }}><label htmlFor="as">Post as</label><select id="as" className="input" value={asBiz} onChange={(e) => setAsBiz(e.target.value)}><option value="">Me</option>{biz.data.items.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>}
+          {joined.length > 0 && <div className="field" style={{ flex: 1, minWidth: 160 }}><label htmlFor="ci">Post in</label><select id="ci" className="input" value={circle} onChange={(e) => setCircle(e.target.value)}><option value="">My profile</option>{joined.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>}
+          {!circle && <div className="field" style={{ flex: 1, minWidth: 160 }}><label htmlFor="v">Who can see this?</label><select id="v" className="input" value={vis} onChange={(e) => setVis(e.target.value)}><option value="public">Everyone</option><option value="followers">Followers</option><option value="private">Only me</option></select></div>}
+          {!circle && biz.data?.items.length > 0 && <div className="field" style={{ flex: 1, minWidth: 160 }}><label htmlFor="as">Post as</label><select id="as" className="input" value={asBiz} onChange={(e) => setAsBiz(e.target.value)}><option value="">Me</option>{biz.data.items.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>}
         </div>
+        <label className="row sm"><input type="checkbox" checked={poll} onChange={(e) => setPoll(e.target.checked)} /> Make this a poll</label>
         {err && <div className="err" role="alert">{err}</div>}
-        <button className="btn" disabled={busy || (!body.trim() && !media.length)}>{busy ? 'Posting…' : 'Post'}</button>
+        <button className="btn" disabled={busy || (poll ? !body.trim() || opts.length < 2 : !body.trim() && !media.length)}>{busy ? 'Posting…' : 'Post'}</button>
       </form>
     </main>
   );

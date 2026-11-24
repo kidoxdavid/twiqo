@@ -17,24 +17,27 @@ import { Move, JourneyPage, RequestPage, ServicePage } from './pages/Move';
 import { CreateRequest, CreateJourney, CreateService } from './pages/CreateTransport';
 import { Offers, Bookings, BookingPage, OrderPage } from './pages/Deals';
 import { Admin } from './pages/Admin';
+import { Clips } from './pages/Clips';
+import { CreateClip, CreateStory } from './pages/CreateMedia';
+import { Circles, CreateCircle, CirclePage } from './pages/Circles';
 
 function CreateSheet({ onClose }: { onClose: () => void }) {
   const items: [string, string, string, string, string?][] = [
     ['/create/post', 'Post', 'Share a photo or thought', 'img', 'var(--blue)'],
     ['/create/listing', 'Sell something', 'List almost anything lawful', 'bag', 'var(--amber)'],
+    ['/create/clip', 'Clip', 'Short vertical video', 'film', '#8E6CF5'],
+    ['/create/story', 'Story', 'Gone in 24 hours', 'camera', '#5B6784'],
+    ['/create/post?poll=1', 'Poll', 'Ask your community', 'chat', '#2FA45F'],
+    ['/create/circle', 'Start a circle', 'Build a community', 'users', '#F76B6B'],
     ['/create/request', 'Find someone to move it', 'Post a transport request', 'box', 'var(--teal)'],
     ['/create/journey', 'Offer a journey', 'Earn on a trip you\'re making', 'route', 'var(--navy)'],
     ['/create/service', 'Offer a delivery service', 'Truck, van or courier', 'truck', '#F76B6B'],
     ['/business/new', 'Business page', 'Set up a storefront', 'users', '#8E6CF5'],
   ];
-  const soon: [string, string, string, string][] = [
-    ['Clip', 'Short video · coming soon', 'film', '#8E6CF5'], ['Start a community', 'Circles · coming soon', 'users', '#F76B6B'],
-  ];
   return (
     <Modal onClose={onClose} title="What do you want to do?">
       <div className="cg">
         {items.map(([to, t, d, ic, bg]) => <Link key={to} to={to} onClick={onClose}><span className="ic" style={{ background: bg }}><Icon name={ic} /></span>{t}<small>{d}</small></Link>)}
-        {soon.map(([t, d, ic, bg]) => <div key={t} className="dis" aria-disabled="true" style={{ border: '1.5px dashed var(--line)', borderRadius: 20, padding: 14, display: 'flex', flexDirection: 'column', gap: 8, fontWeight: 700, fontSize: 14 }}><span className="ic" style={{ background: bg, width: 42, height: 42, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}><Icon name={ic} /></span>{t}<small style={{ fontWeight: 500, fontSize: 11.5, color: 'var(--ink2)' }}>{d}</small></div>)}
       </div>
     </Modal>
   );
@@ -70,6 +73,7 @@ function Shell({ children }: { children: React.ReactNode }) {
           <Icon name="search" /><input aria-label="Search the market" placeholder="Search listings…" value={q} onChange={(e) => setQ(e.target.value)} />
         </form>
         <div className="row" style={{ gap: 2 }}>
+          <Link to="/clips" className="iconbtn" aria-label="Clips"><Icon name="film" /></Link>
           <Link to="/search" className="iconbtn" aria-label="Find people"><Icon name="users" /></Link>
           {me && <><Link to="/messages" className="iconbtn" aria-label="Messages"><Icon name="chat" />{unread.data?.messages > 0 && <span className="badge">{unread.data.messages}</span>}</Link>
             <Link to="/notifications" className="iconbtn" aria-label="Notifications"><Icon name="bell" />{unread.data?.notifications > 0 && <span className="badge">{unread.data.notifications}</span>}</Link>
@@ -94,6 +98,7 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<AuthPage />} />
+      <Route path="/clips" element={<Clips />} />
       <Route path="*" element={
         <Shell>
           <Routes>
@@ -103,6 +108,11 @@ export function App() {
             <Route path="/l/:id" element={<ListingDetail />} />
             <Route path="/create/post" element={<Private><CreatePost /></Private>} />
             <Route path="/create/listing" element={<Private><CreateListing /></Private>} />
+            <Route path="/circles" element={<Circles />} />
+            <Route path="/c/:slug" element={<CirclePage />} />
+            <Route path="/create/circle" element={<Private><CreateCircle /></Private>} />
+            <Route path="/create/clip" element={<Private><CreateClip /></Private>} />
+            <Route path="/create/story" element={<Private><CreateStory /></Private>} />
             <Route path="/move" element={<Move />} />
             <Route path="/j/:id" element={<JourneyPage />} />
             <Route path="/r/:id" element={<RequestPage />} />
