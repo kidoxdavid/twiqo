@@ -6,6 +6,7 @@ import { useAuth } from '../auth';
 import { Comments, ListingCard, shareLink, useRequireAuth, useToggle } from '../components/cards';
 import { Icon } from '../components/Icon';
 import { useToast } from '../components/Toast';
+import { OfferDialog } from '../components/transport';
 import { Avatar, CONDITIONS, Menu, ReportDialog, State, Verified, ago, errMsg, money } from '../components/ui';
 
 export function Market() {
@@ -48,7 +49,7 @@ export function Market() {
 
 export function ListingDetail() {
   const { id } = useParams(); const nav = useNavigate(); const { me } = useAuth(); const toast = useToast(); const guard = useRequireAuth();
-  const [img, setImg] = useState(0); const [report, setReport] = useState(false);
+  const [img, setImg] = useState(0); const [report, setReport] = useState(false); const [offer, setOffer] = useState(false);
   const q = useQuery({ queryKey: ['listing', id], queryFn: () => api(`/listings/${id}`) });
   const l = q.data;
   const like = useToggle('reactions', 'listing', id!, l?.viewer.liked ?? false, l?.counts.likes ?? 0);
@@ -79,17 +80,22 @@ export function ListingDetail() {
               {l.status === 'active' && <><button className="btn teal" onClick={() => setStatus('sold')}>Mark as sold</button><button className="btn soft" onClick={() => setStatus('reserved')}>Reserve</button></>}
               {['reserved', 'sold'].includes(l.status) && <button className="btn" onClick={() => setStatus('active')}>Relist</button>}
               <button className="btn ghost" onClick={async () => { if (confirm('Remove this listing?')) { try { await api(`/listings/${id}`, { method: 'DELETE' }); nav('/market'); } catch (e) { toast(errMsg(e), 'err'); } } }}>Remove</button>
-            </> : <button className="btn" style={{ flex: 1 }} onClick={() => guard(() => nav(`/messages/new?to=${l.seller.id}&listing=${l.id}`))}><Icon name="chat" />Message seller</button>}
+              <Link className="btn soft" to="/offers">View offers</Link>
+            </> : <>
+              {l.status === 'active' && <button className="btn" style={{ flex: 1 }} onClick={() => guard(() => setOffer(true))}>{l.price_type === 'fixed' ? 'Buy at listed price' : l.price_type === 'free' ? 'Ask for it' : 'Make offer'}</button>}
+              <button className="btn ghost" onClick={() => guard(() => nav(`/messages/new?to=${l.seller.id}&listing=${l.id}`))}><Icon name="chat" />Message</button>
+              {l.status === 'active' && <button className="btn teal" onClick={() => guard(() => nav(`/create/request?listing=${l.id}`))}><Icon name="truck" />Get it moved</button>}</>}
             <button className={`btn soft ${like.on ? '' : ''}`} onClick={like.toggle} aria-pressed={like.on} aria-label="Like"><Icon name="heart" fill={like.on} />{like.count}</button>
             <button className="btn soft" onClick={save.toggle} aria-pressed={save.on} aria-label="Save"><Icon name="save" fill={save.on} /></button>
             <button className="btn soft" onClick={() => shareLink(`/l/${l.id}`, l.title, toast)} aria-label="Share"><Icon name="share" /></button>
             {!mine && <Menu items={[{ label: 'Report listing', onClick: () => guard(() => setReport(true)) }]} />}
           </div>
-          <div className="muted sm">Meet in a public place and never send money before you've seen the item. TWIQO does not hold funds for these listings yet.</div>
+          <div className="muted sm">Meet in a public place and never send money before you've seen the item. TWIQO doesn't hold funds yet — agree payment directly.</div>
           <h2 className="sec" style={{ marginTop: 14 }}>Questions &amp; comments</h2>
           <Comments target={{ type: 'listing', id: l.id }} />
         </div>
       </div>
+      {offer && <OfferDialog target={{ kind: 'goods', listing: l }} onClose={() => setOffer(false)} />}
       {report && <ReportDialog target={{ type: 'listing', id: l.id }} onClose={() => setReport(false)} />}
     </main>
   );

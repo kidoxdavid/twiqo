@@ -39,7 +39,7 @@ Sign in with any seeded user (`admin`, `moderator`, `amara`, `marcus`, `daniel`,
 ### Tests
 
 ```bash
-npm test                 # 50 integration tests against the real test database (TEST_DATABASE_URL to override)
+npm test                 # 102 integration tests against the real test database (TEST_DATABASE_URL to override)
 npm run typecheck
 ```
 
@@ -62,7 +62,8 @@ Web: `VITE_API_URL` (optional) points the SPA at a different API origin; by defa
 
 | Area | Status | Needed |
 |---|---|---|
-| Payments & payouts | Not built (Phase 4). Fee rules already live in the database | Stripe Connect (Canada) account + legal review of marketplace/KYC terms |
+| Payments & payouts | Not built (Phase 4). Fee rules already live in the database; offers and bookings record agreed prices only | Stripe Connect (Canada) account + legal review of marketplace/KYC terms |
+| Map tiles & geocoding | Route preview is a schematic drawing; city list is built in (72 Canadian cities) | Map/geocoding provider key for street-level maps and every city |
 | Object storage & CDN | Local disk behind `StorageProvider` | S3-compatible bucket + CDN |
 | Video | Not built (Phase 3) | Transcoding provider or FFmpeg workers |
 | Identity / business verification | Badge fields exist; granting is admin-manual | Provider (Stripe Identity / Persona) if automated |
@@ -71,5 +72,6 @@ Web: `VITE_API_URL` (optional) points the SPA at a different API origin; by defa
 
 ## Honest scope notes
 
-* Offers, bookings, transport, groups, stories, video and payments are **not implemented yet**; the UI marks them as coming soon rather than faking them.
+* Groups (Circles), stories, video (Clips) and payments are **not implemented yet**; the UI marks them as coming soon rather than faking them.
+* Offers, transport requests, journeys, services, matching, bookings with PIN confirmation and reviews **are implemented** (Phase 2). Payment between people happens outside TWIQO for now.
 * TWIQO makes **no escrow or insurance claims**. Listing pages say funds are not held and that insurance depends on the transporter.

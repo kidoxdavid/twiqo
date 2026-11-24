@@ -149,6 +149,72 @@ for (const [s, b, m] of [[marcus, 'Hi! Is the sofa still available?', 50], [amar
 await pool.query(`UPDATE conversations SET last_message_at = now() - interval '10 minutes' WHERE id=$1`, [conv]);
 await pool.query(`UPDATE conversation_members SET last_read_at = now() WHERE conversation_id=$1 AND user_id=$2`, [conv, marcus]);
 
+// ------------------------------------------------------------------ Phase 2: transport
+const pt = async (city: string) => (await pool.query(`SELECT city, province, ST_X(location::geometry) AS lng, ST_Y(location::geometry) AS lat FROM places WHERE city=$1`, [city])).rows[0];
+const day = (n: number, h = 12) => { const d = new Date(Date.now() + n * 864e5); d.setUTCHours(h, 0, 0, 0); return d.toISOString(); };
+const ymd = (n: number) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+const mkJourney = async (driver: string, cities: string[], dep: number, o: { vehicle: string; kg: number; m3: number; price: number; type?: string; detour?: number; desc: string; restr?: string[]; loading?: boolean; arrive?: number }) => {
+  const ps = await Promise.all(cities.map(pt)); const a = ps[0], z = ps[ps.length - 1];
+  const wkt = `SRID=4326;LINESTRING(${ps.map((q) => `${q.lng} ${q.lat}`).join(', ')})`;
+  const j = (await pool.query(
+    `INSERT INTO journeys(driver_id,description,origin_city,origin_province,origin,dest_city,dest_province,dest,waypoints,route,distance_km,max_detour_km,departure_at,arrival_at,vehicle_type,capacity_kg,capacity_m3,remaining_kg,remaining_m3,
+       max_length_cm,max_width_cm,max_height_cm,item_restrictions,price_cents,price_type,pickup_preferences,delivery_preferences,helps_loading)
+     VALUES ($1,$2,$3,$4,ST_SetSRID(ST_MakePoint($5,$6),4326)::geography,$7,$8,ST_SetSRID(ST_MakePoint($9,$10),4326)::geography,$11,ST_GeogFromText($12),round(ST_Length(ST_GeogFromText($12))/1000),$13,$14,$15,$16,$17,$18,$17,$18,240,180,110,$19,$20,$21,'Pickup in the evening or weekend works best','Delivery to the door in city limits',$22) RETURNING id, location`.replace('RETURNING id, location','RETURNING id'),
+    [driver, o.desc, a.city, a.province, a.lng, a.lat, z.city, z.province, z.lng, z.lat, JSON.stringify(ps.slice(1, -1)), wkt, o.detour ?? 20, day(dep), o.arrive ? day(o.arrive, 20) : null, o.vehicle, o.kg, o.m3, o.restr ?? [], o.price, o.type ?? 'negotiable', o.loading ?? false])).rows[0].id as string;
+  await pool.query(`INSERT INTO feed_items(item_type,item_id,author_id,status,location,created_at) VALUES ('journey',$1,$2,'active',(SELECT origin FROM journeys WHERE id=$1), now() - interval '5 hours')`, [j, driver]);
+  return j;
+};
+const mkRequest = async (req: string, o: { title: string; cat: string; kg: number; qty?: number; dims?: [number, number, number]; from: string; to: string; fromDay: number; toDay: number; budget?: number; desc?: string; status?: string; fragile?: boolean; help?: boolean; listing?: string; area?: string }) => {
+  const a = await pt(o.from), z = await pt(o.to);
+  const r = (await pool.query(
+    `INSERT INTO transport_requests(requester_id,linked_listing_id,title,description,item_category,quantity,weight_kg,length_cm,width_cm,height_cm,fragile,needs_loading_help,origin_city,origin_province,origin,pickup_area,dest_city,dest_province,dest,pickup_from,pickup_to,budget_cents,status)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,ST_SetSRID(ST_MakePoint($15,$16),4326)::geography,$17,$18,$19,ST_SetSRID(ST_MakePoint($20,$21),4326)::geography,$22,$23,$24,$25) RETURNING id`,
+    [req, o.listing ?? null, o.title, o.desc ?? '', o.cat, o.qty ?? 1, o.kg, o.dims?.[0] ?? null, o.dims?.[1] ?? null, o.dims?.[2] ?? null, o.fragile ?? false, o.help ?? false, a.city, a.province, a.lng, a.lat, o.area ?? null, z.city, z.province, z.lng, z.lat, ymd(o.fromDay), ymd(o.toDay), o.budget ?? null, o.status ?? 'open'])).rows[0].id as string;
+  if ((o.status ?? 'open') === 'open') await pool.query(`INSERT INTO feed_items(item_type,item_id,author_id,status,location,created_at) VALUES ('transport_request',$1,$2,'active',(SELECT origin FROM transport_requests WHERE id=$1), now() - interval '9 hours')`, [r, req]);
+  return r;
+};
+
+const tor = await mkJourney(daniel, ['Toronto', 'Thunder Bay', 'Winnipeg', 'Regina', 'Calgary'], 4, { vehicle: 'pickup_truck', kg: 600, m3: 4, price: 8500, arrive: 7, loading: true, desc: 'Driving my truck from Toronto to Calgary. Room for boxes, tires, small furniture and bikes. Happy to stop in Winnipeg or Regina.' });
+const van = await mkJourney(daniel, ['Calgary', 'Kamloops', 'Vancouver'], 14, { vehicle: 'pickup_truck', kg: 500, m3: 3, price: 12000, type: 'fixed', arrive: 16, desc: 'Return trip Calgary → Vancouver. Fixed price per item up to 500 kg.' });
+await mkJourney(omar, ['Calgary', 'Red Deer', 'Edmonton'], 2, { vehicle: 'cargo_van', kg: 900, m3: 9, price: 6000, detour: 30, arrive: 2, restr: ['fragile'], desc: 'Weekly Calgary → Edmonton run in a cargo van. Not suitable for fragile items.' });
+const svc = (await pool.query(
+  `INSERT INTO transport_services(provider_id,title,description,vehicle_type,service_city,service_province,service_center,service_radius_km,intercity,capacity_kg,max_length_cm,max_width_cm,max_height_cm,helps_loading,pricing_model,price_cents,price_type)
+   VALUES ($1,'Pickup truck furniture delivery','Same-day furniture and appliance delivery around Calgary. I bring straps and blankets and can help carry.','pickup_truck','Calgary','AB',(SELECT location FROM places WHERE city='Calgary'),40,false,800,250,180,100,true,'flat',7500,'negotiable') RETURNING id`, [marcus])).rows[0].id as string;
+await pool.query(`INSERT INTO feed_items(item_type,item_id,author_id,status,location,created_at) VALUES ('transport_service',$1,$2,'active',(SELECT service_center FROM transport_services WHERE id=$1), now() - interval '20 hours')`, [svc, marcus]);
+
+const sofaReq = await mkRequest(amara, { title: 'Move my sofa to Airdrie', cat: 'furniture', kg: 55, dims: [210, 95, 90], from: 'Calgary', to: 'Airdrie', fromDay: 2, toDay: 5, budget: 9000, help: true, area: 'Beltline', desc: 'Three-seater sofa, second floor walk-up. Need help carrying.', listing: sofa });
+await mkRequest(priya, { title: 'Stainless fridge Edmonton → Calgary', cat: 'appliances', kg: 85, dims: [70, 70, 170], from: 'Edmonton', to: 'Calgary', fromDay: 5, toDay: 10, budget: 15000, desc: 'Counter-depth fridge, upright transport only.' });
+await mkRequest(lena, { title: 'Box of books Vancouver → Calgary', cat: 'boxes', kg: 18, dims: [50, 40, 40], from: 'Vancouver', to: 'Calgary', fromDay: 6, toDay: 14, budget: 4000 });
+await mkRequest(omar, { title: 'Winter tires ×4 Winnipeg → Calgary', cat: 'tires', kg: 36, dims: [70, 70, 60], from: 'Winnipeg', to: 'Calgary', fromDay: 3, toDay: 7, budget: 9000 });
+
+// a pending goods offer and a pending transport offer with a counter, so the inbox is not empty
+const mkOffer = async (o: { kind: string; customer: string; provider: string; proposer: string; listing?: string; request?: string; journey?: string; service?: string; amount: number; qty?: number; msg?: string; parent?: string; status?: string }) =>
+  (await pool.query(`INSERT INTO offers(kind,customer_id,provider_id,proposer_id,listing_id,request_id,journey_id,service_id,amount_cents,quantity,message,status,parent_offer_id,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13, now() + interval '40 hours') RETURNING id`,
+    [o.kind, o.customer, o.provider, o.proposer, o.listing ?? null, o.request ?? null, o.journey ?? null, o.service ?? null, o.amount, o.qty ?? 1, o.msg ?? null, o.status ?? 'pending', o.parent ?? null])).rows[0].id as string;
+await mkOffer({ kind: 'goods', customer: marcus, provider: amara, proposer: marcus, listing: sofa, amount: 38000, msg: 'Would you take $380?' });
+const t1 = await mkOffer({ kind: 'transport', customer: amara, provider: marcus, proposer: amara, request: sofaReq, service: svc, amount: 6500, msg: 'Can you do $65 with help carrying?', status: 'countered' });
+await mkOffer({ kind: 'transport', customer: amara, provider: marcus, proposer: marcus, request: sofaReq, service: svc, amount: 7500, msg: 'I can do $75 including carrying.', parent: t1 });
+
+// history: completed deliveries and reviews so transporters have reputations
+const doneShippers = [[priya, 5, 'Careful with a fragile mirror, kept me posted all the way.'], [lena, 5, 'Picked up on time, great communication.'], [omar, 4, 'Smooth. Arrived a day late but let me know early.']] as const;
+for (const [i, [shipper, rating, comment]] of doneShippers.entries()) {
+  const rq = await mkRequest(shipper, { title: `Past delivery ${i + 1}`, cat: 'boxes', kg: 20, from: 'Toronto', to: 'Calgary', fromDay: -30 - i, toDay: -25 - i, status: 'completed' });
+  const of = await mkOffer({ kind: 'transport', customer: shipper, provider: daniel, proposer: shipper, request: rq, amount: 7000 + i * 500, status: 'accepted' });
+  const bk = (await pool.query(`INSERT INTO bookings(offer_id,request_id,shipper_id,transporter_id,agreed_cents,pickup_pin,delivery_pin,status,pickup_confirmed_at,delivered_at,completed_at,created_at) VALUES ($1,$2,$3,$4,$5,'1111','2222','completed', now() - ($6 || ' days')::interval, now() - ($6 || ' days')::interval, now() - ($6 || ' days')::interval, now() - ($6 || ' days')::interval) RETURNING id`, [of, rq, shipper, daniel, 7000 + i * 500, String(25 + i)])).rows[0].id;
+  await pool.query(`INSERT INTO reviews(booking_id,reviewer_id,reviewee_id,role,rating,comment) VALUES ($1,$2,$3,'transporter',$4,$5)`, [bk, shipper, daniel, rating, comment]);
+  await pool.query(`INSERT INTO reviews(booking_id,reviewer_id,reviewee_id,role,rating,comment) VALUES ($1,$2,$3,'shipper',5,'Easy handover, accurate description.')`, [bk, daniel, shipper]);
+}
+
+// a live booking: amara is shipping boxes with daniel and the load is in transit (PINs 4821 / 1937 in dev data)
+const liveReq = await mkRequest(amara, { title: 'Boxes: kitchen and books', cat: 'boxes', kg: 120, qty: 6, dims: [60, 40, 40], from: 'Toronto', to: 'Calgary', fromDay: -2, toDay: 0, status: 'booked', budget: 12000 });
+const liveOffer = await mkOffer({ kind: 'transport', customer: amara, provider: daniel, proposer: amara, request: liveReq, journey: tor, amount: 10500, status: 'accepted' });
+const live = (await pool.query(`INSERT INTO bookings(offer_id,request_id,journey_id,shipper_id,transporter_id,agreed_cents,reserved_kg,pickup_pin,delivery_pin,status,pickup_confirmed_at) VALUES ($1,$2,$3,$4,$5,10500,120,'4821','1937','in_transit', now() - interval '1 day') RETURNING id`, [liveOffer, liveReq, tor, amara, daniel])).rows[0].id as string;
+await pool.query(`UPDATE journeys SET remaining_kg = remaining_kg - 120 WHERE id=$1`, [tor]);
+await pool.query(`INSERT INTO booking_addresses(booking_id,pickup_address,pickup_notes,delivery_address,contact_phone) VALUES ($1,'12 Queen St W, Toronto','Buzz 402','88 8 Ave SW, Calgary','416-555-0142')`, [live]);
+for (const [k, n, loc, h, a] of [['booked', 'Booking confirmed', null, 50, amara], ['address_set', 'Addresses shared with your transporter', null, 49, amara], ['pickup_confirmed', 'Pickup confirmed with PIN', null, 24, daniel], ['in_transit', 'On the way', 'Toronto, ON', 23, daniel], ['in_transit', 'Thunder Bay for the night', 'Thunder Bay, ON', 6, daniel]] as const) {
+  await pool.query(`INSERT INTO delivery_events(booking_id,actor_id,kind,note,location_label,created_at) VALUES ($1,$2,$3,$4,$5, now() - ($6 || ' hours')::interval)`, [live, a, k, n, loc, String(h)]);
+}
+
 await pool.query(`INSERT INTO banned_words(term,severity) VALUES ('counterfeit','block'),('western union','flag'),('wire transfer only','flag')`);
 await pool.query(`UPDATE fee_rules SET percent_bps=500 WHERE scope='product_sale'`);
 await pool.query(`UPDATE fee_rules SET percent_bps=1000 WHERE scope='transport_booking'`);

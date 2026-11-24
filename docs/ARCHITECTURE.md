@@ -182,7 +182,7 @@ erDiagram
 
 | Phase | Scope | Status |
 |---|---|---|
-| 1 Foundation | Auth, profiles, business profiles, navigation, feed, posts/photos, listings, search, follow, likes/comments, basic messaging, admin foundations | **In progress** |
+| 1 Foundation | Auth, profiles, business profiles, navigation, feed, posts/photos, listings, search, follow, likes/comments, basic messaging, admin foundations | **Done** |
 | 2 Transport | Requests, journeys, services, matching, negotiation (offers), booking, transporter profiles, reviews | Planned |
 | 3 Communities & video | Circles + permissions, Clips, Stories, media processing | Planned |
 | 4 Transactions & money | Payments, commissions, payouts, premium listings, promotions, PIN confirmations, disputes, advanced admin | Planned |
@@ -199,3 +199,13 @@ The schema in `apps/api/migrations` is written so later phases add tables and mo
 **Legal / compliance (Canada)** – Marketplace prohibited/restricted items (firearms, cannabis, vapes, alcohol, wildlife, recalled goods) policy per province; PIPEDA and Quebec Law 25 privacy obligations; CASL for email/SMS; payments regulation & provider KYC; independent-contractor classification of transporters; liability/insurance wording; provincial sales tax on commissions; accessibility (AODA); CIPO trademark clearance for "TWIQO" (not yet cleared).
 
 **Security / fraud** – Account takeover (rate limits, session revocation, optional 2FA later), fake listings/off-platform payment scams (message scanning signals, new-account limits), PIN brute force (attempt limits + lockout), location leakage (coarse public geometry), upload malware/abuse (type/size validation, re-encoding), IDOR (ownership checks + tests), double-spend/oversell (row locks + tests).
+
+## 7. Phase 2 design notes
+
+**Matching.** A journey stores its route as a PostGIS `LineString` through its stops. For a shipment, the engine measures how far the pickup and drop-off are from that line (`ST_Distance`), whether the driver passes the pickup *before* the drop-off (`ST_LineLocatePoint`), and what share of the requested leg the route covers. Hard rules exclude (capacity, size, restrictions, wrong direction, dates, too far). The rest is a 0–100 score with human-readable reasons and warnings; near misses are kept as *partial* matches so people can negotiate a detour. The scorer is a pure function covered by unit tests.
+
+**One offer engine.** `offers` serves goods and transport. `customer` is the buyer/shipper and `provider` the seller/transporter; each negotiation step is a new row pointing at its parent, so the full history is preserved and any version can be accepted exactly once. Accepting creates an `order` (goods) or a `booking` (transport) in the same transaction.
+
+**Concurrency.** Locks are always taken in the order shared subject (listing or shipment) → offer → carrier (journey or service), with non-key locks so unrelated foreign-key inserts never block. Concurrent accepts therefore serialise instead of deadlocking (a real deadlock found by the test suite and fixed). A partial unique index allows only one live booking per shipment, and `CHECK` constraints stop capacity going negative.
+
+**Privacy.** Public objects expose city-level places only. Exact addresses live in `booking_addresses`. Pickup and delivery PINs are shown to the shipper and entered by the transporter; failures are recorded outside the request transaction so lockouts cannot be rolled back.

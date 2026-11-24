@@ -13,18 +13,22 @@ import { Profile, EditProfile, Saved, SearchPeople } from './pages/Profile';
 import { BusinessPage, CreateBusiness } from './pages/Business';
 import { Inbox, Thread, NewThread } from './pages/Chat';
 import { Notifications } from './pages/Notifications';
-import { Move } from './pages/Move';
+import { Move, JourneyPage, RequestPage, ServicePage } from './pages/Move';
+import { CreateRequest, CreateJourney, CreateService } from './pages/CreateTransport';
+import { Offers, Bookings, BookingPage, OrderPage } from './pages/Deals';
 import { Admin } from './pages/Admin';
 
 function CreateSheet({ onClose }: { onClose: () => void }) {
   const items: [string, string, string, string, string?][] = [
     ['/create/post', 'Post', 'Share a photo or thought', 'img', 'var(--blue)'],
     ['/create/listing', 'Sell something', 'List almost anything lawful', 'bag', 'var(--amber)'],
+    ['/create/request', 'Find someone to move it', 'Post a transport request', 'box', 'var(--teal)'],
+    ['/create/journey', 'Offer a journey', 'Earn on a trip you\'re making', 'route', 'var(--navy)'],
+    ['/create/service', 'Offer a delivery service', 'Truck, van or courier', 'truck', '#F76B6B'],
     ['/business/new', 'Business page', 'Set up a storefront', 'users', '#8E6CF5'],
   ];
   const soon: [string, string, string, string][] = [
-    ['Find someone to move it', 'Transport requests · Phase 2', 'box', 'var(--teal)'], ['Offer a journey', 'Earn on a trip · Phase 2', 'route', 'var(--navy)'],
-    ['Clip', 'Short video · Phase 3', 'film', '#8E6CF5'], ['Start a community', 'Circles · Phase 3', 'users', '#F76B6B'],
+    ['Clip', 'Short video · coming soon', 'film', '#8E6CF5'], ['Start a community', 'Circles · coming soon', 'users', '#F76B6B'],
   ];
   return (
     <Modal onClose={onClose} title="What do you want to do?">
@@ -100,6 +104,16 @@ export function App() {
             <Route path="/create/post" element={<Private><CreatePost /></Private>} />
             <Route path="/create/listing" element={<Private><CreateListing /></Private>} />
             <Route path="/move" element={<Move />} />
+            <Route path="/j/:id" element={<JourneyPage />} />
+            <Route path="/r/:id" element={<RequestPage />} />
+            <Route path="/s/:id" element={<ServicePage />} />
+            <Route path="/create/request" element={<Private><CreateRequest /></Private>} />
+            <Route path="/create/journey" element={<Private><CreateJourney /></Private>} />
+            <Route path="/create/service" element={<Private><CreateService /></Private>} />
+            <Route path="/offers" element={<Private><Offers /></Private>} />
+            <Route path="/bookings" element={<Private><Bookings /></Private>} />
+            <Route path="/bookings/:id" element={<Private><BookingPage /></Private>} />
+            <Route path="/orders/:id" element={<Private><OrderPage /></Private>} />
             <Route path="/u/:username" element={<Profile />} />
             <Route path="/settings/profile" element={<Private><EditProfile /></Private>} />
             <Route path="/saved" element={<Private><Saved /></Private>} />

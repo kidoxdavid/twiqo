@@ -5,6 +5,7 @@ import { api } from '../api';
 import { useAuth } from '../auth';
 import { FeedListing, PostCard } from '../components/cards';
 import { State } from '../components/ui';
+import { JourneyCard, RequestCard, ServiceCard } from '../components/transport';
 
 const TABS: [string, string][] = [['for_you', 'For You'], ['following', 'Following'], ['nearby', 'Nearby'], ['circles', 'Circles']];
 
@@ -27,7 +28,7 @@ export function Home() {
         : q.isError ? <State kind="error" title={tab === 'nearby' ? 'Where are you?' : undefined} text={(q.error as Error).message} />
         : tab === 'circles' ? <State kind="empty" title="Circles are coming soon" text="Communities launch in Phase 3. For now, discover people and listings on Home and Market." />
         : items.length === 0 ? <State kind="empty" title={tab === 'following' ? 'Your feed is quiet' : 'Nothing here yet'} text={tab === 'following' ? 'Follow people and businesses to see their posts and listings here.' : 'Be the first to post something.'} action={<div className="row" style={{ justifyContent: 'center' }}><Link className="btn" to="/create/post">Create a post</Link><Link className="btn ghost" to="/search">Find people</Link></div>} />
-        : <>{items.map((it: any) => it.type === 'post' ? <PostCard key={`p${it.id}`} p={it} onRemoved={() => qc.invalidateQueries({ queryKey: ['feed'] })} /> : <FeedListing key={`l${it.id}`} l={it} />)}
+        : <>{items.map((it: any) => it.type === 'post' ? <PostCard key={`p${it.id}`} p={it} onRemoved={() => qc.invalidateQueries({ queryKey: ['feed'] })} /> : it.type === 'journey' ? <div key={`j${it.id}`} style={{ margin: '0 0 12px' }}><JourneyCard j={it} /></div> : it.type === 'transport_request' ? <div key={`r${it.id}`}><RequestCard r={it} /></div> : it.type === 'transport_service' ? <div key={`s${it.id}`}><ServiceCard s={it} /></div> : <FeedListing key={`l${it.id}`} l={it} />)}
           {q.hasNextPage && <div style={{ textAlign: 'center', padding: 16 }}><button className="btn ghost" disabled={q.isFetchingNextPage} onClick={() => q.fetchNextPage()}>{q.isFetchingNextPage ? 'Loading…' : 'Load more'}</button></div>}</>}
       <span hidden>{nav.length}</span>
     </main>

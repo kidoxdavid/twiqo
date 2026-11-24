@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { pool } from '../src/db/pool.js';
 import { scoreMatch, type MatchInput } from '../src/lib/matching.js';
 import { api, auth, iso, makeJourney, makeRequest, makeUser, ymd } from './helpers.js';
 
@@ -73,6 +74,9 @@ describe('scoreMatch (pure)', () => {
 });
 
 describe('route matching against PostGIS', () => {
+  // matches are ranked and capped, so leftovers from other suites must not compete for the top results
+  beforeAll(async () => { await pool.query(`UPDATE journeys SET status='cancelled'`); await pool.query(`UPDATE transport_requests SET status='cancelled'`); });
+
   it('matches pickups and drop-offs along the route, not just the endpoints', async () => {
     const driver = await makeUser('md', 'Toronto'), shipper = await makeUser('ms', 'Winnipeg');
     const j = await makeJourney(driver);

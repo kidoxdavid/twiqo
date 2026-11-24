@@ -100,6 +100,9 @@ export function PostCard({ p, onRemoved }: { p: any; onRemoved?: () => void }) {
       {p.body && <div className="body">{p.body}</div>}
       {g > 0 && <div className={`gallery g${g}`}>{p.media.slice(0, 4).map((m: any) => <img key={m.id} src={g === 1 ? m.url : m.thumb_url} alt="" loading="lazy" />)}</div>}
       {p.attachment?.listing && <ListingMini l={p.attachment.listing} />}
+      {p.attachment?.request && <Link to={`/r/${p.attachment.id}`} className="attach"><div className="tx"><b>{p.attachment.request.title}</b><span className="muted sm">{p.attachment.request.origin.city} → {p.attachment.request.destination.city} · needs a driver</span></div><Icon name="back" className="muted" /></Link>}
+      {p.attachment?.journey && <Link to={`/j/${p.attachment.id}`} className="attach"><div className="tx"><b>{p.attachment.journey.origin.city} → {p.attachment.journey.destination.city}</b><span className="muted sm">Journey · {p.attachment.journey.remaining_kg} kg of space left</span></div><Icon name="back" className="muted" /></Link>}
+      {p.attachment?.service && <Link to={`/s/${p.attachment.id}`} className="attach"><div className="tx"><b>{p.attachment.service.title}</b><span className="muted sm">Delivery service · {p.attachment.service.area.city}</span></div><Icon name="back" className="muted" /></Link>}
       {p.attachment?.type === 'listing' && !p.attachment.listing && <div className="attach muted sm">This listing is no longer available.</div>}
       <div className="actions">
         <button className={`act ${like.on ? 'on' : ''}`} onClick={like.toggle} aria-pressed={like.on} aria-label="Like"><Icon name="heart" />{like.count}</button>

@@ -2,7 +2,7 @@
 
 Legend: ✅ done and tested · 🟡 partial · ⬜ not started
 
-## Phase 1 — Platform foundation (in progress)
+## Phase 1 — Platform foundation (done)
 
 | Area | Status | Notes |
 |---|---|---|
@@ -33,8 +33,29 @@ Legend: ✅ done and tested · 🟡 partial · ⬜ not started
 | Map visualisation | ⬜ | needs a map provider key |
 | Accessibility audit, Playwright suite | ⬜ | manual browser walkthrough done; automated e2e to add |
 
-## Phase 2 — Transport marketplace ⬜
-Requests · journeys · services · matching engine · offers/negotiation (goods and transport) · bookings · PIN pickup/delivery · reviews · transporter profiles.
+## Phase 2 — Transport marketplace (done)
+
+| Area | Status | Notes |
+|---|---|---|
+| Transport requests | ✅ | item, size, weight, fragility, handling, date window, deadline, budget, vehicle preference, photos, public/private, link to a purchased listing |
+| Journeys (available transportation) | ✅ | route through waypoints stored as a PostGIS line, detour tolerance, vehicle, capacity (kg / m³ / max size), restrictions, price |
+| Transport services (local operators, businesses) | ✅ | service area + radius, intercity flag, flat / hourly / per-km pricing |
+| Matching | ✅ | pickup and drop-off distance to the route, travel direction, route coverage, dates, capacity, restrictions, price, reliability; 0–100 score with reasons and warnings; partial matches kept |
+| Unified offers (goods and transport) | ✅ | fixed vs negotiable, counter chain, history, expiry, withdraw, multiple simultaneous offers, auto-close |
+| Orders for agreed goods | ✅ | quantity locked transactionally, sold-out closes other offers, cancel restores stock |
+| Bookings | ✅ | capacity reserved under lock, one live booking per shipment enforced by the database |
+| Pickup / delivery confirmation | ✅ | 4-digit PINs held by the shipper, entered by the transporter, 5-attempt lockout, photo evidence, transit updates |
+| Private addresses | ✅ | stored only in `booking_addresses`, visible to the two parties only |
+| Cancellation | ✅ | before pickup only; frees journey space and reopens the shipment |
+| Reviews + reputation | ✅ | both sides after completion, rating and completed-move counts feed matching and profiles |
+| Transporter profiles | ✅ | rating, upcoming journeys, services, optional move history |
+| Notifications + preferences | ✅ | offers, counteroffers, accepted/declined, booking updates, matches, journeys from people you follow |
+| Chat integration | ✅ | offer and booking cards are structured messages, separate from chat text |
+| Housekeeping | ✅ | offers, listings, journeys, requests expire; delivered bookings auto-complete |
+| Web UI | ✅ | Move hub, journey/request/service pages, create forms, offers inbox, booking page, orders |
+| Tests | ✅ | 102 API integration tests incl. concurrency and PIN lockout; full two-user browser walkthrough |
+| Map tiles / geocoding | ⬜ | route preview is schematic; needs a map provider key |
+| Disputes, refunds, payments | ⬜ | Phase 4 — UI states plainly that funds are not held |
 
 ## Phase 3 — Communities and video ⬜
 Circles + permissions · Clips · Stories · media processing.
