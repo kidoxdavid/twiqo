@@ -111,6 +111,18 @@ Honest status: the Stripe adapter is covered by tests against a mocked Stripe cl
 - **Internationalisation**: English and Canadian French (`users.locale`, browser language detection, switcher on the sign-in page and profile). French covers the shell, sign-in, feed, market, deals, payments labels and the growth pages; other screens, category names and API error messages are still English. Money and dates follow the language. The French text has not been reviewed by a native speaker.
 - **Performance**: `npm run perf:check -w apps/api` loads 40k synthetic rows into the dev database, times the main read endpoints and removes the data. It found the For You feed scoring every row (~950 ms p95); it now ranks a bounded candidate pool (~40 ms). Also added response compression, route-level code splitting in the web app (main bundle 568 kB -> 420 kB) and the indexes the discovery queries need.
 
+## Trust, safety, accounts and operations (Phase 6)
+
+- **Accounts**: terms acceptance at sign-up (versioned), email verification, password reset, change password, two-step verification (authenticator app + recovery codes, secrets encrypted at rest), session list with remote sign-out, new-device sign-in emails, data export and account deletion (Settings → Account security).
+- **Email and push**: everything goes through a Postgres job queue (retries with backoff, safe with several servers). `EMAIL_PROVIDER=smtp` + `SMTP_URL` sends real mail; `fake` only records it (and is refused in production). Push needs VAPID keys. People choose email/push per notification type, can unsubscribe in one click, and get at most one digest a day if they have unread notifications and have been away.
+- **Alerts**: saved searches (listings, journeys along a corridor, shipments for drivers) and price-drop alerts for saved items.
+- **Trust**: ID verification through Stripe Identity (enable it in your Stripe dashboard first), driver documents (private storage, staff review, expiry reminders), optional rule that drivers must be verified before posting (`transport.require_verified_driver`, off by default), badges on journeys and services, instant book for trusted drivers.
+- **Fraud and abuse**: explainable text heuristics hold suspicious listings for review and warn the receiver of off-platform payment requests in chat; velocity limits (tighter for new accounts); duplicate and copy-paste detection; blind reviews (revealed together or after 7 days). Staff work the queues in Admin → Risk / Documents / Safety.
+- **Safety**: emergency contacts, trip-sharing links (progress only), opt-in live location, GPS saved with PIN confirmations, SOS alert (notifies the other person, staff and contacts by email). twiqo is not an emergency service and says so.
+- **Money tools**: price guidance from real completed deals, receipts, estimated GST/HST on twiqo fees (an estimate for your accountant; tax is not collected), chargeback tracking with evidence built from twiqo's own records.
+- **Operations**: JSON logs with request ids (`LOG_LEVEL`), `GET /ready` for load balancers, Admin → System health, blanket write rate limit, `npm audit` in CI, an automated authorization sweep over every route, `scripts/backup.sh` and `scripts/restore-check.sh` (restore is actually tested), Dockerfiles + `docker-compose.yml` (demo/staging with fake providers; **not run in this build, no Docker daemon was available**), PWA (installable, offline page, push).
+- **Before you launch**, work through [docs/LAUNCH-CHECKLIST.md](docs/LAUNCH-CHECKLIST.md). Several items need people (a lawyer, an accountant, a Stripe test run, a security test), not code.
+
 ## Honest scope notes
 
 * Payments are **not implemented yet** (Phase 4); the UI says so plainly instead of faking it.

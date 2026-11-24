@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '../api';
+import { api, getAccessToken } from '../api';
 import { useAuth } from '../auth';
 import { useToast } from '../components/Toast';
 import { Modal, State, ago, errMsg, cash } from '../components/ui';
@@ -184,19 +184,76 @@ function Growth() {
     <div className="col sm muted">{g.notes.map((n: string) => <div key={n}>{n}</div>)}</div></div>;
 }
 
+// ------------------------------------------------------------------------------------------------ trust and safety, chargebacks, tax, system
+const REASON_TEXT: Record<string, string> = { offplatform_payment: 'asks to pay outside twiqo', shipping_scam: 'classic shipping-scam wording', phone_number: 'phone number', email_address: 'email address', external_link: 'external link', off_app_chat: 'asks to chat elsewhere', pressure: 'pressure wording', duplicate_of_other_seller: 'copied from another seller', price_far_below_market: 'price far below market' };
+function Risk() {
+  const q = useQuery({ queryKey: ['arisk'], queryFn: () => api('/admin/risk') }); const act = useAct();
+  if (q.isLoading) return <State kind="loading" />; if (!q.data.items.length) return <State kind="empty" title="Nothing flagged" text="Suspicious listings and messages show up here." />;
+  return <table className="table"><thead><tr><th>What</th><th>Who</th><th>Why it was flagged</th><th>Score</th><th /></tr></thead><tbody>{q.data.items.map((r: any) => <tr key={r.id}>
+    <td>{r.entity_type}{r.entity_type === 'listing' && <div><Link className="sm" style={{ color: 'var(--blue)' }} to={`/l/${r.entity_id}`}>View</Link></div>}</td><td>{r.username ? `@${r.username}` : '—'}</td><td>{r.reasons.map((x: string) => <span key={x} className="pill a" style={{ marginRight: 4 }}>{REASON_TEXT[x] ?? x}</span>)}</td><td>{r.score}</td>
+    <td><div className="row wrap"><button className="btn sm soft" onClick={() => act(() => api(`/admin/risk/${r.id}/resolve`, { body: { status: 'dismissed' } }), 'Dismissed', ['arisk'])}>Looks fine</button><button className="btn sm danger" onClick={() => act(() => api(`/admin/risk/${r.id}/resolve`, { body: { status: 'actioned' } }), 'Marked as handled', ['arisk'])}>Handled</button></div></td></tr>)}</tbody></table>;
+}
+function Documents() {
+  const q = useQuery({ queryKey: ['adocs'], queryFn: () => api('/admin/driver-documents') }); const act = useAct(); const [sel, setSel] = useState<any>(null); const [note, setNote] = useState(''); const [url, setUrl] = useState<string | null>(null);
+  async function view(id: string) { const r = await fetch(`/api/driver/documents/${id}/file`, { headers: { Authorization: `Bearer ${getAccessToken()}` } }); if (r.ok) { const b = await r.blob(); setUrl(URL.createObjectURL(b)); } }
+  if (q.isLoading) return <State kind="loading" />; if (!q.data.items.length) return <State kind="empty" title="No documents waiting" />;
+  return <><table className="table"><thead><tr><th>Driver</th><th>Document</th><th>Expires</th><th>Uploaded</th><th /></tr></thead><tbody>{q.data.items.map((d: any) => <tr key={d.id}><td>@{d.username}<div className="muted sm">{d.verification_level === 'identity' ? 'ID verified' : 'ID not verified'}</div></td><td>{d.kind.replace('_', ' ')}</td><td>{String(d.expires_on).slice(0, 10)}</td><td>{ago(d.created_at)}</td>
+    <td><div className="row wrap"><button className="btn sm ghost" onClick={() => view(d.id)}>View file</button><button className="btn sm teal" onClick={() => act(() => api(`/admin/driver-documents/${d.id}/review`, { body: { decision: 'approve' } }), 'Approved', ['adocs'])}>Approve</button><button className="btn sm danger" onClick={() => { setSel(d); setNote(''); }}>Reject</button></div></td></tr>)}</tbody></table>
+    {url && <Modal onClose={() => { URL.revokeObjectURL(url); setUrl(null); }} title="Document (private)"><img src={url} alt="Driver document" style={{ width: '100%', borderRadius: 12 }} /></Modal>}
+    {sel && <Modal onClose={() => setSel(null)} title="Reject document"><div className="col"><div className="field"><label htmlFor="rn">Reason (shown to the driver)</label><input id="rn" className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Photo is blurry, expiry date not visible" /></div><button className="btn danger" disabled={!note.trim()} onClick={async () => { if (await act(() => api(`/admin/driver-documents/${sel.id}/review`, { body: { decision: 'reject', note } }), 'Rejected', ['adocs'])) setSel(null); }}>Reject</button></div></Modal>}</>;
+}
+function Safety() {
+  const q = useQuery({ queryKey: ['asafety'], queryFn: () => api('/admin/safety-incidents') }); const act = useAct(); const [sel, setSel] = useState<any>(null); const [note, setNote] = useState('');
+  if (q.isLoading) return <State kind="loading" />; if (!q.data.items.length) return <State kind="empty" title="No open safety alerts" />;
+  return <>{q.data.items.map((i: any) => <div key={i.id} className="card pad col" style={{ marginBottom: 10, borderLeft: '4px solid var(--red)' }}><div className="row"><b>@{i.username}</b><span className="sp" /><span className="muted sm">{ago(i.created_at)} ago</span></div><div>{i.message ?? 'No message'}</div>
+    <div className="row wrap sm">{i.lat !== null && <a style={{ color: 'var(--blue)' }} href={`https://www.openstreetmap.org/?mlat=${i.lat}&mlon=${i.lng}#map=14/${i.lat}/${i.lng}`} target="_blank" rel="noopener noreferrer">Last location</a>}<Link style={{ color: 'var(--blue)' }} to={`/bookings/${i.booking_id}`}>Booking (if you are a party)</Link></div>
+    <button className="btn sm" onClick={() => { setSel(i); setNote(''); }}>Resolve…</button></div>)}
+    {sel && <Modal onClose={() => setSel(null)} title="Resolve safety alert"><div className="col"><div className="field"><label htmlFor="sn">What was done?</label><textarea id="sn" className="input" value={note} onChange={(e) => setNote(e.target.value)} /></div><button className="btn" disabled={note.trim().length < 3} onClick={async () => { if (await act(() => api(`/admin/safety-incidents/${sel.id}/resolve`, { body: { note } }), 'Resolved', ['asafety'])) setSel(null); }}>Resolve</button></div></Modal>}</>;
+}
+function Chargebacks() {
+  const q = useQuery({ queryKey: ['acb'], queryFn: () => api('/admin/card-disputes') }); const act = useAct(); const [sel, setSel] = useState<any>(null); const prev = useQuery({ queryKey: ['acbp', sel?.id], queryFn: () => api(`/admin/card-disputes/${sel.id}/evidence-preview`), enabled: !!sel }); const [extra, setExtra] = useState('');
+  if (q.isLoading) return <State kind="loading" />; if (!q.data.items.length) return <State kind="empty" title="No card disputes" text="When a cardholder disputes a payment with their bank it appears here." />;
+  return <><table className="table"><thead><tr><th>Amount</th><th>Reason</th><th>Status</th><th>Respond by</th><th /></tr></thead><tbody>{q.data.items.map((d: any) => <tr key={d.id}><td>{cash(d.amount_cents)}</td><td>{String(d.reason ?? '').replace(/_/g, ' ')}</td><td><span className={`pill ${['needs_response', 'warning_needs_response'].includes(d.status) ? 'r' : 'b'}`}>{d.status.replace(/_/g, ' ')}</span></td><td>{d.due_by ? new Date(d.due_by).toLocaleDateString('en-CA') : '—'}</td>
+    <td>{['needs_response', 'warning_needs_response'].includes(d.status) && !d.evidence_submitted_at && <button className="btn sm" onClick={() => { setSel(d); setExtra(''); }}>Review evidence</button>}{d.evidence_submitted_at && <span className="muted sm">Sent {ago(d.evidence_submitted_at)} ago</span>}</td></tr>)}</tbody></table>
+    {sel && <Modal onClose={() => setSel(null)} title="Evidence for the card network"><div className="col">{prev.isLoading ? <State kind="loading" /> : prev.data && <><div className="card pad sm" style={{ whiteSpace: 'pre-wrap', maxHeight: 260, overflow: 'auto' }}>{prev.data.text}</div>
+      <div className="field"><label htmlFor="ex">Anything to add? (optional)</label><textarea id="ex" className="input" value={extra} onChange={(e) => setExtra(e.target.value)} /></div>
+      <div className="muted sm">This text is generated only from twiqo's own records. Check it is accurate before sending: evidence can be submitted once.</div>
+      <button className="btn" onClick={async () => { if (await act(() => api(`/admin/card-disputes/${sel.id}/submit-evidence`, { body: extra ? { extra_note: extra } : {} }), 'Evidence submitted', ['acb'])) setSel(null); }}>Submit evidence</button></>}</div></Modal>}</>;
+}
+function Tax() {
+  const rates = useQuery({ queryKey: ['atax'], queryFn: () => api('/admin/tax-rates') }); const sum = useQuery({ queryKey: ['ataxs'], queryFn: () => api('/admin/tax-summary') }); const act = useAct(); const [edit, setEdit] = useState<Record<string, { gst: string; pst: string; hst: string }>>({});
+  if (rates.isLoading || sum.isLoading) return <State kind="loading" />;
+  return <div className="col"><div className="card pad sm" style={{ background: '#FFF6E0' }}>{rates.data.note} twiqo does not charge, collect or remit tax on its fees yet; this is an estimate for your accountant.</div>
+    <h2 className="sec">Estimated GST/HST on twiqo fees (last 90 days)</h2>
+    <table className="table"><thead><tr><th>Province</th><th>Payments</th><th>Net fees</th><th>Estimated GST/HST</th></tr></thead><tbody>{sum.data.items.map((r: any) => <tr key={r.province}><td>{r.province}</td><td>{r.payments}</td><td>{cash(r.net_fees_cents)}</td><td>{cash(r.estimated_gst_hst_cents)}</td></tr>)}{!sum.data.items.length && <tr><td colSpan={4} className="muted">No paid activity yet.</td></tr>}</tbody></table>
+    <h2 className="sec">Rates used for the estimate (%)</h2>
+    <table className="table"><thead><tr><th>Province</th><th>GST</th><th>PST/QST</th><th>HST</th><th /></tr></thead><tbody>{rates.data.items.map((r: any) => { const e = edit[r.province] ?? { gst: String(r.gst_bps / 100), pst: String(r.pst_bps / 100), hst: String(r.hst_bps / 100) }; const f = (k: 'gst' | 'pst' | 'hst') => <input className="input" style={{ width: 80 }} aria-label={`${r.province} ${k}`} inputMode="decimal" value={e[k]} onChange={(ev) => setEdit({ ...edit, [r.province]: { ...e, [k]: ev.target.value } })} />;
+      return <tr key={r.province}><td>{r.province}<div className="muted sm">{r.note}</div></td><td>{f('gst')}</td><td>{f('pst')}</td><td>{f('hst')}</td><td><button className="btn sm" disabled={!edit[r.province]} onClick={() => act(() => api(`/admin/tax-rates/${r.province}`, { method: 'PUT', body: { gst_bps: Math.round(parseFloat(e.gst) * 100), pst_bps: Math.round(parseFloat(e.pst) * 100), hst_bps: Math.round(parseFloat(e.hst) * 100) } }), 'Saved', ['atax', 'ataxs'])}>Save</button></td></tr>; })}</tbody></table></div>;
+}
+function System() {
+  const q = useQuery({ queryKey: ['asys'], queryFn: () => api('/admin/system'), refetchInterval: 30_000 });
+  if (q.isLoading) return <State kind="loading" />; if (q.isError) return <State kind="error" />;
+  const s = q.data; const c = s.counts;
+  const tiles: [string, string | number, boolean][] = [['Database', s.db ? `ok · ${s.db_latency_ms} ms` : 'DOWN', !s.db], ['Job backlog', `${s.jobs?.due ?? 0} due · ${s.jobs?.oldest_due_s ?? 0}s oldest`, (s.jobs?.oldest_due_s ?? 0) > 120], ['Dead jobs', s.jobs?.dead ?? 0, (s.jobs?.dead ?? 0) > 0], ['Emails queued / failed', `${c.emails_queued} / ${c.emails_failed}`, c.emails_failed > 0],
+    ['Webhooks stuck', c.webhooks_stuck, c.webhooks_stuck > 0], ['Failed refunds', c.refunds_failed, c.refunds_failed > 0], ['Risk flags open', c.risk_open, false], ['Documents waiting', c.docs_pending, false], ['Safety alerts open', c.safety_open, c.safety_open > 0], ['Chargebacks needing a reply', c.chargebacks_open, c.chargebacks_open > 0], ['Problem reports open', c.disputes_open, false], ['Push devices', c.push_devices, false]];
+  return <div className="col"><div className="kpis">{tiles.map(([l, v, bad]) => <div key={l} className="kpi" style={bad ? { borderColor: 'var(--red-text)' } : undefined}><span>{l}</span><b style={bad ? { color: 'var(--red-text)' } : undefined}>{String(v)}</b></div>)}</div>
+    <div className="card pad sm">Providers: email <b>{s.providers.email}</b> · payments <b>{s.providers.payments}</b> · video <b>{s.providers.video}</b> · push <b>{s.providers.push ? 'on' : 'off'}</b> · {s.env} · node {s.node} · {s.memory_mb} MB · up {Math.round(s.uptime_s / 60)} min · latest migration {s.latest_migration}</div>
+    {s.failing_jobs.length > 0 && <table className="table"><thead><tr><th>Dead job type</th><th>Count</th><th>Last error</th></tr></thead><tbody>{s.failing_jobs.map((j: any) => <tr key={j.kind}><td>{j.kind}</td><td>{j.n}</td><td className="muted sm">{j.last_error}</td></tr>)}</tbody></table>}</div>;
+}
+
 export function Admin() {
   const { me } = useAuth(); const p = me?.permissions ?? [];
   if (!p.length) return <Navigate to="/" replace />;
-  const tabs: [string, string, boolean][] = [['', 'Overview', p.includes('view.analytics')], ['reports', 'Reports', p.includes('moderate.content')], ['listings', 'Listing review', p.includes('moderate.content')], ['users', 'Users', p.includes('manage.users')], ['appeals', 'Appeals', p.includes('manage.users')], ['categories', 'Categories', p.includes('manage.categories')], ['config', 'Config', p.includes('manage.settings')], ['audit', 'Audit log', p.includes('view.audit')], ['payments', 'Payments', p.includes('manage.payments')], ['disputes', 'Disputes', p.includes('manage.payments')], ['revenue', 'Revenue', p.includes('manage.payments')], ['boosts', 'Boosts', p.includes('manage.payments')], ['growth', 'Growth', p.includes('view.growth')]];
+  const tabs: [string, string, boolean][] = [['', 'Overview', p.includes('view.analytics')], ['reports', 'Reports', p.includes('moderate.content')], ['listings', 'Listing review', p.includes('moderate.content')], ['users', 'Users', p.includes('manage.users')], ['appeals', 'Appeals', p.includes('manage.users')], ['categories', 'Categories', p.includes('manage.categories')], ['config', 'Config', p.includes('manage.settings')], ['audit', 'Audit log', p.includes('view.audit')], ['payments', 'Payments', p.includes('manage.payments')], ['disputes', 'Disputes', p.includes('manage.payments')], ['revenue', 'Revenue', p.includes('manage.payments')], ['boosts', 'Boosts', p.includes('manage.payments')], ['growth', 'Growth', p.includes('view.growth')], ['risk', 'Risk', p.includes('moderate.content')], ['documents', 'Documents', p.includes('review.documents')], ['safety', 'Safety', p.includes('review.documents')], ['chargebacks', 'Chargebacks', p.includes('manage.payments')], ['tax', 'Tax', p.includes('manage.payments')], ['system', 'System', p.includes('view.analytics')]];
   const first = tabs.find((t) => t[2])?.[0] ?? '';
   return (
     <main className="main wide"><h1 className="page">Admin</h1>
-      <div className="tabs" role="tablist">{tabs.filter((t) => t[2]).map(([to, l]) => <NavLink key={to} end to={`/admin/${to}`} className={({ isActive }) => `tab ${isActive ? 'on' : ''}`}>{l}</NavLink>)}</div>
+      <nav className="tabs" aria-label="Admin sections">{tabs.filter((t) => t[2]).map(([to, l]) => <NavLink key={to} end to={`/admin/${to}`} className={({ isActive }) => `tab ${isActive ? 'on' : ''}`}>{l}</NavLink>)}</nav>
       <div style={{ padding: '0 16px', overflowX: 'auto' }}>
         <Routes>
           <Route index element={first === '' ? <Overview /> : <Navigate to={`/admin/${first}`} replace />} />
           <Route path="reports" element={<Reports />} /><Route path="listings" element={<Listings />} /><Route path="users" element={<Users />} /><Route path="appeals" element={<Appeals />} />
-          <Route path="growth" element={<Growth />} /><Route path="payments" element={<Payments />} /><Route path="disputes" element={<Disputes />} /><Route path="revenue" element={<Revenue />} /><Route path="boosts" element={<Boosts />} />
+          <Route path="growth" element={<Growth />} /><Route path="risk" element={<Risk />} /><Route path="documents" element={<Documents />} /><Route path="safety" element={<Safety />} /><Route path="chargebacks" element={<Chargebacks />} /><Route path="tax" element={<Tax />} /><Route path="system" element={<System />} /><Route path="payments" element={<Payments />} /><Route path="disputes" element={<Disputes />} /><Route path="revenue" element={<Revenue />} /><Route path="boosts" element={<Boosts />} />
           <Route path="categories" element={<Categories />} /><Route path="config" element={<Config />} /><Route path="audit" element={<Audit />} />
         </Routes>
       </div>

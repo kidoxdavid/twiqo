@@ -65,7 +65,7 @@ export function SecurityPage() {
         {sess.data?.items.map((x: any) => <div key={x.id} className="row sm"><div style={{ flex: 1 }}><b>{x.device}</b>{x.current && <span className="pill t" style={{ marginLeft: 6 }}>This device</span>}<div className="muted">Active {ago(x.last_used_at)} ago</div></div>{!x.current && <button className="btn sm ghost" onClick={() => run(() => api(`/me/sessions/${x.id}`, { method: 'DELETE' }), 'Signed out')}>Sign out</button>}</div>)}</div>
 
       <div className="card pad col"><b>Your data</b><div className="sm muted">Download a copy of what twiqo holds about you, or delete your account. Records we must keep for payments and disputes are kept without your name.</div>
-        <button className="btn soft" onClick={download}>Download my data</button><button className="btn ghost" style={{ color: 'var(--red)', borderColor: 'var(--red)' }} onClick={() => setDel(true)}>Delete my account…</button></div>
+        <button className="btn soft" onClick={download}>Download my data</button><button className="btn ghost" style={{ color: 'var(--red-text)', borderColor: 'var(--red-text)' }} onClick={() => setDel(true)}>Delete my account…</button></div>
       <div className="muted sm">Accepted Terms &amp; Privacy Policy {s.terms.version ? `(${s.terms.version})` : ''} {s.terms.accepted_at ? ago(s.terms.accepted_at) + ' ago' : ''}. <Link to="/legal/terms" style={{ color: 'var(--blue)' }}>Read them</Link></div>
     </div>
     {codes && <Modal onClose={() => setCodes(null)} title="Save your recovery codes"><div className="col"><div className="sm">Each code works once if you lose your phone. They won't be shown again.</div>

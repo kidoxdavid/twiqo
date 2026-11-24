@@ -130,7 +130,7 @@ export function ListingCard({ l }: { l: any }) {
         <Link to={`/l/${l.id}`} aria-label={l.title} style={{ display: 'block', height: '100%' }}>
           {l.images[0] ? <img src={l.images[0].thumb_url} alt="" loading="lazy" /> : <div className="noimg"><Icon name="bag" /></div>}
         </Link>
-        {l.featured && <span className="tagover" style={{ left: 8, top: 8, bottom: 'auto', background: 'var(--amber)', color: '#fff' }}>Featured</span>}
+        {l.featured && <span className="tagover" style={{ left: 8, top: 8, bottom: 'auto', background: 'var(--amber)', color: 'var(--navy)' }}>Featured</span>}
         {l.fulfillment?.delivery && <span className="tagover">🚚 Delivery</span>}
         {l.status !== 'active' && <span className="tagover" style={{ background: 'var(--navy)', color: '#fff' }}>{l.status === 'sold' ? 'Sold' : 'Reserved'}</span>}
         <button className={`heart ${save.on ? 'on' : ''}`} onClick={save.toggle} aria-pressed={save.on} aria-label="Save listing"><Icon name="save" /></button>

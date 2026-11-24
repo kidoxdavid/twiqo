@@ -353,6 +353,22 @@ await pool.query(`INSERT INTO analytics_events(user_id,anon_id,name,target_type,
 await pool.query(`INSERT INTO analytics_events(user_id,anon_id,name,target_type,target_id,created_at) SELECT NULL, 'seed-anon-' || (g % 25), 'view', 'transport_service', $1, now() - (random() * 29 || ' days')::interval FROM generate_series(1, 60) g`, [svc]);
 await pool.query(`INSERT INTO analytics_events(user_id,name,created_at) SELECT u.id, 'search', now() - (random() * 20 || ' days')::interval FROM users u CROSS JOIN generate_series(1,3)`);
 
+// ---- trust, safety and notifications (phase 6)
+await pool.query(`UPDATE users SET email_verified_at = now(), terms_version='2026-01-draft', terms_accepted_at = now() WHERE username <> 'priya'`);   // priya stays unverified so the verify-email prompt is visible
+await pool.query(`UPDATE user_profiles SET verification_level='identity', identity_verified_at = now() WHERE user_id = $1`, [daniel]);
+const { savePrivate } = await import('../lib/privateFiles.js');
+const docImg = async (label: string) => (await savePrivate(await sharp({ create: { width: 640, height: 400, channels: 3, background: '#E8EEF9' } }).png().toBuffer()));
+for (const [who, kind, status, expires] of [[daniel, 'drivers_licence', 'approved', '2029-06-30'], [daniel, 'insurance', 'approved', '2027-03-31'], [marcus, 'drivers_licence', 'pending', '2028-11-15'], [marcus, 'insurance', 'pending', '2027-01-20']] as const) {
+  const f = await docImg(kind);
+  await pool.query(`INSERT INTO driver_documents(user_id,kind,file_key,mime,expires_on,status,reviewed_by,reviewed_at) VALUES ($1,$2,$3,$4,$5,$6, $7, CASE WHEN $6='approved' THEN now() END)`, [who, kind, f.key, f.mime, expires, status, status === 'approved' ? admin : null]);
+}
+await pool.query(`UPDATE journeys SET instant_book = true WHERE id = $1`, [tor]);
+await pool.query(`INSERT INTO emergency_contacts(user_id,name,email,phone) VALUES ($1,'Ngozi (sister)','ngozi@example.com','403-555-0142')`, [amara]);
+await pool.query(`INSERT INTO saved_searches(user_id,kind,name,params) VALUES ($1,'listing','Road bikes under $600','{"q":"road bike","max_price":60000}'), ($1,'journey','Toronto to Calgary','{"from":"Toronto","to":"Calgary","radius_km":80}')`, [omar]);
+await pool.query(`INSERT INTO risk_events(entity_type,entity_id,user_id,score,reasons) SELECT 'listing', id, seller_id, 5, ARRAY['offplatform_payment','phone_number'] FROM listings WHERE title LIKE 'Monstera%' LIMIT 1`);
+const cbPayment = (await pool.query(`SELECT id FROM payments WHERE booking_id=$1`, [live])).rows[0]?.id as string | undefined;
+if (cbPayment) await pool.query(`INSERT INTO card_disputes(provider_dispute_id,payment_id,amount_cents,reason,status,due_by) VALUES ('dp_seed_1',$1,10500,'product_not_received','needs_response', now() + interval '6 days')`, [cbPayment]);
+
 await pool.query(`INSERT INTO banned_words(term,severity) VALUES ('counterfeit','block'),('western union','flag'),('wire transfer only','flag')`);
 
 console.log(`Done. Sign in with any seeded username (admin, moderator, amara, marcus, daniel, priya, lena, omar, calgarylife, brightside) and password "${PASSWORD}".`);

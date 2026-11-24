@@ -59,7 +59,7 @@ function Stepper({ status }: { status: string }) {
   return (
     <div className="row" style={{ alignItems: 'flex-start', gap: 0 }} role="list" aria-label="Delivery progress">
       {STEPS.map(([k, l], i) => { const done = idx > i || status === 'completed' || (idx === i && i === 3); const cur = idx === i && !done;
-        return <div key={k} role="listitem" style={{ flex: 1, textAlign: 'center', fontSize: 11, fontWeight: 600, color: done || cur ? 'var(--navy)' : '#8A94AE' }}>
+        return <div key={k} role="listitem" style={{ flex: 1, textAlign: 'center', fontSize: 11, fontWeight: 600, color: done || cur ? 'var(--navy)' : '#5B6784' }}>
           <div style={{ position: 'relative', height: 34 }}>{i > 0 && <span style={{ position: 'absolute', left: '-50%', right: '50%', top: 16, height: 2, background: idx >= i ? 'var(--teal)' : 'var(--line)' }} />}
             <span style={{ position: 'relative', width: 34, height: 34, borderRadius: '50%', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: done ? 'var(--teal)' : cur ? 'var(--blue)' : '#E4EAF6', color: '#fff', boxShadow: cur ? '0 0 0 6px rgba(36,107,253,.18)' : undefined }}>{i === 3 ? <Ticks w={18} white /> : <Icon name={['shield', 'box', 'truck'][i]} className="" />}</span></div>
           <div style={{ marginTop: 6 }}>{l}</div></div>; })}
@@ -149,7 +149,7 @@ export function BookingPage() {
           <span style={{ width: 10, height: 10, borderRadius: '50%', background: e.kind === 'cancelled' || e.kind === 'pin_locked' ? 'var(--red)' : 'var(--teal)', marginTop: 6, flex: 'none' }} />
           <div style={{ flex: 1 }}><b className="sm" style={{ textTransform: 'capitalize' }}>{e.kind.replace('_', ' ')}</b>{e.location_label && <span className="muted sm"> · {e.location_label}</span>}<div className="sm">{e.note}</div>{e.photo_url && <img src={e.photo_url} alt="Evidence" style={{ width: 120, borderRadius: 12, marginTop: 6 }} />}<div className="muted sm">{e.actor ? `@${e.actor} · ` : ''}{fmtDateTime(e.created_at)}</div></div></div>)}</div>
 
-        {has('cancel') && <button className="btn ghost" style={{ color: 'var(--red)', borderColor: 'var(--red)' }} onClick={() => setCancel(true)}>Cancel this booking</button>}
+        {has('cancel') && <button className="btn ghost" style={{ color: 'var(--red-text)', borderColor: 'var(--red-text)' }} onClick={() => setCancel(true)}>Cancel this booking</button>}
         <div className="muted sm">Pickup and delivery are verified with PINs and photos. Insurance depends on the transporter's own coverage; twiqo doesn't insure items, and card payments are not held in escrow.</div>
       </div>
       {cancel && <Modal onClose={() => setCancel(false)} title="Cancel this booking?"><div className="col"><div className="muted sm">Cancelling is only possible before pickup. {ship ? 'Your shipment goes back to open.' : 'The space on your journey is released.'}</div>

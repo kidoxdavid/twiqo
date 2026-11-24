@@ -1,0 +1,11 @@
+node_modules
+**/node_modules
+**/dist
+.git
+docs
+apps/api/uploads
+apps/api/private-uploads
+backups
+*.log
+.env
+**/.env

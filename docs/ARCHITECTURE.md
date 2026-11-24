@@ -256,3 +256,24 @@ The schema in `apps/api/migrations` is written so later phases add tables and mo
 **i18n.** Dictionary-based `t()` with English fallback; the language is stored in `localStorage` and `users.locale`. Changing language remounts the UI tree (simple and correct, loses unsaved form input).
 
 **Risks / open items.** Referral abuse; analytics volume on a single Postgres table (add partitioning or a warehouse export when it grows past tens of millions of rows); privacy policy wording; French quality.
+
+
+## 11. Phase 6 design notes
+
+**Job queue.** `jobs` table; workers claim with `FOR UPDATE SKIP LOCKED`, retry with exponential backoff (30 s doubling to 1 h), give up after `max_attempts` (visible in Admin → System as dead jobs). Housekeeping is itself a self-rescheduling job with a dedupe key, so only one node runs it. Emails and notifications are enqueued inside the transaction that caused them and are delivered after it commits.
+
+**Sessions.** Access tokens carry a session id; every request checks the session is not revoked, so remote sign-out, password change and suspension take effect immediately instead of when the 15-minute token expires.
+
+**Secrets at rest.** TOTP seeds are AES-256-GCM encrypted with a key derived from `JWT_SECRET` (rotating it forces 2FA re-enrolment). Recovery codes and email/reset tokens are stored hashed. Private driver documents live outside the public `/media` tree, are re-encoded (stripping EXIF), and are served only to the owner and reviewers with an audit entry.
+
+**Risk model.** Additive scores from named rules; a listing is held at `risk.flag_threshold`; every flag records its reasons for the reviewer. Nothing is deleted automatically. Chat warnings are shown only to the receiver so senders can't tune their wording against the rules.
+
+**Blind reviews.** `reviews.revealed_at` gates every read (profiles, aggregates, ranking, booking views). Both reviews reveal when the second arrives; housekeeping reveals a lone review after `reviews.reveal_after_days`.
+
+**Instant book.** Reuses the normal accept path (`acceptOffer`) with the driver as actor, so capacity checks, locking order and notifications are identical; any failure falls back to a normal pending offer.
+
+**Safety data.** Trip links are random 144-bit tokens with 3-day expiry and a public view limited to route, status, first name and last known location. Location points are only stored with the driver's per-booking consent, capped at 200, deleted when sharing stops and two days after a booking ends.
+
+**Operations.** Request id on every response and log line; query strings are never logged (the realtime stream carries a token there). `/ready` fails when the database is down or the oldest due job is over 10 minutes late. The authorization sweep walks the registered routes: any new write route without a sign-in guard, or admin route open to members, fails the test suite.
+
+**Known limits.** Saved-search matching scans up to 5,000 searches per new item (fine for tens of thousands of users; index or move to a search service after that). Analytics and jobs share the primary database. The in-process cache is per node. The Docker files and CSP header are untested in a browser.

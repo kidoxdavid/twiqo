@@ -146,7 +146,7 @@ export function CirclePage() {
             {c.visibility === 'public' && <select aria-label="Join policy" className="input" style={{ flex: 1 }} value={edit.join_policy} onChange={(e) => setEdit({ ...edit, join_policy: e.target.value })}><option value="open">Open</option><option value="approval">Approval needed</option></select>}</div>
           <label className="row"><input type="checkbox" checked={edit.allow_commerce} onChange={(e) => setEdit({ ...edit, allow_commerce: e.target.checked })} /> Members can share listings, journeys and services</label>
           <div className="row"><button className="btn" disabled={busy}>Save</button><button type="button" className="btn soft" onClick={() => setEdit(null)}>Cancel</button></div></form>}
-        {role === 'owner' && <div className="card pad col"><b>Owner tools</b><TransferOwner slug={slug!} act={act} /><button className="btn ghost" style={{ color: 'var(--red)', borderColor: 'var(--red)' }} onClick={() => confirm('Delete this circle for everyone? This cannot be undone.') && act(async () => { await api(`/circles/${slug}`, { method: 'DELETE' }); nav('/circles'); }, 'Circle deleted')}>Delete circle</button></div>}
+        {role === 'owner' && <div className="card pad col"><b>Owner tools</b><TransferOwner slug={slug!} act={act} /><button className="btn ghost" style={{ color: 'var(--red-text)', borderColor: 'var(--red-text)' }} onClick={() => confirm('Delete this circle for everyone? This cannot be undone.') && act(async () => { await api(`/circles/${slug}`, { method: 'DELETE' }); nav('/circles'); }, 'Circle deleted')}>Delete circle</button></div>}
       </div>}
       {report && <ReportDialog target={{ type: 'group', id: c.id }} onClose={() => setReport(false)} />}
     </main>

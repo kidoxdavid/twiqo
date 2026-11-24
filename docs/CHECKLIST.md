@@ -99,3 +99,17 @@ Legend: ✅ done and tested · 🟡 partial · ⬜ not started
 - ✅ Performance: load-check script, For You candidate pool, compression, indexes, route code splitting
 - ✅ Internationalisation: English + Canadian French for the main flows, language preference stored per account
 - ⬜ Gaps: French for every screen and for API error messages; native review of French; push/email digests; A/B testing; ML ranking; referral fraud detection beyond the basic rules; subscription tiers beyond Business Pro; CDN/edge caching; load testing beyond the single-node check
+
+
+## Phase 6 — Trust, notifications, compliance and operations ✅ (see launch checklist for what still needs people)
+- ✅ Accounts: consent, verification, reset, 2FA + recovery codes, sessions, device alerts, export, deletion
+- ✅ Postgres job queue; email provider (fake/SMTP) + outbox; web push + service worker; channel preferences, unsubscribe, digest
+- ✅ Saved-search and price-drop alerts
+- ✅ Identity verification (Stripe Identity adapter, mock-tested), driver documents (private), driver gate (setting), badges, instant book
+- ✅ Risk heuristics + review queue, velocity limits, duplicate detection, chat warnings, blind reviews
+- ✅ Safety: emergency contacts, share-trip links, live location, SOS, GPS at PIN, staff queue
+- ✅ Price guidance, return-trip suggestions, renew/relist, bulk CSV upload, receipts, tax estimates, chargeback evidence
+- ✅ Legal drafts (terms, privacy, guidelines, refunds, prohibited items) — **drafts, need a lawyer**
+- ✅ Logging + request ids, /ready, system health page, write rate limit, authorization sweep test, dependency audit in CI, backup + verified restore, Dockerfiles/compose (unrun), PWA
+- ✅ Accessibility: axe (WCAG 2.1 A/AA) clean on 20 key pages, contrast fixes; **manual screen-reader and keyboard testing still needed**
+- ⬜ Not built / not possible here: voice messages, multi-stop consolidation, virus scanning of uploads, CDN, Redis cache, live Stripe/Identity/SMTP/push verification, penetration test, native apps, French for every screen, SMS (emergency contacts get email only)

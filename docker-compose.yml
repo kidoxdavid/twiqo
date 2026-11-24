@@ -1,0 +1,27 @@
+# A self-contained demo/staging stack:  docker compose up --build   then open http://localhost:8080
+# It runs with the FAKE payment and email providers (no real money, no real email) so it is safe to try. For production set
+# NODE_ENV=production, PAYMENT_PROVIDER=stripe, EMAIL_PROVIDER=smtp and real secrets (see README), and use a managed Postgres with backups.
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment: { POSTGRES_USER: twiqo, POSTGRES_PASSWORD: twiqo, POSTGRES_DB: twiqo }
+    volumes: [dbdata:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U twiqo"], interval: 5s, timeout: 5s, retries: 20 }
+  api:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    depends_on: { db: { condition: service_healthy } }
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgres://twiqo:twiqo@db:5432/twiqo
+      JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-string-for-staging}
+      PUBLIC_URL: http://localhost:8080
+      WEB_ORIGIN: http://localhost:8080
+      PAYMENT_PROVIDER: fake
+      EMAIL_PROVIDER: fake
+      VIDEO_PROVIDER: local
+    volumes: [uploads:/app/apps/api/uploads, private:/app/apps/api/private-uploads]
+  web:
+    build: { context: ., dockerfile: apps/web/Dockerfile }
+    depends_on: [api]
+    ports: ["8080:80"]
+volumes: { dbdata: {}, uploads: {}, private: {} }

@@ -47,5 +47,5 @@ export function describeNotification(n: N, l: 'en' | 'fr'): Out {
   }
 }
 /** Which notifications are emailed / pushed unless the person changes it. Social noise is off for email, on for nothing by default. */
-export const DEFAULT_EMAIL = new Set(['offer_received', 'offer_countered', 'offer_accepted', 'offer_rejected', 'booking_update', 'payment_update', 'dispute_update', 'saved_search_match', 'price_drop', 'referral_reward', 'subscription_update', 'group_invite', 'safety_alert', 'match']);
+export const DEFAULT_EMAIL = new Set(['offer_received', 'offer_countered', 'offer_accepted', 'offer_rejected', 'booking_update', 'payment_update', 'dispute_update', 'saved_search_match', 'price_drop', 'referral_reward', 'subscription_update', 'group_invite', 'safety_alert', 'match', 'document_review']);
 export const DEFAULT_PUSH = new Set([...DEFAULT_EMAIL, 'reply', 'comment', 'follow', 'story_reply', 'event_reminder']);
