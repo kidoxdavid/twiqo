@@ -17,10 +17,11 @@ export function computeFee(rule: FeeRule | null | undefined, amountCents: number
 // ---------------------------------------------------------------------------------------------- provider interface
 export interface NormalizedEvent {
   id: string;
-  type: 'identity.updated' | 'subscription.updated' | 'payment.succeeded' | 'payment.failed' | 'refund.updated' | 'account.updated' | 'payout.updated' | 'card_dispute.created' | 'ignored';
+  type: 'card_dispute.updated' | 'identity.updated' | 'subscription.updated' | 'payment.succeeded' | 'payment.failed' | 'refund.updated' | 'account.updated' | 'payout.updated' | 'card_dispute.created' | 'ignored';
   paymentId?: string; chargeId?: string; failureReason?: string;
   refundId?: string; refundStatus?: 'pending' | 'succeeded' | 'failed'; refundAmount?: number;
   accountId?: string;
+  cardDispute?: { id: string; paymentId?: string; amount: number; currency?: string; reason?: string; status: string; dueBy?: string };
   identity?: { sessionId: string; userId?: string; status: 'verified' | 'processing' | 'requires_input' | 'canceled' };
   subscription?: { id: string; customerId: string; userId?: string; status: 'incomplete' | 'active' | 'past_due' | 'canceled'; periodEnd?: string; cancelAtPeriodEnd: boolean };
   payout?: { id: string; amount: number; status: string; arrival?: string; currency?: string };
@@ -45,6 +46,8 @@ export interface PaymentProvider {
   subscriptionPortal(customerId: string, returnUrl: string): Promise<string | null>;
   /** Government-ID + selfie check (Stripe Identity). The result arrives as an `identity.updated` webhook event. */
   createIdentitySession(i: { userId: string; returnUrl: string }): Promise<{ id: string; url: string }>;
+  /** Send our records to the card network as evidence for a chargeback. */
+  submitDisputeEvidence(disputeId: string, evidence: { text: string; productDescription: string }): Promise<void>;
   parseWebhook(rawBody: Buffer, headers: Record<string, string | string[] | undefined>): NormalizedEvent;
 }
 
@@ -80,6 +83,8 @@ export class FakePaymentProvider implements PaymentProvider {
   }
   async createSubscriptionCheckout(i: { successUrl: string }) { return { url: `${i.successUrl}${i.successUrl.includes('?') ? '&' : '?'}fake_subscription=1` }; }
   async subscriptionPortal() { return null; }
+  readonly evidence: { disputeId: string; text: string; productDescription: string }[] = [];
+  async submitDisputeEvidence(disputeId: string, e: { text: string; productDescription: string }) { this.evidence.push({ disputeId, ...e }); }
   async createIdentitySession(i: { userId: string; returnUrl: string }) { const id = `vs_fake_${crypto.randomBytes(8).toString('hex')}`; return { id, url: `${i.returnUrl}${i.returnUrl.includes('?') ? '&' : '?'}fake_identity=${id}` }; }
   parseWebhook(raw: Buffer, headers: Record<string, string | string[] | undefined>): NormalizedEvent {
     const sig = hdr(headers, 'x-fake-signature');
@@ -146,6 +151,9 @@ export class StripePaymentProvider implements PaymentProvider {
     if (!s.url) throw new Error('Stripe returned no verification URL');
     return { id: s.id, url: s.url };
   }
+  async submitDisputeEvidence(disputeId: string, e: { text: string; productDescription: string }) {
+    await this.stripe.disputes.update(disputeId, { evidence: { uncategorized_text: e.text.slice(0, 20000), product_description: e.productDescription.slice(0, 20000) }, submit: true });
+  }
   async subscriptionPortal(customerId: string, returnUrl: string) { return (await this.stripe.billingPortal.sessions.create({ customer: customerId, return_url: returnUrl })).url; }
   parseWebhook(raw: Buffer, headers: Record<string, string | string[] | undefined>): NormalizedEvent {
     const sig = hdr(headers, 'stripe-signature'); if (!sig) throw new Error('Missing Stripe signature');
@@ -170,7 +178,10 @@ export class StripePaymentProvider implements PaymentProvider {
       case 'identity.verification_session.verified': case 'identity.verification_session.requires_input': case 'identity.verification_session.canceled': case 'identity.verification_session.processing': {
         const st = ev.type.split('.').pop()!; return { id: ev.id, type: 'identity.updated', identity: { sessionId: o.id, userId: o.metadata?.twiqo_user_id, status: st as 'verified' | 'processing' | 'requires_input' | 'canceled' } };
       }
-      case 'charge.dispute.created': return { id: ev.id, type: 'card_dispute.created', paymentId: typeof o.payment_intent === 'string' ? o.payment_intent : o.payment_intent?.id };
+      case 'charge.dispute.created': case 'charge.dispute.updated': case 'charge.dispute.closed': case 'charge.dispute.funds_withdrawn': case 'charge.dispute.funds_reinstated': {
+        const cd = { id: o.id as string, paymentId: typeof o.payment_intent === 'string' ? o.payment_intent : o.payment_intent?.id, amount: o.amount as number, currency: String(o.currency ?? 'cad').toUpperCase(), reason: o.reason as string | undefined, status: o.status as string, dueBy: o.evidence_details?.due_by ? new Date(o.evidence_details.due_by * 1000).toISOString() : undefined };
+        return { id: ev.id, type: ev.type === 'charge.dispute.created' ? 'card_dispute.created' : 'card_dispute.updated', paymentId: cd.paymentId, cardDispute: cd };
+      }
       default: return { id: ev.id, type: 'ignored' };
     }
   }

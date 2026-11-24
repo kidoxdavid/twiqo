@@ -280,11 +280,18 @@ export async function handleEvent(ev: NormalizedEvent, provider = paymentProvide
           [userId, sub.status, provider, sub.customerId, sub.id, sub.periodEnd ?? null, sub.cancelAtPeriodEnd]);
         if (!known || known.status !== sub.status) await notify(c, { userId, type: 'subscription_update', targetType: 'subscription', targetId: userId, data: { status: sub.status }, dedupeKey: `sub:${sub.id}:${sub.status}` });
       }
-    } else if (ev.type === 'card_dispute.created') {
+    } else if ((ev.type === 'card_dispute.created' || ev.type === 'card_dispute.updated') && ev.cardDispute) {
+      const cd = ev.cardDispute; const p = (await c.query('SELECT id FROM payments WHERE provider_payment_id=$1', [cd.paymentId ?? ev.paymentId])).rows[0];
+      const prev = (await c.query('SELECT status FROM card_disputes WHERE provider_dispute_id=$1', [cd.id])).rows[0];
+      await c.query(`INSERT INTO card_disputes(provider_dispute_id,payment_id,amount_cents,currency,reason,status,due_by) VALUES ($1,$2,$3,$4,$5,$6,$7)
+        ON CONFLICT (provider_dispute_id) DO UPDATE SET status=EXCLUDED.status, due_by=coalesce(EXCLUDED.due_by, card_disputes.due_by), reason=coalesce(EXCLUDED.reason, card_disputes.reason), updated_at=now()`, [cd.id, p?.id ?? null, cd.amount, cd.currency ?? 'CAD', cd.reason ?? null, cd.status, cd.dueBy ?? null]);
+      if (!prev) await audit(c, null, 'payment.card_dispute', 'payment', p?.id ?? null, null, { provider_dispute_id: cd.id, reason: cd.reason, due_by: cd.dueBy });
+      if (!prev || prev.status !== cd.status)
+        for (const s of (await c.query(`SELECT DISTINCT ur.user_id FROM user_roles ur JOIN role_permissions rp ON rp.role_key=ur.role_key WHERE rp.permission_key='manage.payments'`)).rows)
+          await notify(c, { userId: s.user_id, type: 'payment_update', targetType: 'payment', targetId: p?.id, data: { event: 'card_dispute', status: cd.status }, dedupeKey: `cd:${cd.id}:${cd.status}` });
+    } else if (ev.type === 'card_dispute.created') {   // an event without detail (older adapters): still tell staff
       const p = (await c.query('SELECT id FROM payments WHERE provider_payment_id=$1', [ev.paymentId])).rows[0];
       await audit(c, null, 'payment.card_dispute', 'payment', p?.id ?? null, null, { provider_payment_id: ev.paymentId });
-      for (const s of (await c.query(`SELECT DISTINCT ur.user_id FROM user_roles ur JOIN role_permissions rp ON rp.role_key=ur.role_key WHERE rp.permission_key='manage.payments'`)).rows)
-        await notify(c, { userId: s.user_id, type: 'payment_update', targetType: 'payment', targetId: p?.id, data: { event: 'card_dispute' } });
     }
     await c.query('UPDATE webhook_events SET processed_at=now() WHERE id=$1', [ev.id]);
     return 'applied';
