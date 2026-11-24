@@ -5,7 +5,7 @@ import { api } from '../api';
 import { useToast } from '../components/Toast';
 import { Icon } from '../components/Icon';
 import { DISPUTE_REASONS } from '../components/payments';
-import { State, ago, errMsg, money } from '../components/ui';
+import { State, ago, errMsg, cash } from '../components/ui';
 
 const STATUS_PILL: Record<string, string> = { succeeded: 't', partially_refunded: 'a', refunded: 'b', failed: 'r', requires_payment: '', processing: 'b', canceled: '' };
 const STATUS_TEXT: Record<string, string> = { succeeded: 'Paid', partially_refunded: 'Partly refunded', refunded: 'Refunded', failed: 'Failed', requires_payment: 'Awaiting payment', processing: 'Processing', canceled: 'Cancelled' };
@@ -43,15 +43,15 @@ export function PaymentsSettings() {
         </div>
 
         <h2 className="sec" style={{ margin: '6px 0 0' }}>Earnings</h2>
-        {earn.isLoading ? <State kind="loading" /> : earn.data && <div className="kpis"><div className="kpi"><span>Received</span><b>{money(earn.data.gross_cents)}</b></div><div className="kpi"><span>twiqo fees</span><b>{money(earn.data.fee_cents)}</b></div><div className="kpi"><span>Refunded</span><b>{money(earn.data.refunded_cents)}</b></div><div className="kpi"><span>Your net</span><b>{money(earn.data.net_cents)}</b></div></div>}
-        {earn.data?.payouts?.length > 0 && <div className="card pad col sm">{earn.data.payouts.map((p: any) => <div key={p.id} className="row"><span>{p.arrival_date ? new Date(p.arrival_date).toLocaleDateString('en-CA') : ago(p.created_at)}</span><span className="sp" /><span className="pill">{p.status}</span><b>{money(p.amount_cents)}</b></div>)}</div>}
+        {earn.isLoading ? <State kind="loading" /> : earn.data && <div className="kpis"><div className="kpi"><span>Received</span><b>{cash(earn.data.gross_cents)}</b></div><div className="kpi"><span>twiqo fees</span><b>{cash(earn.data.fee_cents)}</b></div><div className="kpi"><span>Refunded</span><b>{cash(earn.data.refunded_cents)}</b></div><div className="kpi"><span>Your net</span><b>{cash(earn.data.net_cents)}</b></div></div>}
+        {earn.data?.payouts?.length > 0 && <div className="card pad col sm">{earn.data.payouts.map((p: any) => <div key={p.id} className="row"><span>{p.arrival_date ? new Date(p.arrival_date).toLocaleDateString('en-CA') : ago(p.created_at)}</span><span className="sp" /><span className="pill">{p.status}</span><b>{cash(p.amount_cents)}</b></div>)}</div>}
         {earn.data && <div className="muted sm">{earn.data.note}</div>}
 
         <div className="row"><h2 className="sec" style={{ margin: 0 }}>History</h2><span className="sp" />{(['all', 'payer', 'payee'] as const).map((r) => <button key={r} className={`pill ${role === r ? 'b' : ''}`} onClick={() => setRole(r)}>{{ all: 'All', payer: 'Paid', payee: 'Received' }[r]}</button>)}</div>
         {list.isLoading ? <State kind="loading" /> : list.data.items.length === 0 ? <div className="muted">No payments yet.</div>
           : list.data.items.map((p: any) => <Link key={p.id} to={p.subject.type === 'order' ? `/orders/${p.subject.id}` : p.subject.type === 'booking' ? `/bookings/${p.subject.id}` : '#'} className="card pad row">
             <div style={{ flex: 1 }}><b>{p.subject.title ?? 'Payment'}</b><div className="muted sm">{p.my_role === 'payer' ? 'You paid' : 'You received'} · {ago(p.created_at)}{p.failure_reason ? ` · ${p.failure_reason}` : ''}</div></div>
-            <div style={{ textAlign: 'right' }}><b>{money(p.amount_cents)}</b><div><span className={`pill ${STATUS_PILL[p.status] ?? ''}`}>{STATUS_TEXT[p.status] ?? p.status}</span></div></div></Link>)}
+            <div style={{ textAlign: 'right' }}><b>{cash(p.amount_cents)}</b><div><span className={`pill ${STATUS_PILL[p.status] ?? ''}`}>{STATUS_TEXT[p.status] ?? p.status}</span></div></div></Link>)}
 
         {disputes.data?.items?.length > 0 && <><h2 className="sec" style={{ margin: '6px 0 0' }}>Problem reports</h2>
           {disputes.data.items.map((d: any) => <Link key={d.id} to={`/disputes/${d.id}`} className="card pad row"><div style={{ flex: 1 }}><b>{d.subject.title}</b><div className="muted sm">{DISPUTE_REASONS[d.reason] ?? d.reason} · {ago(d.created_at)}</div></div><span className={`pill ${d.status === 'open' ? 'a' : 't'}`}>{d.status}</span></Link>)}</>}
@@ -74,7 +74,7 @@ export function DisputePage() {
         <div className="card pad col" style={{ gap: 6 }}><b>{d.subject.title}</b><div className="muted sm">{DISPUTE_REASONS[d.reason] ?? d.reason} · opened by {d.opened_by.is_me ? 'you' : `@${d.opened_by.username}`} {ago(d.created_at)} ago</div>
           <div style={{ whiteSpace: 'pre-wrap' }}>{d.description}</div>
           <Link className="btn sm soft" to={d.subject.type === 'order' ? `/orders/${d.subject.id}` : `/bookings/${d.subject.id}`}>View the {d.subject.type}</Link></div>
-        {!open && d.status === 'resolved' && <div className="card pad col" style={{ background: '#E6FAF3' }}><b>Resolved by twiqo staff: {{ refund_full: 'full refund', refund_partial: `partial refund of ${money(d.refund_cents ?? 0)}`, no_refund: 'no refund' }[d.resolution as string] ?? d.resolution}</b><div className="sm">{d.resolution_note}</div></div>}
+        {!open && d.status === 'resolved' && <div className="card pad col" style={{ background: '#E6FAF3' }}><b>Resolved by twiqo staff: {{ refund_full: 'full refund', refund_partial: `partial refund of ${cash(d.refund_cents ?? 0)}`, no_refund: 'no refund' }[d.resolution as string] ?? d.resolution}</b><div className="sm">{d.resolution_note}</div></div>}
         <h2 className="sec" style={{ margin: '6px 0 0' }}>Conversation</h2>
         <div className="col">{d.messages.length === 0 && <div className="muted sm">No replies yet. Add details or evidence below.</div>}
           {d.messages.map((m: any) => <div key={m.id} className="card pad col" style={{ gap: 4, background: m.staff ? '#EEF3FF' : undefined }}><div className="row sm"><b>{m.staff ? 'twiqo team' : m.author.display_name}</b><span className="sp" /><span className="muted">{ago(m.created_at)}</span></div><div style={{ whiteSpace: 'pre-wrap' }}>{m.body}</div>{m.photo_url && <img src={m.photo_url} alt="Evidence" style={{ width: 160, borderRadius: 12 }} />}</div>)}</div>

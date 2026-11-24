@@ -1,3 +1,4 @@
+import { t, numberLocale } from '../i18n';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { api, ApiError } from '../api';
@@ -63,10 +64,12 @@ export function ImageUploader({ value, onChange, max = 10 }: { value: Uploaded[]
   );
 }
 
-export const money = (cents: number, type?: string) => (type === 'free' || cents === 0 ? 'Free' : new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: cents % 100 ? 2 : 0 }).format(cents / 100));
+export const money = (cents: number, type?: string) => (type === 'free' || cents === 0 ? t('common.free') : new Intl.NumberFormat(numberLocale(), { style: 'currency', currency: 'CAD', maximumFractionDigits: cents % 100 ? 2 : 0 }).format(cents / 100));
+/** Plain currency amount: zero is "$0", never "Free" (use `money` for prices). */
+export const cash = (cents: number) => new Intl.NumberFormat(numberLocale(), { style: 'currency', currency: 'CAD', maximumFractionDigits: cents % 100 ? 2 : 0 }).format(cents / 100);
 export function ago(iso: string) {
   const s = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (s < 60) return 'now'; if (s < 3600) return `${Math.floor(s / 60)}m`; if (s < 86400) return `${Math.floor(s / 3600)}h`; if (s < 604800) return `${Math.floor(s / 86400)}d`;
+  if (s < 60) return t('common.now'); if (s < 3600) return `${Math.floor(s / 60)}m`; if (s < 86400) return `${Math.floor(s / 3600)}h`; if (s < 604800) return `${Math.floor(s / 86400)}d`;
   return new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
 }
 export const CONDITIONS: Record<string, string> = { new: 'New', like_new: 'Like new', good: 'Good', fair: 'Fair', for_parts: 'For parts' };

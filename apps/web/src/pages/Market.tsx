@@ -1,16 +1,19 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { api } from '../api';
+import { api, track } from '../api';
 import { useAuth } from '../auth';
 import { Comments, ListingCard, shareLink, useRequireAuth, useToggle } from '../components/cards';
 import { Icon } from '../components/Icon';
 import { useToast } from '../components/Toast';
 import { OfferDialog } from '../components/transport';
 import { BoostButton } from '../components/payments';
+import { DiscoverStrip, RecommendedListings, SimilarListings } from '../components/growth';
+import { t, useLocale } from '../i18n';
 import { Avatar, CONDITIONS, Menu, ReportDialog, State, Verified, ago, errMsg, money } from '../components/ui';
 
 export function Market() {
+  useLocale();
   const [sp, setSp] = useSearchParams();
   const get = (k: string) => sp.get(k) ?? '';
   const set = (k: string, v: string) => { const n = new URLSearchParams(sp); v ? n.set(k, v) : n.delete(k); setSp(n, { replace: true }); };
@@ -21,13 +24,13 @@ export function Market() {
   const items = q.data?.pages.flatMap((p) => p.items) ?? [];
   return (
     <main className="main wide">
-      <h1 className="page">Market</h1>
-      <form className="row" style={{ padding: '0 16px 12px' }} role="search" onSubmit={(e) => { e.preventDefault(); set('q', (new FormData(e.currentTarget).get('q') as string).trim()); }}>
-        <div className="searchbox" style={{ display: 'flex', maxWidth: 'none' }}><Icon name="search" /><input name="q" aria-label="Search listings" placeholder="Search furniture, bikes, tires…" defaultValue={get('q')} key={get('q')} /></div>
-        <button type="button" className="btn soft" aria-expanded={showFilters} onClick={() => setShowFilters(!showFilters)}><Icon name="filter" />Filters</button>
+      <h1 className="page">{t('market.title')}</h1>
+      <form className="row" style={{ padding: '0 16px 12px' }} role="search" onSubmit={(e) => { e.preventDefault(); const v = (new FormData(e.currentTarget).get('q') as string).trim(); if (v) track('search', undefined, { q_len: v.length }); set('q', v); }}>
+        <div className="searchbox" style={{ display: 'flex', maxWidth: 'none' }}><Icon name="search" /><input name="q" aria-label="Search listings" placeholder={t('market.search')} defaultValue={get('q')} key={get('q')} /></div>
+        <button type="button" className="btn soft" aria-expanded={showFilters} onClick={() => setShowFilters(!showFilters)}><Icon name="filter" />{t('market.filters')}</button>
       </form>
       <div className="chips" role="group" aria-label="Categories">
-        <button className={`chip ${!get('category') ? 'on' : ''}`} onClick={() => set('category', '')}>All</button>
+        <button className={`chip ${!get('category') ? 'on' : ''}`} onClick={() => set('category', '')}>{t('common.all')}</button>
         {cats.data?.items.map((c: any) => <button key={c.id} className={`chip ${get('category') === c.slug ? 'on' : ''}`} onClick={() => set('category', c.slug)}>{c.name}</button>)}
       </div>
       {showFilters && (
@@ -40,8 +43,9 @@ export function Market() {
           <div className="field"><label htmlFor="so">Sort</label><select id="so" className="input" value={get('sort') || 'newest'} onChange={(e) => set('sort', e.target.value)}><option value="newest">Newest</option><option value="price_asc">Price: low to high</option><option value="price_desc">Price: high to low</option><option value="distance" disabled={!get('city')}>Nearest{!get('city') ? ' (pick a city)' : ''}</option></select></div>
         </div>
       )}
+      {!get('q') && !get('category') && !get('city') && !get('min') && !get('max') && !get('condition') && <><DiscoverStrip /><RecommendedListings /></>}
       {q.isLoading ? <State kind="loading" /> : q.isError ? <State kind="error" text={(q.error as Error).message} /> : items.length === 0
-        ? <State kind="empty" title="No listings match" text="Try a different search or clear some filters." action={<div className="row" style={{ justifyContent: 'center' }}><button className="btn ghost" onClick={() => setSp({}, { replace: true })}>Clear filters</button><Link className="btn" to="/create/listing">Sell something</Link></div>} />
+        ? <State kind="empty" title={t('market.none')} text={t('market.none_text')} action={<div className="row" style={{ justifyContent: 'center' }}><button className="btn ghost" onClick={() => setSp({}, { replace: true })}>{t('market.clear')}</button><Link className="btn" to="/create/listing">{t('market.sell')}</Link></div>} />
         : <><div className="grid">{items.map((l: any) => <ListingCard key={l.id} l={l} />)}</div>
           {q.hasNextPage && <div style={{ textAlign: 'center', padding: 20 }}><button className="btn ghost" disabled={q.isFetchingNextPage} onClick={() => q.fetchNextPage()}>{q.isFetchingNextPage ? 'Loading…' : 'Load more'}</button></div>}</>}
     </main>
@@ -99,6 +103,7 @@ export function ListingDetail() {
       </div>
       {offer && <OfferDialog target={{ kind: 'goods', listing: l }} onClose={() => setOffer(false)} />}
       {report && <ReportDialog target={{ type: 'listing', id: l.id }} onClose={() => setReport(false)} />}
+      <SimilarListings id={l.id} />
     </main>
   );
 }

@@ -335,6 +335,24 @@ const b2 = await boostRow(owner, 'post', adPost, 'sponsored', 1499); await mkPay
 // an open dispute on the live booking, for the admin queue
 await pool.query(`INSERT INTO disputes(booking_id,opened_by,other_party_id,reason,description) VALUES ($1,$2,$3,'damaged','One of the boxes arrived crushed at the corner and a lamp inside is cracked.')`, [live, amara, daniel]);
 
+// ---- growth (phase 5)
+await pool.query(`UPDATE users SET referral_code = substr(md5(id::text || 'twiqo'), 1, 8) WHERE referral_code IS NULL`);
+// priya joined through amara and finished a deal, so amara has earned credit; lena joined through amara and hasn't dealt yet
+await pool.query(`UPDATE users SET referred_by=$1 WHERE id IN ($2,$3)`, [amara, priya, lena]);
+const refRow = (await pool.query(`INSERT INTO referrals(referrer_id,referee_id,status,qualified_at,reward_cents) VALUES ($1,$2,'qualified', now() - interval '3 days', 500) RETURNING id`, [amara, priya])).rows[0].id as string;
+await pool.query(`INSERT INTO referrals(referrer_id,referee_id) VALUES ($1,$2)`, [amara, lena]);
+await pool.query(`INSERT INTO credit_ledger(user_id,amount_cents,reason,ref_type,ref_id) VALUES ($1,500,'referral_reward','referral',$2)`, [amara, refRow]);
+// brightside is a Business Pro member (fake provider)
+await pool.query(`INSERT INTO subscriptions(user_id,status,provider,provider_customer_id,provider_subscription_id,current_period_end) VALUES ($1,'active','fake','cus_fake_seed_brightside','sub_fake_seed_brightside', now() + interval '21 days')`, [owner]);
+// a few follows so "people you may know" has something to say
+for (const [a, b] of [[omar, amara], [lena, amara], [priya, marcus], [amara, marcus]] as const) await pool.query(`INSERT INTO follows(follower_id,target_type,target_id) VALUES ($1,'user',$2) ON CONFLICT DO NOTHING`, [a, b]);
+// 30 days of listing/service views for the seller insights screens (synthetic, spread over the last month)
+await pool.query(`INSERT INTO analytics_events(user_id,anon_id,name,target_type,target_id,created_at)
+  SELECT NULL, 'seed-anon-' || (g % 40), 'view', t.type, t.id, now() - (random() * 29 || ' days')::interval
+  FROM generate_series(1, 260) g CROSS JOIN LATERAL (SELECT 'listing' AS type, id FROM listings WHERE seller_id = ANY($1::uuid[]) ORDER BY random() LIMIT 1) t`, [[amara, marcus, daniel, owner]]);
+await pool.query(`INSERT INTO analytics_events(user_id,anon_id,name,target_type,target_id,created_at) SELECT NULL, 'seed-anon-' || (g % 25), 'view', 'transport_service', $1, now() - (random() * 29 || ' days')::interval FROM generate_series(1, 60) g`, [svc]);
+await pool.query(`INSERT INTO analytics_events(user_id,name,created_at) SELECT u.id, 'search', now() - (random() * 20 || ' days')::interval FROM users u CROSS JOIN generate_series(1,3)`);
+
 await pool.query(`INSERT INTO banned_words(term,severity) VALUES ('counterfeit','block'),('western union','flag'),('wire transfer only','flag')`);
 
 console.log(`Done. Sign in with any seeded username (admin, moderator, amara, marcus, daniel, priya, lena, omar, calgarylife, brightside) and password "${PASSWORD}".`);

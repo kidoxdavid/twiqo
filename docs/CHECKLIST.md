@@ -91,5 +91,11 @@ Legend: ✅ done and tested · 🟡 partial · ⬜ not started
 - ✅ `npm run stripe:check`; tests: fees, checkout, webhooks, refunds, disputes, boosts, admin, mocked Stripe adapter
 - ⬜ Not built: sales tax, tax forms, Stripe chargeback evidence, subscriptions/business plans, multi-currency, payout schedule UI beyond Stripe's dashboard
 
-## Phase 5 — Growth ⬜
-Recommendations · trending · subscriptions · referrals · analytics · performance · internationalisation.
+## Phase 5 — Growth ✅ (partly: see gaps)
+- ✅ Trending listings / tags / circles, similar listings, personalised listing recommendations, people suggestions
+- ✅ Referral codes, attribution at sign-up, qualified-deal rewards, append-only credit ledger, credit applied to boosts, admin reject + audit
+- ✅ Business Pro subscription (provider interface, fake + Stripe Billing adapter, webhook sync with out-of-order protection), commission discount, Pro insights
+- ✅ First-party analytics (DNT/GPC respected, no IPs, 180-day retention), seller insights, admin growth dashboard (DAU/WAU/MAU, funnel, retention, referrals)
+- ✅ Performance: load-check script, For You candidate pool, compression, indexes, route code splitting
+- ✅ Internationalisation: English + Canadian French for the main flows, language preference stored per account
+- ⬜ Gaps: French for every screen and for API error messages; native review of French; push/email digests; A/B testing; ML ranking; referral fraud detection beyond the basic rules; subscription tiers beyond Business Pro; CDN/edge caching; load testing beyond the single-node check

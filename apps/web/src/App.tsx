@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, getAccessToken } from './api';
+import { t, useLocale } from './i18n';
 import { useAuth } from './auth';
 import { Icon, Ticks } from './components/Icon';
 import { Modal, State } from './components/ui';
@@ -10,33 +11,42 @@ import { Home, PostPage } from './pages/Home';
 import { Market, ListingDetail } from './pages/Market';
 import { CreateListing, CreatePost } from './pages/Create';
 import { Profile, EditProfile, Saved, SearchPeople } from './pages/Profile';
-import { BusinessPage, CreateBusiness } from './pages/Business';
 import { Inbox, Thread, NewThread } from './pages/Chat';
 import { Notifications } from './pages/Notifications';
 import { Move, JourneyPage, RequestPage, ServicePage } from './pages/Move';
 import { CreateRequest, CreateJourney, CreateService } from './pages/CreateTransport';
 import { Offers, Bookings, BookingPage, OrderPage } from './pages/Deals';
-import { PaymentsSettings, DisputePage } from './pages/Payments';
-import { Admin } from './pages/Admin';
-import { Clips } from './pages/Clips';
 import { CreateClip, CreateStory } from './pages/CreateMedia';
-import { Circles, CreateCircle, CirclePage } from './pages/Circles';
+
+const Admin = lazy(() => import('./pages/Admin').then((m) => ({ default: m.Admin })));
+const Clips = lazy(() => import('./pages/Clips').then((m) => ({ default: m.Clips })));
+const Circles = lazy(() => import('./pages/Circles').then((m) => ({ default: m.Circles })));
+const CreateCircle = lazy(() => import('./pages/Circles').then((m) => ({ default: m.CreateCircle })));
+const CirclePage = lazy(() => import('./pages/Circles').then((m) => ({ default: m.CirclePage })));
+const PaymentsSettings = lazy(() => import('./pages/Payments').then((m) => ({ default: m.PaymentsSettings })));
+const DisputePage = lazy(() => import('./pages/Payments').then((m) => ({ default: m.DisputePage })));
+const BusinessPage = lazy(() => import('./pages/Business').then((m) => ({ default: m.BusinessPage })));
+const CreateBusiness = lazy(() => import('./pages/Business').then((m) => ({ default: m.CreateBusiness })));
+const InvitePage = lazy(() => import('./pages/Growth').then((m) => ({ default: m.InvitePage })));
+const ProPage = lazy(() => import('./pages/Growth').then((m) => ({ default: m.ProPage })));
+const InsightsPage = lazy(() => import('./pages/Growth').then((m) => ({ default: m.InsightsPage })));
 
 function CreateSheet({ onClose }: { onClose: () => void }) {
+  useLocale();
   const items: [string, string, string, string, string?][] = [
-    ['/create/post', 'Post', 'Share a photo or thought', 'img', 'var(--blue)'],
-    ['/create/listing', 'Sell something', 'List almost anything lawful', 'bag', 'var(--amber)'],
-    ['/create/clip', 'Clip', 'Short vertical video', 'film', '#8E6CF5'],
-    ['/create/story', 'Story', 'Gone in 24 hours', 'camera', '#5B6784'],
-    ['/create/post?poll=1', 'Poll', 'Ask your community', 'chat', '#2FA45F'],
-    ['/create/circle', 'Start a circle', 'Build a community', 'users', '#F76B6B'],
-    ['/create/request', 'Find someone to move it', 'Post a transport request', 'box', 'var(--teal)'],
-    ['/create/journey', 'Offer a journey', 'Earn on a trip you\'re making', 'route', 'var(--navy)'],
-    ['/create/service', 'Offer a delivery service', 'Truck, van or courier', 'truck', '#F76B6B'],
-    ['/business/new', 'Business page', 'Set up a storefront', 'users', '#8E6CF5'],
+    ['/create/post', t('create.post'), t('create.post.d'), 'img', 'var(--blue)'],
+    ['/create/listing', t('create.sell'), t('create.sell.d'), 'bag', 'var(--amber)'],
+    ['/create/clip', t('create.clip'), t('create.clip.d'), 'film', '#8E6CF5'],
+    ['/create/story', t('create.story'), t('create.story.d'), 'camera', '#5B6784'],
+    ['/create/post?poll=1', t('create.poll'), t('create.poll.d'), 'chat', '#2FA45F'],
+    ['/create/circle', t('create.circle'), t('create.circle.d'), 'users', '#F76B6B'],
+    ['/create/request', t('create.request'), t('create.request.d'), 'box', 'var(--teal)'],
+    ['/create/journey', t('create.journey'), t('create.journey.d'), 'route', 'var(--navy)'],
+    ['/create/service', t('create.service'), t('create.service.d'), 'truck', '#F76B6B'],
+    ['/business/new', t('create.business'), t('create.business.d'), 'users', '#8E6CF5'],
   ];
   return (
-    <Modal onClose={onClose} title="What do you want to do?">
+    <Modal onClose={onClose} title={t('create.title')}>
       <div className="cg">
         {items.map(([to, t, d, ic, bg]) => <Link key={to} to={to} onClick={onClose}><span className="ic" style={{ background: bg }}><Icon name={ic} /></span>{t}<small>{d}</small></Link>)}
       </div>
@@ -45,7 +55,12 @@ function CreateSheet({ onClose }: { onClose: () => void }) {
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
-  const { me } = useAuth(); const nav = useNavigate(); const qc = useQueryClient(); const loc = useLocation();
+  const { me } = useAuth(); const { locale, setLocale } = useLocale();
+  useEffect(() => {   // a device's own choice wins; a brand-new device adopts the saved account language
+    if (!me) return; let stored: string | null = null; try { stored = localStorage.getItem('twiqo.locale'); } catch { /* storage unavailable */ }
+    if (!stored && me.locale && me.locale !== locale) setLocale(me.locale); else if (stored && me.locale !== locale) setLocale(locale, true);
+  }, [me?.id]);   // eslint-disable-line react-hooks/exhaustive-deps
+ const nav = useNavigate(); const qc = useQueryClient(); const loc = useLocation();
   const [create, setCreate] = useState(false); const [q, setQ] = useState('');
   const unread = useQuery({ queryKey: ['unread'], queryFn: () => api('/me/unread'), enabled: !!me, refetchInterval: 30_000 });
   useEffect(() => {
@@ -63,15 +78,15 @@ function Shell({ children }: { children: React.ReactNode }) {
         <Link to="/" className="brand"><Ticks />twiqo</Link>
         <nav className="navwrap" aria-label="Main">
           <div className="nav">
-            <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}><Icon name="home" />Home</NavLink>
-            <NavLink to="/market" className={({ isActive }) => (isActive ? 'active' : '')}><Icon name="bag" />Market</NavLink>
-            <a className="plus" href="#create" onClick={(e) => { e.preventDefault(); me ? setCreate(true) : nav('/login'); }}><span><Icon name="plus" /></span><span style={{ fontSize: 'inherit' }} className="lbl">Create</span></a>
-            <NavLink to="/move" className={({ isActive }) => (isActive ? 'active' : '')}><Icon name="truck" />Move</NavLink>
-            <NavLink to={me ? `/u/${me.username}` : '/login'} className={({ isActive }) => (isActive && loc.pathname.startsWith('/u/') ? 'active' : '')}><Icon name="user" />{me ? 'Me' : 'Sign in'}</NavLink>
+            <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}><Icon name="home" />{t('nav.home')}</NavLink>
+            <NavLink to="/market" className={({ isActive }) => (isActive ? 'active' : '')}><Icon name="bag" />{t('nav.market')}</NavLink>
+            <a className="plus" href="#create" onClick={(e) => { e.preventDefault(); me ? setCreate(true) : nav('/login'); }}><span><Icon name="plus" /></span><span style={{ fontSize: 'inherit' }} className="lbl">{t('nav.create')}</span></a>
+            <NavLink to="/move" className={({ isActive }) => (isActive ? 'active' : '')}><Icon name="truck" />{t('nav.move')}</NavLink>
+            <NavLink to={me ? `/u/${me.username}` : '/login'} className={({ isActive }) => (isActive && loc.pathname.startsWith('/u/') ? 'active' : '')}><Icon name="user" />{me ? t('nav.me') : t('nav.signin')}</NavLink>
           </div>
         </nav>
         <form className="searchbox" role="search" onSubmit={(e) => { e.preventDefault(); if (q.trim()) nav(`/market?q=${encodeURIComponent(q.trim())}`); }}>
-          <Icon name="search" /><input aria-label="Search the market" placeholder="Search listings…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Icon name="search" /><input aria-label={t('nav.search_aria')} placeholder={t('nav.search')} value={q} onChange={(e) => setQ(e.target.value)} />
         </form>
         <div className="row" style={{ gap: 2 }}>
           <Link to="/clips" className="iconbtn" aria-label="Clips"><Icon name="film" /></Link>
@@ -97,6 +112,7 @@ export function App() {
   const { loading } = useAuth();
   if (loading) return <div className="state" style={{ paddingTop: 120 }}><Ticks w={64} /></div>;
   return (
+    <Suspense fallback={<div className="state" style={{ paddingTop: 120 }}><Ticks w={64} /></div>}>
     <Routes>
       <Route path="/login" element={<AuthPage />} />
       <Route path="/clips" element={<Clips />} />
@@ -126,6 +142,9 @@ export function App() {
             <Route path="/bookings/:id" element={<Private><BookingPage /></Private>} />
             <Route path="/orders/:id" element={<Private><OrderPage /></Private>} />
             <Route path="/u/:username" element={<Profile />} />
+            <Route path="/settings/invite" element={<Private><InvitePage /></Private>} />
+            <Route path="/settings/pro" element={<Private><ProPage /></Private>} />
+            <Route path="/insights" element={<Private><InsightsPage /></Private>} />
             <Route path="/settings/payments" element={<Private><PaymentsSettings /></Private>} />
             <Route path="/disputes/:id" element={<Private><DisputePage /></Private>} />
             <Route path="/settings/profile" element={<Private><EditProfile /></Private>} />
@@ -143,5 +162,6 @@ export function App() {
         </Shell>
       } />
     </Routes>
+    </Suspense>
   );
 }

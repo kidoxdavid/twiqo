@@ -55,11 +55,17 @@ feed.get('/feed', optionalAuth, wrap(async (req, res) => {
       + ${Number(w.engagement)} * ln(1 + coalesce(po.like_count + 2*po.comment_count, li.like_count + 2*li.comment_count + li.save_count, 0))
       + ${cpt ? `${Number(w.proximity)} * (CASE WHEN fi.location IS NULL THEN 0 ELSE 1.0 / (1 + ST_Distance(fi.location, ${cpt}) / 1000 / 25) END)` : '0'}
       + fi.rank_hint)`;
+    // Score a bounded candidate pool, not the whole table: newest items, newest from followed accounts, and (when we know where the viewer is) the closest items.
+    // Ranking 40k rows took ~1s; ranking ~1,200 takes a few ms. The pool caps how deep For You paging can go; Following and Nearby page without a cap.
+    const base = where.join(' AND ');
+    const pool_ = [`(SELECT fi.id FROM feed_items fi WHERE ${base} ORDER BY fi.created_at DESC LIMIT 600)`, `(SELECT fi.id FROM feed_items fi WHERE ${base} AND ${followed} ORDER BY fi.created_at DESC LIMIT 300)`,
+      ...(cpt ? [`(SELECT fi.id FROM feed_items fi WHERE ${base} AND fi.location IS NOT NULL ORDER BY fi.location <-> ${cpt} LIMIT 300)`] : [])].join(' UNION ');
     ({ rows } = await pool.query(
-      `SELECT fi.id, fi.item_type, fi.item_id, fi.created_at FROM feed_items fi
+      `WITH cand AS (${pool_})
+       SELECT fi.id, fi.item_type, fi.item_id, fi.created_at FROM cand JOIN feed_items fi ON fi.id = cand.id
        LEFT JOIN posts po ON fi.item_type='post' AND po.id = fi.item_id
        LEFT JOIN listings li ON fi.item_type='listing' AND li.id = fi.item_id AND li.expires_at > now()
-       WHERE ${where.join(' AND ')} AND (fi.item_type <> 'listing' OR li.id IS NOT NULL)
+       WHERE (fi.item_type <> 'listing' OR li.id IS NOT NULL)
        ORDER BY ${score} DESC, fi.id LIMIT ${a.limit + 1} OFFSET ${Number(offset)}`, p));
     if (rows.length > a.limit) next = enc({ o: Number(offset) + a.limit });
   } else {

@@ -11,6 +11,7 @@ import { ensureConversation, postCard } from '../lib/conversations.js';
 import { mediaUrl, thumbUrl } from '../lib/views.js';
 import { assertOwnsMedia } from './content.js';
 import { setFeedStatus } from './transport.js';
+import { qualifyReferral } from './growth.js';
 import { settleCancelled } from './payments.js';
 import { hasOpenDispute } from './disputes.js';
 
@@ -198,6 +199,7 @@ export async function completeBooking(c: PoolClient, id: string, actor: string |
   await c.query(`UPDATE bookings SET status='completed', completed_at=now() WHERE id=$1`, [id]);
   await c.query(`UPDATE transport_requests SET status='completed' WHERE id=$1`, [b.request_id]);
   await addEvent(c, id, actor, 'completed', actor ? 'Receipt confirmed' : 'Completed automatically');
+  for (const [who, other] of [[b.shipper_id, b.transporter_id], [b.transporter_id, b.shipper_id]]) await qualifyReferral(c, who, { counterpartyId: other, amountCents: b.agreed_cents });
   for (const u of [b.shipper_id, b.transporter_id]) await notify(c, { userId: u, type: 'booking_update', actorId: actor, targetType: 'booking', targetId: id, data: { event: 'completed' } });
   return true;
 }
@@ -273,6 +275,7 @@ bookings.post('/orders/:id/complete', requireAuth, wrap(async (req, res) => {
     if (o.status !== 'agreed') throw conflict(`This order is already ${o.status}`);
     if (await hasOpenDispute(c, { orderId: id })) throw conflict('There is an open dispute on this order. It can be completed once the dispute is resolved.', 'dispute_open');
     await c.query(`UPDATE orders SET status='completed', completed_at=now() WHERE id=$1`, [id]);
+    for (const [who, other] of [[o.buyer_id, o.seller_id], [o.seller_id, o.buyer_id]]) await qualifyReferral(c, who, { counterpartyId: other, amountCents: o.total_cents });
     await notify(c, { userId: me === o.buyer_id ? o.seller_id : o.buyer_id, type: 'booking_update', actorId: me, targetType: 'order', targetId: id, data: { event: 'completed' } });
   });
   res.json(await orderView(id, me));

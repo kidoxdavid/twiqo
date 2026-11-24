@@ -17,10 +17,11 @@ export function computeFee(rule: FeeRule | null | undefined, amountCents: number
 // ---------------------------------------------------------------------------------------------- provider interface
 export interface NormalizedEvent {
   id: string;
-  type: 'payment.succeeded' | 'payment.failed' | 'refund.updated' | 'account.updated' | 'payout.updated' | 'card_dispute.created' | 'ignored';
+  type: 'subscription.updated' | 'payment.succeeded' | 'payment.failed' | 'refund.updated' | 'account.updated' | 'payout.updated' | 'card_dispute.created' | 'ignored';
   paymentId?: string; chargeId?: string; failureReason?: string;
   refundId?: string; refundStatus?: 'pending' | 'succeeded' | 'failed'; refundAmount?: number;
   accountId?: string;
+  subscription?: { id: string; customerId: string; userId?: string; status: 'incomplete' | 'active' | 'past_due' | 'canceled'; periodEnd?: string; cancelAtPeriodEnd: boolean };
   payout?: { id: string; amount: number; status: string; arrival?: string; currency?: string };
 }
 export interface CreatePaymentInput { amountCents: number; currency: string; feeCents: number; destinationAccountId: string | null; metadata: Record<string, string>; idempotencyKey: string; description: string }
@@ -38,6 +39,9 @@ export interface PaymentProvider {
   retrievePayment(id: string): Promise<{ clientSecret: string | null; status: string }>;
   cancelPayment(id: string): Promise<void>;
   refund(i: { paymentId: string; amountCents: number; hasTransfer: boolean; refundFee: boolean; reason?: string; idempotencyKey: string; metadata: Record<string, string> }): Promise<{ id: string; status: 'pending' | 'succeeded' | 'failed' }>;
+  /** Business Pro (recurring) billing: hosted checkout page and customer portal. */
+  createSubscriptionCheckout(i: { userId: string; email: string; customerId?: string | null; successUrl: string; cancelUrl: string }): Promise<{ url: string }>;
+  subscriptionPortal(customerId: string, returnUrl: string): Promise<string | null>;
   parseWebhook(rawBody: Buffer, headers: Record<string, string | string[] | undefined>): NormalizedEvent;
 }
 
@@ -71,6 +75,8 @@ export class FakePaymentProvider implements PaymentProvider {
     this.refunds.push({ paymentId: i.paymentId, amountCents: i.amountCents, hasTransfer: i.hasTransfer, refundFee: i.refundFee, key: i.idempotencyKey });
     return { id, status: 'succeeded' as const };
   }
+  async createSubscriptionCheckout(i: { successUrl: string }) { return { url: `${i.successUrl}${i.successUrl.includes('?') ? '&' : '?'}fake_subscription=1` }; }
+  async subscriptionPortal() { return null; }
   parseWebhook(raw: Buffer, headers: Record<string, string | string[] | undefined>): NormalizedEvent {
     const sig = hdr(headers, 'x-fake-signature');
     if (!sig || sig.length !== FAKE_WEBHOOK_SECRET.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(FAKE_WEBHOOK_SECRET))) throw new Error('Invalid webhook signature');
@@ -123,6 +129,14 @@ export class StripePaymentProvider implements PaymentProvider {
     const r = await this.stripe.refunds.create(params, { idempotencyKey: i.idempotencyKey });
     return { id: r.id, status: r.status === 'succeeded' ? ('succeeded' as const) : r.status === 'failed' || r.status === 'canceled' ? ('failed' as const) : ('pending' as const) };
   }
+  async createSubscriptionCheckout(i: { userId: string; email: string; customerId?: string | null; successUrl: string; cancelUrl: string }) {
+    if (!config.STRIPE_PRICE_BUSINESS_PRO) throw new Error('STRIPE_PRICE_BUSINESS_PRO is not set');
+    const s = await this.stripe.checkout.sessions.create({ mode: 'subscription', line_items: [{ price: config.STRIPE_PRICE_BUSINESS_PRO, quantity: 1 }], client_reference_id: i.userId,
+      ...(i.customerId ? { customer: i.customerId } : { customer_email: i.email }), subscription_data: { metadata: { twiqo_user_id: i.userId } }, metadata: { twiqo_user_id: i.userId }, success_url: i.successUrl, cancel_url: i.cancelUrl });
+    if (!s.url) throw new Error('Stripe returned no checkout URL');
+    return { url: s.url };
+  }
+  async subscriptionPortal(customerId: string, returnUrl: string) { return (await this.stripe.billingPortal.sessions.create({ customer: customerId, return_url: returnUrl })).url; }
   parseWebhook(raw: Buffer, headers: Record<string, string | string[] | undefined>): NormalizedEvent {
     const sig = hdr(headers, 'stripe-signature'); if (!sig) throw new Error('Missing Stripe signature');
     let ev: Stripe.Event | null = null;
@@ -137,6 +151,12 @@ export class StripePaymentProvider implements PaymentProvider {
       case 'account.updated': return { id: ev.id, type: 'account.updated', accountId: o.id };
       case 'payout.created': case 'payout.paid': case 'payout.failed': case 'payout.updated':
         return { id: ev.id, type: 'payout.updated', accountId: ev.account ?? undefined, payout: { id: o.id, amount: o.amount, status: o.status, currency: String(o.currency ?? 'cad').toUpperCase(), arrival: o.arrival_date ? new Date(o.arrival_date * 1000).toISOString().slice(0, 10) : undefined } };
+      case 'customer.subscription.created': case 'customer.subscription.updated': case 'customer.subscription.deleted': {
+        const st = o.status as string; const end = o.current_period_end ?? o.items?.data?.[0]?.current_period_end;
+        return { id: ev.id, type: 'subscription.updated', subscription: { id: o.id, customerId: typeof o.customer === 'string' ? o.customer : o.customer?.id, userId: o.metadata?.twiqo_user_id,
+          status: ev.type === 'customer.subscription.deleted' || st === 'canceled' || st === 'incomplete_expired' ? 'canceled' : st === 'active' || st === 'trialing' ? 'active' : st === 'past_due' || st === 'unpaid' ? 'past_due' : 'incomplete',
+          periodEnd: end ? new Date(end * 1000).toISOString() : undefined, cancelAtPeriodEnd: !!o.cancel_at_period_end } };
+      }
       case 'charge.dispute.created': return { id: ev.id, type: 'card_dispute.created', paymentId: typeof o.payment_intent === 'string' ? o.payment_intent : o.payment_intent?.id };
       default: return { id: ev.id, type: 'ignored' };
     }

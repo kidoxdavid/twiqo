@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '../api';
+import { api, track } from '../api';
 import { useAuth } from '../auth';
 import { Comments, shareLink, useRequireAuth, useToggle } from '../components/cards';
 import { Icon } from '../components/Icon';
@@ -161,6 +161,7 @@ export function ServicePage() {
   const [offer, setOffer] = useState(false); const [report, setReport] = useState(false);
   const q = useQuery({ queryKey: ['service', id, me?.id], queryFn: () => api(`/transport/services/${id}`) });
   const s = q.data; const owner = s?.viewer.is_owner;
+  useEffect(() => { if (s && !owner) track('view', { type: 'transport_service', id: s.id }); }, [s?.id, owner]);   // eslint-disable-line react-hooks/exhaustive-deps
   if (q.isLoading) return <main className="main"><State kind="loading" /></main>;
   if (q.isError) return <main className="main"><State kind="empty" title="This service isn't available" action={<Link className="btn" to="/move?tab=services">Browse services</Link>} /></main>;
   const unit = { flat: ' flat', hourly: ' per hour', per_km: ' per km' }[s.pricing_model as string];

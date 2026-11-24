@@ -1,3 +1,6 @@
+import crypto from 'node:crypto';
+import { track } from '../lib/analytics.js';
+import { attachReferral } from './growth.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
@@ -17,6 +20,7 @@ const registerSchema = z.object({
   email: z.string().email(),
   username: z.string().toLowerCase().regex(/^[a-z0-9_.]{3,30}$/, 'Use 3–30 letters, numbers, dots or underscores'),
   password: z.string().min(8).max(128),
+  ref: z.string().trim().max(20).optional(),
   display_name: z.string().trim().min(1).max(60),
   city: z.string().optional(), province: z.string().length(2).optional(),
   account_type: z.enum(['individual', 'business']).default('individual'),
@@ -32,7 +36,7 @@ async function issueSession(userId: string, req: { headers: Record<string, unkno
 
 export async function meView(userId: string) {
   const { rows } = await pool.query(
-    `SELECT u.id, u.email, u.username, u.account_type, u.status, p.display_name, p.bio, p.city, p.province, p.privacy, p.verification_level,
+    `SELECT u.id, u.email, u.username, u.account_type, u.status, u.locale, u.referral_code, p.display_name, p.bio, p.city, p.province, p.privacy, p.verification_level,
             p.follower_count, p.following_count, p.avatar_media_id, p.cover_media_id,
             coalesce((SELECT array_agg(role_key) FROM user_roles WHERE user_id = u.id), '{}') AS roles,
             coalesce((SELECT array_agg(DISTINCT rp.permission_key) FROM user_roles ur JOIN role_permissions rp ON rp.role_key = ur.role_key WHERE ur.user_id = u.id), '{}') AS permissions,
@@ -46,8 +50,8 @@ identity.post('/auth/register', limiter, wrap(async (req, res) => {
   await checkText(b.display_name); await checkText(b.username);
   const place = b.city ? await resolvePlace(b.city, b.province) : null;
   const userId = await tx(async (c) => {
-    const u = await c.query(`INSERT INTO users(email, username, password_hash, account_type) VALUES ($1,$2,$3,$4) RETURNING id`,
-      [b.email, b.username, await hashPassword(b.password), b.account_type]).catch((e) => {
+    const u = await c.query(`INSERT INTO users(email, username, password_hash, account_type, referral_code) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+      [b.email, b.username, await hashPassword(b.password), b.account_type, crypto.randomBytes(4).toString('hex')]).catch((e) => {
         if (e.code === '23505') throw new HttpError(409, e.constraint?.includes('email') ? 'That email is already registered' : 'That username is taken', 'conflict');
         throw e;
       });
@@ -55,8 +59,10 @@ identity.post('/auth/register', limiter, wrap(async (req, res) => {
       `INSERT INTO user_profiles(user_id, display_name, city, province, location)
        VALUES ($1,$2,$3,$4, CASE WHEN $5::float8 IS NULL THEN NULL ELSE ST_SetSRID(ST_MakePoint($5,$6),4326)::geography END)`,
       [u.rows[0].id, b.display_name, place?.city ?? null, place?.province ?? null, place?.lng ?? null, place?.lat ?? null]);
+    await attachReferral(c, u.rows[0].id, b.ref);
     return u.rows[0].id as string;
   });
+  await track(pool, { name: 'signup', userId, props: b.ref ? { referred: true } : {} });
   res.status(201).json({ user: await meView(userId), ...(await issueSession(userId, req)) });
 }));
 

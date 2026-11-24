@@ -5,16 +5,18 @@ import { api } from '../api';
 import { useToast } from '../components/Toast';
 import { OfferCard, RouteLine, fmtDate, fmtDateTime, windowText } from '../components/transport';
 import { Icon, Ticks } from '../components/Icon';
+import { t, useLocale } from '../i18n';
 import { PaymentPanel, ReportProblem } from '../components/payments';
 import { Avatar, ImageUploader, Modal, State, ago, errMsg, money, type Uploaded } from '../components/ui';
 
 // ------------------------------------------------------------------------------------------------ offers inbox
 export function Offers() {
+  useLocale();
   const [tab, setTab] = useState<'received' | 'sent' | 'closed'>('received');
   const q = useQuery({ queryKey: ['offers', tab], queryFn: () => api('/offers', { query: tab === 'closed' ? { state: 'closed' } : { role: tab, state: 'active' } }) });
   return (
-    <main className="main"><h1 className="page">Offers</h1>
-      <div className="tabs" role="tablist">{([['received', 'Waiting for me'], ['sent', 'I sent'], ['closed', 'Closed']] as const).map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={`tab ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}</div>
+    <main className="main"><h1 className="page">{t('deals.offers')}</h1>
+      <div className="tabs" role="tablist">{([['received', t('deals.waiting')], ['sent', t('deals.sent')], ['closed', t('deals.closed')]] as const).map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={`tab ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}</div>
       <div className="col" style={{ padding: '0 16px' }}>
         {q.isLoading ? <State kind="loading" /> : q.isError ? <State kind="error" /> : q.data.items.length === 0
           ? <State kind="empty" title={tab === 'received' ? 'No offers waiting' : tab === 'sent' ? "You haven't sent any open offers" : 'Nothing closed yet'} text={tab === 'sent' ? 'Make an offer on a listing or book space on a journey.' : undefined} action={tab === 'sent' && <div className="row" style={{ justifyContent: 'center' }}><Link className="btn" to="/market">Browse the market</Link><Link className="btn ghost" to="/move">Find a driver</Link></div>} />
@@ -29,20 +31,21 @@ const STEPS: [string, string][] = [['confirmed', 'Move confirmed'], ['pickup_con
 const ORDER = ['confirmed', 'pickup_confirmed', 'in_transit', 'delivered', 'completed'];
 
 export function Bookings() {
+  useLocale();
   const [tab, setTab] = useState<'active' | 'done'>('active');
   const b = useQuery({ queryKey: ['bookings', tab], queryFn: () => api('/bookings', { query: { state: tab } }) });
   const o = useQuery({ queryKey: ['orders'], queryFn: () => api('/orders') });
   return (
-    <main className="main"><h1 className="page">My moves &amp; orders</h1>
-      <div className="tabs">{([['active', 'Active'], ['done', 'Past']] as const).map(([k, l]) => <button key={k} className={`tab ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}</div>
+    <main className="main"><h1 className="page">{t('deals.moves_orders')}</h1>
+      <div className="tabs">{([['active', t('deals.active')], ['done', t('deals.past')]] as const).map(([k, l]) => <button key={k} className={`tab ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}</div>
       <div className="col" style={{ padding: '0 16px' }}>
-        <h2 className="sec">Transport bookings</h2>
+        <h2 className="sec">{t('deals.transport')}</h2>
         {b.isLoading ? <State kind="loading" /> : b.data.items.length === 0 ? <State kind="empty" title="No bookings here" action={<Link className="btn" to="/move">Find a driver</Link>} />
           : b.data.items.map((x: any) => <Link key={x.id} to={`/bookings/${x.id}`} className="card pad col" style={{ gap: 8 }}>
             <div className="row"><b>{x.shipment.title}</b><span className="sp" /><span className={`pill ${x.status === 'completed' ? 't' : x.status === 'cancelled' ? 'r' : 'b'}`}>{x.status.replace('_', ' ')}</span></div>
             <RouteLine from={x.shipment.from.city} to={x.shipment.to.city} />
             <div className="row sm muted"><span>{x.my_role === 'shipper' ? 'Carried by' : 'Shipping for'} {x.counterparty.display_name}</span><span className="sp" /><b style={{ color: 'var(--navy)' }}>{money(x.agreed_cents)}</b></div></Link>)}
-        <h2 className="sec">Purchases &amp; sales</h2>
+        <h2 className="sec">{t('deals.purchases')}</h2>
         {o.isLoading ? <State kind="loading" /> : o.data.items.length === 0 ? <div className="muted">No orders yet.</div>
           : o.data.items.map((x: any) => <Link key={x.id} to={`/orders/${x.id}`} className="attach"><div className="th">{x.listing.image_url && <img src={x.listing.image_url} alt="" />}</div><div className="tx"><b>{x.listing.title}</b><span className="muted sm">{x.my_role === 'buyer' ? 'Bought from' : 'Sold to'} {x.counterparty.display_name} · {money(x.total_cents)}</span></div><span className={`pill ${x.status === 'completed' ? 't' : x.status === 'cancelled' ? 'r' : 'b'}`}>{x.status}</span></Link>)}
       </div>

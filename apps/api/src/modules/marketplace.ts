@@ -1,3 +1,4 @@
+import { track, optedOut, anonIdOf } from '../lib/analytics.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import { pool, tx } from '../db/pool.js';
@@ -71,6 +72,7 @@ marketplace.post('/listings', requireAuth, wrap(async (req, res) => {
     return l.rows[0].id as string;
   });
   const out = (await hydrateListings([id], uid)).get(id);
+  await track(pool, { name: 'listing_created', userId: uid, targetType: 'listing', targetId: id });
   res.status(201).json(out);
 }));
 
@@ -155,7 +157,7 @@ marketplace.get('/listings/:id', optionalAuth, wrap(async (req, res) => {
     const f = viewer ? await pool.query(`SELECT 1 FROM follows WHERE follower_id=$1 AND target_type='user' AND target_id=$2`, [viewer, r.seller_id]) : null;
     if (!f?.rowCount) throw notFound('Listing');
   }
-  if (!mine) await pool.query('UPDATE listings SET view_count = view_count + 1 WHERE id = $1', [id]);
+  if (!mine) { await pool.query('UPDATE listings SET view_count = view_count + 1 WHERE id = $1', [id]); if (!optedOut(req)) await track(pool, { name: 'view', userId: viewer, anonId: anonIdOf(req), targetType: 'listing', targetId: id }); }
   const base = (await hydrateListings([id], viewer)).get(id);
   res.json({ ...base, description: r.description, attributes: r.attributes, expires_at: r.expires_at, category: { id: r.category_id, name: r.category_name }, viewer: { ...base.viewer, is_owner: !!mine } });
 }));

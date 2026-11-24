@@ -237,3 +237,22 @@ The schema in `apps/api/migrations` is written so later phases add tables and mo
 **Disputes** are a staff review process (not insurance and not a card chargeback). Open disputes block manual and automatic completion and new checkout. Stripe card disputes (`charge.dispute.created`) are recorded for staff; evidence submission is not built.
 
 **Risks / open items.** Adapter unverified against live Stripe; sales tax and marketplace-facilitator obligations; KYC/identity handled by Stripe Express only; fee changes apply to new payments only; revenue report is derived from webhooks and must be reconciled with Stripe.
+
+
+## 10. Phase 5 design notes (growth)
+
+**Discovery.** Trending and recommendations are SQL over signals that already exist (reactions, saves, offers, follows) plus `analytics_events` views. Trending is cached per process for 60 s (swap for Redis when there is more than one API node). Recommendation scoring: category/tag affinity from the person's own saves/likes/offers + proximity + recency; blocked users and already-seen items are excluded in SQL.
+
+**For You feed.** Ranking cost was O(all feed items). It now scores a candidate pool: 600 newest, 300 newest from followed accounts, 300 nearest (KNN on the GiST index). Trade-off: For You paging ends after the pool (~1,200 items); Following/Nearby/Circles page by keyset without a cap.
+
+**Credit ledger.** `credit_ledger` is append-only (trigger). Balance = SUM. Spending locks the `users` row, checks the balance, then inserts, so concurrent boosts can't spend the same credit (tested). A referral reward is unique per referral (partial unique index). Credit only pays a boost in full, which avoids split-tender refund cases.
+
+**Referral qualification** runs inside the same transaction that completes an order or booking, for both parties. Rules: referral still `signed_up`, counterparty is not the referrer, deal >= minimum, reward cap not exceeded.
+
+**Subscriptions.** `subscriptions` is one row per user, updated only by provider events (never by the client). A late `active` event after `canceled` for the same subscription id is ignored. Entitlement = active, or past_due for up to 3 days after period end. The commission discount is applied when a payment is created and recorded in the payment's fee snapshot.
+
+**Analytics.** Event names are an allow-list in the database; the browser can only send `view`, `search`, `share`, `contact_click` (server-only events can't be forged). Views are de-duplicated per person per target per 30 min. Funnel numbers are computed from real tables, not events.
+
+**i18n.** Dictionary-based `t()` with English fallback; the language is stored in `localStorage` and `users.locale`. Changing language remounts the UI tree (simple and correct, loses unsaved form input).
+
+**Risks / open items.** Referral abuse; analytics volume on a single Postgres table (add partitioning or a warehouse export when it grows past tens of millions of rows); privacy policy wording; French quality.

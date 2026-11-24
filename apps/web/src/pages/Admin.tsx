@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
 import { useAuth } from '../auth';
 import { useToast } from '../components/Toast';
-import { Modal, State, ago, errMsg, money } from '../components/ui';
+import { Modal, State, ago, errMsg, cash } from '../components/ui';
 
 function useAct() {
   const toast = useToast(); const qc = useQueryClient();
@@ -50,7 +50,7 @@ function Listings() {
   if (q.isLoading) return <State kind="loading" />;
   if (!q.data.items.length) return <State kind="empty" title="Review queue is empty" />;
   return <>{q.data.items.map((l: any) => <div key={l.id} className="card pad col" style={{ marginBottom: 12 }}>
-    <div className="row"><b>{l.title}</b><span className="sp" /><b>{money(l.price_cents)}</b></div><div className="row wrap"><span className="pill a">{l.category}{l.is_restricted ? ' · restricted' : ''}</span><span className="muted sm">@{l.username} · {ago(l.created_at)}</span></div>
+    <div className="row"><b>{l.title}</b><span className="sp" /><b>{cash(l.price_cents)}</b></div><div className="row wrap"><span className="pill a">{l.category}{l.is_restricted ? ' · restricted' : ''}</span><span className="muted sm">@{l.username} · {ago(l.created_at)}</span></div>
     <div style={{ whiteSpace: 'pre-wrap', fontSize: 14 }}>{l.description}</div>
     <div className="row"><button className="btn teal sm" onClick={() => setSel({ l, d: 'approve' })}>Approve</button><button className="btn danger sm" onClick={() => setSel({ l, d: 'reject' })}>Reject</button></div></div>)}
     {sel && <Reason title={`${sel.d === 'approve' ? 'Approve' : 'Reject'} listing`} cta="Confirm" onClose={() => setSel(null)} onSubmit={(reason) => act(() => api(`/admin/listings/${sel.l.id}/review`, { body: { decision: sel.d, reason } }), 'Done', ['apending', 'astats'])} />}</>;
@@ -121,10 +121,10 @@ function Revenue() {
   const r = q.data; const max = Math.max(1, ...r.by_day.map((d: any) => d.net_fees_cents));
   return <div className="col">
     <div className="row">{[7, 30, 90].map((d) => <button key={d} className={`pill ${days === d ? 'b' : ''}`} onClick={() => setDays(d)}>{d} days</button>)}</div>
-    <div className="kpis">{([['Card volume', money(r.gross_cents)], ['Platform fees', money(r.platform_fees_cents)], ['Fees returned on refunds', money(r.fees_returned_cents)], ['Net revenue', money(r.net_platform_revenue_cents)], ['Refunded to buyers', money(r.refunded_cents)], ['Payments', String(r.payments)], ['Open disputes', String(r.open_disputes)], ['Failed refunds', String(r.failed_refunds)]] as [string, string][]).map(([l, v]) => <div key={l} className="kpi"><span>{l}</span><b>{v}</b></div>)}</div>
+    <div className="kpis">{([['Card volume', cash(r.gross_cents)], ['Platform fees', cash(r.platform_fees_cents)], ['Fees returned on refunds', cash(r.fees_returned_cents)], ['Net revenue', cash(r.net_platform_revenue_cents)], ['Refunded to buyers', cash(r.refunded_cents)], ['Payments', String(r.payments)], ['Open disputes', String(r.open_disputes)], ['Failed refunds', String(r.failed_refunds)]] as [string, string][]).map(([l, v]) => <div key={l} className="kpi"><span>{l}</span><b>{v}</b></div>)}</div>
     <h2 className="sec">Net fees by source</h2>
-    <table className="table"><thead><tr><th>Source</th><th>Payments</th><th>Volume</th><th>Net fees</th></tr></thead><tbody>{r.by_scope.map((s: any) => <tr key={s.scope}><td>{String(s.scope).replace(/_/g, ' ')}</td><td>{s.payments}</td><td>{money(s.gross_cents)}</td><td>{money(s.net_fees_cents)}</td></tr>)}{!r.by_scope.length && <tr><td colSpan={4} className="muted">No paid activity in this period.</td></tr>}</tbody></table>
-    {r.by_day.length > 0 && <div className="card pad"><div className="row" style={{ alignItems: 'flex-end', gap: 4, height: 90 }} role="img" aria-label="Net fees per day">{r.by_day.map((d: any) => <div key={d.day} title={`${String(d.day).slice(0, 10)}: ${money(d.net_fees_cents)}`} style={{ flex: 1, minWidth: 4, background: 'var(--blue)', borderRadius: 4, height: `${Math.max(4, (d.net_fees_cents / max) * 100)}%` }} />)}</div></div>}
+    <table className="table"><thead><tr><th>Source</th><th>Payments</th><th>Volume</th><th>Net fees</th></tr></thead><tbody>{r.by_scope.map((s: any) => <tr key={s.scope}><td>{String(s.scope).replace(/_/g, ' ')}</td><td>{s.payments}</td><td>{cash(s.gross_cents)}</td><td>{cash(s.net_fees_cents)}</td></tr>)}{!r.by_scope.length && <tr><td colSpan={4} className="muted">No paid activity in this period.</td></tr>}</tbody></table>
+    {r.by_day.length > 0 && <div className="card pad"><div className="row" style={{ alignItems: 'flex-end', gap: 4, height: 90 }} role="img" aria-label="Net fees per day">{r.by_day.map((d: any) => <div key={d.day} title={`${String(d.day).slice(0, 10)}: ${cash(d.net_fees_cents)}`} style={{ flex: 1, minWidth: 4, background: 'var(--blue)', borderRadius: 4, height: `${Math.max(4, (d.net_fees_cents / max) * 100)}%` }} />)}</div></div>}
     <div className="muted sm">{r.note} Figures come from payments recorded by webhook; reconcile against your Stripe dashboard before relying on them for accounting.</div></div>;
 }
 
@@ -132,9 +132,9 @@ function Payments() {
   const [status, setStatus] = useState(''); const q = useQuery({ queryKey: ['apayments', status], queryFn: () => api('/admin/payments', { query: { status } }) }); const act = useAct(); const [sel, setSel] = useState<any>(null);
   return <div className="col"><div className="row wrap">{['', 'succeeded', 'partially_refunded', 'refunded', 'failed', 'requires_payment'].map((s) => <button key={s} className={`pill ${status === s ? 'b' : ''}`} onClick={() => setStatus(s)}>{s ? s.replace('_', ' ') : 'all'}</button>)}</div>
     {q.isLoading ? <State kind="loading" /> : !q.data.items.length ? <State kind="empty" title="No payments" /> :
-      <table className="table"><thead><tr><th>When</th><th>Type</th><th>Payer → payee</th><th>Amount</th><th>Fee</th><th>Status</th><th /></tr></thead><tbody>{q.data.items.map((p: any) => <tr key={p.id}><td>{ago(p.created_at)}</td><td>{p.kind}</td><td>@{p.payer}{p.payee ? ` → @${p.payee}` : ''}</td><td>{money(p.amount_cents)}{p.refunded_cents > 0 && <div className="muted sm">−{money(p.refunded_cents)}</div>}</td><td>{money(p.fee_cents)}</td><td><span className="pill b">{p.status.replace('_', ' ')}</span>{p.failure_reason && <div className="muted sm">{p.failure_reason}</div>}</td>
+      <table className="table"><thead><tr><th>When</th><th>Type</th><th>Payer → payee</th><th>Amount</th><th>Fee</th><th>Status</th><th /></tr></thead><tbody>{q.data.items.map((p: any) => <tr key={p.id}><td>{ago(p.created_at)}</td><td>{p.kind}</td><td>@{p.payer}{p.payee ? ` → @${p.payee}` : ''}</td><td>{cash(p.amount_cents)}{p.refunded_cents > 0 && <div className="muted sm">−{cash(p.refunded_cents)}</div>}</td><td>{cash(p.fee_cents)}</td><td><span className="pill b">{p.status.replace('_', ' ')}</span>{p.failure_reason && <div className="muted sm">{p.failure_reason}</div>}</td>
         <td>{['succeeded', 'partially_refunded'].includes(p.status) && p.refunded_cents < p.amount_cents && <button className="btn sm danger" onClick={() => setSel(p)}>Refund</button>}</td></tr>)}</tbody></table>}
-    {sel && <Reason title={`Refund ${money(sel.amount_cents - sel.refunded_cents)}`} cta="Refund in full" onClose={() => setSel(null)} onSubmit={(reason) => act(() => api(`/payments/${sel.id}/refund`, { body: { reason } }), 'Refund issued', ['apayments', 'arevenue'])} />}</div>;
+    {sel && <Reason title={`Refund ${cash(sel.amount_cents - sel.refunded_cents)}`} cta="Refund in full" onClose={() => setSel(null)} onSubmit={(reason) => act(() => api(`/payments/${sel.id}/refund`, { body: { reason } }), 'Refund issued', ['apayments', 'arevenue'])} />}</div>;
 }
 
 function Disputes() {
@@ -163,10 +163,31 @@ function Boosts() {
     {sel && <Reason title="Cancel boost (no refund)" cta="Cancel boost" onClose={() => setSel(null)} onSubmit={(reason) => act(() => api(`/admin/boosts/${sel.id}/cancel`, { body: { reason, refund: false } }), 'Boost cancelled', ['aboosts'])} />}</>;
 }
 
+// ------------------------------------------------------------------------------------------------ growth (view.growth)
+function Growth() {
+  const [days, setDays] = useState(30); const q = useQuery({ queryKey: ['agrowth', days], queryFn: () => api('/admin/growth', { query: { days } }) });
+  const refs = useQuery({ queryKey: ['areferrals'], queryFn: () => api('/admin/referrals') }); const act = useAct(); const [sel, setSel] = useState<any>(null);
+  if (q.isLoading) return <State kind="loading" />; if (q.isError) return <State kind="error" />;
+  const g = q.data; const f = g.funnel; const pct = (n: number) => (f.signed_up ? `${Math.round((n / f.signed_up) * 100)}%` : '–'); const maxS = Math.max(1, ...g.signups.map((s: any) => s.n));
+  return <div className="col">
+    <div className="row">{[7, 30, 90].map((d) => <button key={d} className={`pill ${days === d ? 'b' : ''}`} onClick={() => setDays(d)}>{d} days</button>)}</div>
+    <div className="kpis">{([['Daily active', g.active.dau], ['Weekly active', g.active.wau], ['Monthly active', g.active.mau], ['Pro members', g.subscriptions.active], ['Referral signups', g.referrals.signed_up], ['Referrals rewarded', g.referrals.qualified]] as [string, number][]).map(([l, v]) => <div key={l} className="kpi"><span>{l}</span><b>{v}</b></div>)}</div>
+    <h2 className="sec">Signups ({g.signups.reduce((a: number, s: any) => a + s.n, 0)})</h2>
+    <div className="card pad"><div className="row" style={{ alignItems: 'flex-end', gap: 3, height: 80 }} role="img" aria-label="Signups per day">{g.signups.map((s: any) => <div key={s.day} title={`${String(s.day).slice(0, 10)}: ${s.n} (${s.referred} referred)`} style={{ flex: 1, minWidth: 3, background: 'var(--blue)', borderRadius: 3, height: `${Math.max(4, (s.n / maxS) * 100)}%` }} />)}</div></div>
+    <h2 className="sec">Funnel for people who joined in this period</h2>
+    <table className="table"><tbody>{([['Signed up', f.signed_up], ['Posted a listing, request or journey', f.posted], ['Made an offer', f.made_offer], ['Completed a deal', f.completed_deal]] as [string, number][]).map(([l, n]) => <tr key={l}><td>{l}</td><td>{n}</td><td>{pct(n)}</td></tr>)}</tbody></table>
+    <h2 className="sec">Weekly retention</h2>
+    <table className="table"><thead><tr><th>Cohort (week of)</th><th>Joined</th><th>Week 1</th><th>Week 2</th><th>Week 3</th></tr></thead><tbody>{g.retention.map((r: any) => <tr key={r.cohort}><td>{String(r.cohort).slice(0, 10)}</td><td>{r.size}</td>{[r.week1, r.week2, r.week3].map((n: number, i: number) => <td key={i}>{r.size ? `${Math.round((n / r.size) * 100)}%` : '–'}</td>)}</tr>)}</tbody></table>
+    <h2 className="sec">Referrals</h2>
+    {refs.data?.items.length ? <table className="table"><thead><tr><th>Referrer</th><th>Friend</th><th>Status</th><th>Reward</th><th /></tr></thead><tbody>{refs.data.items.slice(0, 20).map((r: any) => <tr key={r.id}><td>@{r.referrer}</td><td>@{r.referee}</td><td><span className="pill b">{r.status.replace('_', ' ')}</span></td><td>{cash(r.reward_cents)}</td><td>{r.status !== 'rejected' && <button className="btn sm danger" onClick={() => setSel(r)}>Reject</button>}</td></tr>)}</tbody></table> : <div className="muted">No referrals yet.</div>}
+    {sel && <Reason title="Reject referral (reward is taken back)" cta="Reject" onClose={() => setSel(null)} onSubmit={(reason) => act(() => api(`/admin/referrals/${sel.id}/reject`, { body: { reason } }), 'Referral rejected', ['areferrals', 'agrowth'])} />}
+    <div className="col sm muted">{g.notes.map((n: string) => <div key={n}>{n}</div>)}</div></div>;
+}
+
 export function Admin() {
   const { me } = useAuth(); const p = me?.permissions ?? [];
   if (!p.length) return <Navigate to="/" replace />;
-  const tabs: [string, string, boolean][] = [['', 'Overview', p.includes('view.analytics')], ['reports', 'Reports', p.includes('moderate.content')], ['listings', 'Listing review', p.includes('moderate.content')], ['users', 'Users', p.includes('manage.users')], ['appeals', 'Appeals', p.includes('manage.users')], ['categories', 'Categories', p.includes('manage.categories')], ['config', 'Config', p.includes('manage.settings')], ['audit', 'Audit log', p.includes('view.audit')], ['payments', 'Payments', p.includes('manage.payments')], ['disputes', 'Disputes', p.includes('manage.payments')], ['revenue', 'Revenue', p.includes('manage.payments')], ['boosts', 'Boosts', p.includes('manage.payments')]];
+  const tabs: [string, string, boolean][] = [['', 'Overview', p.includes('view.analytics')], ['reports', 'Reports', p.includes('moderate.content')], ['listings', 'Listing review', p.includes('moderate.content')], ['users', 'Users', p.includes('manage.users')], ['appeals', 'Appeals', p.includes('manage.users')], ['categories', 'Categories', p.includes('manage.categories')], ['config', 'Config', p.includes('manage.settings')], ['audit', 'Audit log', p.includes('view.audit')], ['payments', 'Payments', p.includes('manage.payments')], ['disputes', 'Disputes', p.includes('manage.payments')], ['revenue', 'Revenue', p.includes('manage.payments')], ['boosts', 'Boosts', p.includes('manage.payments')], ['growth', 'Growth', p.includes('view.growth')]];
   const first = tabs.find((t) => t[2])?.[0] ?? '';
   return (
     <main className="main wide"><h1 className="page">Admin</h1>
@@ -175,7 +196,7 @@ export function Admin() {
         <Routes>
           <Route index element={first === '' ? <Overview /> : <Navigate to={`/admin/${first}`} replace />} />
           <Route path="reports" element={<Reports />} /><Route path="listings" element={<Listings />} /><Route path="users" element={<Users />} /><Route path="appeals" element={<Appeals />} />
-          <Route path="payments" element={<Payments />} /><Route path="disputes" element={<Disputes />} /><Route path="revenue" element={<Revenue />} /><Route path="boosts" element={<Boosts />} />
+          <Route path="growth" element={<Growth />} /><Route path="payments" element={<Payments />} /><Route path="disputes" element={<Disputes />} /><Route path="revenue" element={<Revenue />} /><Route path="boosts" element={<Boosts />} />
           <Route path="categories" element={<Categories />} /><Route path="config" element={<Config />} /><Route path="audit" element={<Audit />} />
         </Routes>
       </div>

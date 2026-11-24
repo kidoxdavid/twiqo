@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { useQueryClient } from '@tanstack/react-query';
 import { api, refreshSession, setAuthLostHandler, setTokens, storedRefresh } from './api';
 
-export interface Me { id: string; username: string; email: string; display_name: string; city: string | null; province: string | null; bio: string | null; permissions: string[]; roles: string[]; privacy: Record<string, any>; follower_count: number; following_count: number; account_type: string }
+export interface Me { id: string; locale?: 'en' | 'fr'; referral_code?: string; username: string; email: string; display_name: string; city: string | null; province: string | null; bio: string | null; permissions: string[]; roles: string[]; privacy: Record<string, any>; follower_count: number; following_count: number; account_type: string }
 interface AuthCtx { me: Me | null; loading: boolean; login: (id: string, pw: string) => Promise<void>; register: (b: Record<string, unknown>) => Promise<void>; logout: () => Promise<void>; reload: () => Promise<void> }
 const Ctx = createContext<AuthCtx>(null as never);
 export const useAuth = () => useContext(Ctx);

@@ -13,9 +13,11 @@
     "typecheck": "tsc --noEmit",
     "db:reset": "tsx src/db/reset.ts",
     "video:check": "tsx src/db/video-check.ts",
-    "stripe:check": "tsx src/db/stripe-check.ts"
+    "stripe:check": "tsx src/db/stripe-check.ts",
+    "perf:check": "tsx src/db/perf-check.ts"
   },
   "dependencies": {
+    "compression": "^1.8.2",
     "cors": "^2.8.6",
     "dotenv": "^18.0.10",
     "express": "^5.3.0",
@@ -29,6 +31,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@types/compression": "^1.8.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",

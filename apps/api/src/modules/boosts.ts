@@ -10,6 +10,7 @@ import { visibleTo } from '../lib/views.js';
 import { paymentProvider } from '../lib/payments.js';
 import { feeRule, paymentView, refundPayment } from './payments.js';
 import { requireAuthStaff } from './disputes.js';
+import { creditBalance } from './growth.js';
 
 export const boosts = Router();
 const uuid = z.string().uuid();
@@ -42,7 +43,7 @@ async function ownedTarget(c: typeof pool | import('pg').PoolClient, type: strin
 }
 
 boosts.post('/boosts', requireAuth, wrap(async (req, res) => {
-  const b = z.object({ target_type: z.enum(['listing', 'transport_service', 'post']), target_id: uuid, placement: z.enum(['featured', 'sponsored']) })
+  const b = z.object({ target_type: z.enum(['listing', 'transport_service', 'post']), target_id: uuid, placement: z.enum(['featured', 'sponsored']), use_credit: z.boolean().default(true) })
     .refine((v) => v.placement === 'sponsored' || v.target_type !== 'post', 'Posts can only be sponsored').parse(req.body);
   const me = req.user!.id; const prov = paymentProvider();
   if ((await setting('payments.enabled', true)) !== true) throw new HttpError(503, 'Card payments are switched off right now', 'payments_disabled');
@@ -52,13 +53,22 @@ boosts.post('/boosts', requireAuth, wrap(async (req, res) => {
     await ownedTarget(c, b.target_type, b.target_id, me);
     const live = (await c.query(`SELECT id, status FROM boosts WHERE target_type=$1 AND target_id=$2 AND placement=$3 AND status IN ('pending_payment','active')`, [b.target_type, b.target_id, b.placement])).rows[0];
     if (live?.status === 'active') throw conflict('This is already boosted');
-    if (live) { const p = (await c.query(`SELECT * FROM payments WHERE boost_id=$1 AND status='requires_payment'`, [live.id])).rows[0]; if (p) return { boostId: live.id, payment: p }; }
+    if (live) { const p = (await c.query(`SELECT * FROM payments WHERE boost_id=$1 AND status='requires_payment'`, [live.id])).rows[0]; if (p) return { boostId: live.id, payment: p, credit: false }; }
+    if (b.use_credit && !live) {   // twiqo credit pays only when it covers the whole price; otherwise the card does
+      await c.query('SELECT 1 FROM users WHERE id=$1 FOR UPDATE', [me]);
+      if ((await creditBalance(c, me)) >= price.price_cents) {
+        const bid = (await c.query(`INSERT INTO boosts(owner_id,target_type,target_id,placement,days,price_cents,credit_cents,status,starts_at,ends_at) VALUES ($1,$2,$3,$4,$5,$6,$6,'active',now(), now() + make_interval(days => $5)) RETURNING id`, [me, b.target_type, b.target_id, b.placement, price.days, price.price_cents])).rows[0].id as string;
+        await c.query(`INSERT INTO credit_ledger(user_id,amount_cents,reason,ref_type,ref_id) VALUES ($1,$2,'boost_purchase','boost',$3)`, [me, -price.price_cents, bid]);
+        return { boostId: bid, payment: null as any, credit: true };
+      }
+    }
     const boost = (await c.query(`INSERT INTO boosts(owner_id,target_type,target_id,placement,days,price_cents) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`, [me, b.target_type, b.target_id, b.placement, price.days, price.price_cents])).rows[0];
     const rule = await feeRule(c, scopeFor(b.target_type, b.placement));
     const p = (await c.query(`INSERT INTO payments(kind,boost_id,payer_id,amount_cents,fee_cents,fee_scope,fee_percent_bps,fee_fixed_cents,provider,description) VALUES ('boost',$1,$2,$3,$3,$4,$5,$6,$7,$8) RETURNING *`,
       [boost.id, me, price.price_cents, scopeFor(b.target_type, b.placement), rule?.percent_bps ?? 0, rule?.fixed_cents ?? 0, prov.name, `twiqo ${b.placement} boost (${price.days} days)`])).rows[0];
-    return { boostId: boost.id as string, payment: p };
+    return { boostId: boost.id as string, payment: p, credit: false };
   });
+  if (made.credit) return void res.status(201).json({ boost_id: made.boostId, paid_with_credit: true, payment: null, provider: prov.name });
   let payment = made.payment; let clientSecret: string | null;
   if (!payment.provider_payment_id) {
     try {
@@ -124,6 +134,8 @@ boosts.post('/admin/boosts/:id/cancel', requireAuthStaff(), wrap(async (req, res
   await tx(async (c) => {
     const x = (await c.query(`UPDATE boosts SET status='canceled' WHERE id=$1 AND status IN ('pending_payment','active') RETURNING id`, [id])).rows[0]; if (!x) throw notFound('Boost');
     await audit(c, req.user!.id, 'boost.cancel', 'boost', id, null, { reason: b.reason, refund: b.refund }, req.ip ?? null);
+    const cr = (await c.query('SELECT owner_id, credit_cents FROM boosts WHERE id=$1', [id])).rows[0];
+    if (b.refund && cr.credit_cents > 0) await c.query(`INSERT INTO credit_ledger(user_id,amount_cents,reason,ref_type,ref_id,note) VALUES ($1,$2,'boost_refund','boost',$3,$4)`, [cr.owner_id, cr.credit_cents, id, b.reason]);
   });
   if (b.refund) { const p = (await pool.query(`SELECT id FROM payments WHERE boost_id=$1 AND status IN ('succeeded','partially_refunded')`, [id])).rows[0]; if (p) await refundPayment(p.id, { reason: b.reason, source: 'admin', initiatedBy: req.user!.id, ip: req.ip ?? null }); }
   res.status(204).end();

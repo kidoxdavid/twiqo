@@ -11,11 +11,12 @@ import './styles.css';
 import { AuthProvider } from './auth';
 import { ToastProvider } from './components/Toast';
 import { App } from './App';
+import { LocaleProvider } from './i18n';
 
 const qc = new QueryClient({ defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false, staleTime: 15_000 } } });
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <QueryClientProvider client={qc}><BrowserRouter><ToastProvider><AuthProvider><App /></AuthProvider></ToastProvider></BrowserRouter></QueryClientProvider>
+    <QueryClientProvider client={qc}><BrowserRouter><ToastProvider><AuthProvider><LocaleProvider><App /></LocaleProvider></AuthProvider></ToastProvider></BrowserRouter></QueryClientProvider>
   </React.StrictMode>,
 );

@@ -23,6 +23,7 @@ const schema = z.object({
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_PUBLISHABLE_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),            // endpoint for account events (payments, refunds)
+  STRIPE_PRICE_BUSINESS_PRO: z.string().optional(),        // Stripe Price id (price_...) for the Business Pro monthly subscription
   STRIPE_CONNECT_WEBHOOK_SECRET: z.string().optional(),    // endpoint for events from connected accounts (account.updated, payouts)
 });
 

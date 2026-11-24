@@ -1,3 +1,4 @@
+import { track } from '../lib/analytics.js';
 import crypto from 'node:crypto';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -169,6 +170,7 @@ offers.post('/offers', requireAuth, wrap(async (req, res) => {
     await notify(c, { userId: other, type: 'offer_received', actorId: me, targetType: 'offer', targetId: o.rows[0].id, data: { amount_cents: row.amount } });
     return o.rows[0].id as string;
   });
+  await track(pool, { name: 'offer_made', userId: me, targetType: b.kind === 'goods' ? 'listing' : 'transport_request', targetId: (b.kind === 'goods' ? b.listing_id : b.request_id) as string });
   res.status(201).json(await offerView(id, me));
 }));
 
@@ -347,5 +349,6 @@ offers.post('/offers/:id/accept', requireAuth, wrap(async (req, res) => {
     });
   } catch (e) { if (e instanceof HttpError && e.code === 'expired') expired = true; else throw e; }
   if (expired) { await pool.query(`UPDATE offers SET status='expired' WHERE id=$1 AND status='pending'`, [id]); throw new HttpError(409, 'This offer has expired', 'expired'); }
+  await track(pool, { name: 'order_created', userId: me, targetType: result.order_id ? 'order' : 'booking', targetId: (result.order_id ?? result.booking_id) as string });
   res.json({ offer: await offerView(id, me), ...result });
 }));

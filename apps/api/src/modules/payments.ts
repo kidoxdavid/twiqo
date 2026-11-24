@@ -10,6 +10,7 @@ import { requireAuth } from '../lib/auth.js';
 import { audit } from '../lib/audit.js';
 import { notify } from '../lib/notify.js';
 import { setting } from '../lib/policy.js';
+import { proDiscountBps } from './subscriptions.js';
 import { computeFee, paymentProvider, StripePaymentProvider, type NormalizedEvent } from '../lib/payments.js';
 
 export const payments = Router();
@@ -108,7 +109,8 @@ payments.post('/payments/checkout', requireAuth, wrap(async (req, res) => {
     if (live) return { row: live, reuse: true };
     const acct = (await c.query('SELECT charges_enabled FROM payment_accounts WHERE user_id=$1', [s.payee])).rows[0];
     if (!acct?.charges_enabled) throw new HttpError(409, kind === 'order' ? "The seller hasn't set up card payments yet. You can still pay them directly." : "The driver hasn't set up card payments yet. You can still pay them directly.", 'payee_not_ready');
-    const scope = kind === 'order' ? 'product_sale' : 'transport_booking'; const rule = await feeRule(c, scope); const fee = computeFee(rule, s.amount);
+    const scope = kind === 'order' ? 'product_sale' : 'transport_booking'; const base = await feeRule(c, scope);
+    const disc = await proDiscountBps(s.payee, c as any); const rule = base && disc > 0 ? { ...base, percent_bps: Math.max(0, base.percent_bps - disc) } : base; const fee = computeFee(rule, s.amount);
     const row = (await c.query(
       `INSERT INTO payments(kind,${kind}_id,payer_id,payee_id,amount_cents,fee_cents,fee_scope,fee_percent_bps,fee_fixed_cents,provider,description) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
       [kind, s.id, s.payer, s.payee, s.amount, fee, scope, rule?.percent_bps ?? 0, rule?.fixed_cents ?? 0, prov.name, `twiqo ${kind}: ${s.title}`.slice(0, 200)])).rows[0];
@@ -258,6 +260,17 @@ export async function handleEvent(ev: NormalizedEvent, provider = paymentProvide
     else if (ev.type === 'payout.updated' && ev.payout && ev.accountId) {
       const a = (await c.query('SELECT user_id FROM payment_accounts WHERE provider_account_id=$1', [ev.accountId])).rows[0];
       if (a) await c.query(`INSERT INTO payouts(user_id,provider_payout_id,amount_cents,currency,status,arrival_date) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (provider_payout_id) DO UPDATE SET status=EXCLUDED.status, arrival_date=EXCLUDED.arrival_date`, [a.user_id, ev.payout.id, ev.payout.amount, ev.payout.currency ?? 'CAD', ev.payout.status, ev.payout.arrival ?? null]);
+    } else if (ev.type === 'subscription.updated' && ev.subscription) {
+      const sub = ev.subscription;
+      const known = (await c.query('SELECT user_id, status FROM subscriptions WHERE provider_subscription_id=$1 OR provider_customer_id=$2', [sub.id, sub.customerId])).rows[0];
+      const userId = sub.userId ?? known?.user_id;
+      if (userId && (await c.query('SELECT 1 FROM users WHERE id=$1', [userId])).rowCount && !(known?.status === 'canceled' && sub.status !== 'canceled' && known?.user_id === userId && (await c.query('SELECT 1 FROM subscriptions WHERE user_id=$1 AND provider_subscription_id=$2', [userId, sub.id])).rowCount)) {
+        await c.query(
+          `INSERT INTO subscriptions(user_id,status,provider,provider_customer_id,provider_subscription_id,current_period_end,cancel_at_period_end) VALUES ($1,$2,$3,$4,$5,$6,$7)
+           ON CONFLICT (user_id) DO UPDATE SET status=$2, provider_customer_id=$4, provider_subscription_id=$5, current_period_end=$6, cancel_at_period_end=$7, updated_at=now()`,
+          [userId, sub.status, provider, sub.customerId, sub.id, sub.periodEnd ?? null, sub.cancelAtPeriodEnd]);
+        if (!known || known.status !== sub.status) await notify(c, { userId, type: 'subscription_update', targetType: 'subscription', targetId: userId, data: { status: sub.status }, dedupeKey: `sub:${sub.id}:${sub.status}` });
+      }
     } else if (ev.type === 'card_dispute.created') {
       const p = (await c.query('SELECT id FROM payments WHERE provider_payment_id=$1', [ev.paymentId])).rows[0];
       await audit(c, null, 'payment.card_dispute', 'payment', p?.id ?? null, null, { provider_payment_id: ev.paymentId });

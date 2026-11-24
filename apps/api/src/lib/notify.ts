@@ -19,6 +19,8 @@ export const NOTIFICATION_TYPES: { type: string; label: string }[] = [
   { type: 'payment_update', label: 'Payments, refunds and payouts' },
   { type: 'dispute_update', label: 'Dispute updates' },
   { type: 'boost_update', label: 'Boost and promotion updates' },
+  { type: 'referral_reward', label: 'Referral rewards' },
+  { type: 'subscription_update', label: 'Business Pro subscription updates' },
 ];
 
 /** Create a notification unless the recipient turned that type off or the pair is blocked. Returns true if stored. */

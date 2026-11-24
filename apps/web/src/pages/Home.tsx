@@ -5,13 +5,15 @@ import { api } from '../api';
 import { useAuth } from '../auth';
 import { FeedListing, PostCard } from '../components/cards';
 import { State } from '../components/ui';
+import { t, useLocale } from '../i18n';
 import { JourneyCard, RequestCard, ServiceCard } from '../components/transport';
 import { StoryTray } from '../components/stories';
+import { PeopleToFollow } from '../components/growth';
 
-const TABS: [string, string][] = [['for_you', 'For You'], ['following', 'Following'], ['nearby', 'Nearby'], ['circles', 'Circles']];
+const tabs = (): [string, string][] => [['for_you', t('home.for_you')], ['following', t('home.following')], ['nearby', t('home.nearby')], ['circles', t('home.circles')]];
 
 export function Home() {
-  const { me } = useAuth(); const nav = useNavigate(); const qc = useQueryClient();
+  const { me } = useAuth(); const nav = useNavigate(); const qc = useQueryClient(); useLocale();
   const [tab, setTab] = useState('for_you'); const [city, setCity] = useState('');
   const q = useInfiniteQuery({
     queryKey: ['feed', tab, city, me?.id], initialPageParam: undefined as string | undefined,
@@ -21,10 +23,11 @@ export function Home() {
   const items = q.data?.pages.flatMap((p) => p.items) ?? [];
   return (
     <main className="main">
-      <div className="tabs" role="tablist" aria-label="Feed">{TABS.map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={`tab ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}</div>
+      <div className="tabs" role="tablist" aria-label="Feed">{tabs().map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={`tab ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}</div>
       {me && <StoryTray />}
+      {me && tab === 'for_you' && <PeopleToFollow />}
       {tab === 'circles' && <div className="row" style={{ padding: '0 16px 12px' }}><Link className="btn sm soft" to="/circles">My circles &amp; discover</Link><Link className="btn sm ghost" to="/create/circle">Start a circle</Link></div>}
-      {!me && <div className="card pad" style={{ margin: '0 16px 12px' }}><b>Discover, buy, sell and move almost anything.</b><div className="muted sm" style={{ margin: '4px 0 10px' }}>Join twiqo to follow people, make offers and message sellers.</div><Link to="/login" className="btn sm">Sign up or sign in</Link></div>}
+      {!me && <div className="card pad" style={{ margin: '0 16px 12px' }}><b>{t('home.join_title')}</b><div className="muted sm" style={{ margin: '4px 0 10px' }}>{t('home.join_text')}</div><Link to="/login" className="btn sm">{t('home.join_cta')}</Link></div>}
       {tab === 'nearby' && (!me || q.isError) && <div className="row" style={{ padding: '0 16px 12px' }}><input className="input" aria-label="City" placeholder="Enter a city, e.g. Calgary" value={city} onChange={(e) => setCity(e.target.value)} /></div>}
       {(tab === 'following' || tab === 'circles') && !me ? <State kind="empty" title="Sign in to see this feed" action={<Link className="btn" to="/login">Sign in</Link>} />
         : q.isLoading ? <State kind="loading" />
