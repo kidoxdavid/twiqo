@@ -194,3 +194,7 @@ h2.sec{font-size:17px;font-weight:800;margin:6px 0 10px}
 .err{color:var(--red-text)}.pc .p small{color:var(--teal-text)}
 /* links inside running text must not rely on colour alone */
 .muted a:not(.btn):not(.pill),.sm a:not(.btn):not(.pill):not(.tab),p a{text-decoration:underline}
+
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+.msg .tm{opacity:1}.msg.in .tm{color:var(--ink2)}.msg.out .tm{color:#fff}

@@ -71,7 +71,9 @@ bundles.get('/transport/journeys/:id/consolidation', requireAuth, wrap(async (re
   const me = req.user!.id; const j = await myJourney(uuid.parse(req.params.id), me);
   if (!['open', 'full'].includes(j.status)) throw conflict('This journey is no longer taking shipments');
   const min = Number(await setting('transport.match_min_score', 55));
-  const ranked = (await requestsForJourney(j.id, 40)).filter((m) => m.score >= min).slice(0, 12);
+  // shipments that already have an open offer on this trip (from either side) are being dealt with, so they are not suggested again
+  const busy = new Set((await pool.query(`SELECT request_id FROM offers WHERE journey_id=$1 AND status='pending' AND expires_at > now()`, [j.id])).rows.map((r) => r.request_id as string));
+  const ranked = (await requestsForJourney(j.id, 40)).filter((m) => m.score >= min && !busy.has(m.id)).slice(0, 12);
   const info = ranked.length ? (await pool.query(`SELECT id, weight_kg, quantity, length_cm, width_cm, height_cm, budget_cents, title FROM transport_requests WHERE id = ANY($1::uuid[])`, [ranked.map((m) => m.id)])).rows : [];
   const byId = new Map(info.map((r) => [r.id as string, r]));
   const cands = ranked.map((m) => { const r = byId.get(m.id)!; const kg = Number(r.weight_kg) * r.quantity; const m3 = volumeM3(r.length_cm, r.width_cm, r.height_cm, r.quantity) ?? 0;
@@ -87,6 +89,7 @@ bundles.get('/transport/journeys/:id/consolidation', requireAuth, wrap(async (re
   const chosen = best ? cands.filter((_, i) => best!.mask & (1 << i)) : [];
   const hyd = await hydrateRequests(cands.map((c) => c.id), me);
   res.json({
+    already_in_progress: busy.size,
     remaining: { kg: j.remaining_kg, m3: j.remaining_m3 === null ? null : Number(j.remaining_m3) },
     candidates: cands.map((c) => ({ ...c, in_best_bundle: chosen.some((x) => x.id === c.id), detour_km: Math.round(c.detour * 10) / 10, request: hyd.get(c.id) })),
     best_bundle: chosen.length ? { request_ids: chosen.map((c) => c.id), shipments: chosen.length, total_kg: Math.round(best!.kg), total_m3: Math.round(best!.m3 * 100) / 100, total_cents: best!.value, extra_detour_km: Math.round(best!.detour * 10) / 10, includes_estimates: chosen.some((c) => c.estimated_value) } : null,

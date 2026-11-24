@@ -34,6 +34,12 @@ twiqo handles money, identity documents, strangers meeting in person and (in Que
 - [ ] Build and run the Docker images once in CI (they were written but not run in this build).
 - [ ] CDN in front of `/media` and the web app.
 
+## Voice messages
+- [ ] Privacy policy states that voice recordings are stored for 180 days (or your chosen `voice.retention_days`) and deleted with the account.
+- [ ] Decide how staff handle a reported voice message (staff can't search audio; reports link to the message). Consider whether you want to listen to reported recordings and add that to your privacy policy and staff rules.
+- [ ] HTTPS everywhere (browsers only allow microphone access on secure pages); test recording on a real iPhone and Android phone.
+- [ ] `ffmpeg` and `ffprobe` installed in every API environment (the Docker image has them).
+
 ## People and process
 - [ ] Someone watches Admin → Risk, Documents, Safety, Disputes and Chargebacks daily, with a written response-time promise. Safety alerts need a 24/7 plan or a clear statement that they don't have one.
 - [ ] A support inbox that exists (`support@`, `privacy@`) and is monitored.

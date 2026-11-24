@@ -44,14 +44,19 @@ describe('trip manifest (one plan for several shipments)', () => {
 
 describe('consolidation: the best set of shipments for the space left', () => {
   it('suggests the combination that fits and earns the most, never over capacity', async () => {
-    const driver = await makeUser('cod', 'Toronto'); const j = await makeJourney(driver, { capacity_kg: 200, capacity_m3: 3 });
-    const mk = async (title: string, kg: number, budget: number) => { const s = await makeUser('cos', 'Toronto'); return { s, r: await makeRequest(s, { title, weight_kg: kg, budget_cents: budget, ...dims }) }; };
+    // a corridor no other test file uses, so other open shipments can't crowd the suggestions
+    const driver = await makeUser('cod', 'Halifax'); const j = await makeJourney(driver, { origin_city: 'Halifax', dest_city: 'Moncton', waypoints: [], capacity_kg: 200, capacity_m3: 3 });
+    const mk = async (title: string, kg: number, budget: number) => { const s = await makeUser('cos', 'Halifax'); return { s, r: await makeRequest(s, { title, origin_city: 'Halifax', dest_city: 'Moncton', weight_kg: kg, budget_cents: budget, ...dims }) }; };
     const A = await mk('Heavy', 150, 14000), B = await mk('Medium', 100, 9000), C = await mk('Light', 90, 8500), D = await mk('Too heavy', 250, 30000);
     const c = (await api().get(`/api/transport/journeys/${j.id}/consolidation`).set(auth(driver))).body;
     expect(ids(c.candidates)).toEqual(expect.arrayContaining([A.r.id, B.r.id, C.r.id])); expect(ids(c.candidates)).not.toContain(D.r.id);
     expect(c.best_bundle).toMatchObject({ shipments: 2, total_kg: 190, total_cents: 17500 }); expect(c.best_bundle.request_ids.sort()).toEqual([B.r.id, C.r.id].sort());
     expect(c.candidates.find((x: any) => x.id === A.r.id).in_best_bundle).toBe(false); expect(c.remaining.kg).toBe(200);
     expect((await api().get(`/api/transport/journeys/${j.id}/consolidation`).set(auth(A.s))).status).toBe(404);
+    // a shipment that already has an open offer on this trip is not suggested again
+    await api().post('/api/offers').set(auth(B.s)).send({ kind: 'transport', request_id: B.r.id, journey_id: j.id, amount_cents: 9000 });
+    const c2 = (await api().get(`/api/transport/journeys/${j.id}/consolidation`).set(auth(driver))).body; expect(ids(c2.candidates)).not.toContain(B.r.id); expect(c2.already_in_progress).toBe(1);
+    expect(c2.best_bundle.request_ids).not.toContain(B.r.id);
   });
   it('driver offers the bundle in one action; the shippers see one bundle and the driver accept-all books every shipment', async () => {
     const driver = await makeUser('obd', 'Toronto'); const j = await makeJourney(driver, { capacity_kg: 300 });

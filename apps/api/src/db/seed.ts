@@ -369,6 +369,25 @@ await pool.query(`INSERT INTO risk_events(entity_type,entity_id,user_id,score,re
 const cbPayment = (await pool.query(`SELECT id FROM payments WHERE booking_id=$1`, [live])).rows[0]?.id as string | undefined;
 if (cbPayment) await pool.query(`INSERT INTO card_disputes(provider_dispute_id,payment_id,amount_cents,reason,status,due_by) VALUES ('dp_seed_1',$1,10500,'product_not_received','needs_response', now() + interval '6 days')`, [cbPayment]);
 
+// ---- a multi-shipment trip for daniel's Toronto → Calgary run (manifest, consolidation and a pending bundle)
+const confirmedOn = async (shipper: string, title: string, from: string, to: string, kg: number, cents: number) => {
+  const rq = await mkRequest(shipper, { title, cat: 'boxes', kg, dims: [50, 50, 50], from, to, fromDay: 2, toDay: 6, budget: cents });
+  const of = await mkOffer({ kind: 'transport', customer: shipper, provider: daniel, proposer: shipper, request: rq, journey: tor, amount: cents, status: 'accepted' });
+  await pool.query(`INSERT INTO bookings(offer_id,request_id,journey_id,shipper_id,transporter_id,agreed_cents,reserved_kg,pickup_pin,delivery_pin,status) VALUES ($1,$2,$3,$4,$5,$6,$7,'3141','5926','confirmed')`, [of, rq, tor, shipper, daniel, cents, kg]);
+  await pool.query(`UPDATE transport_requests SET status='booked' WHERE id=$1`, [rq]); await pool.query(`UPDATE feed_items SET status='pending' WHERE item_type='transport_request' AND item_id=$1`, [rq]);
+  await pool.query(`UPDATE journeys SET remaining_kg = remaining_kg - $2 WHERE id=$1`, [tor, kg]);
+};
+await confirmedOn(omar, 'Desk and chair: Toronto to Winnipeg', 'Toronto', 'Winnipeg', 70, 9500);
+await confirmedOn(priya, 'Boxes of books: Thunder Bay to Calgary', 'Thunder Bay', 'Calgary', 45, 7000);
+await mkRequest(marcus, { title: 'Bike boxes to Regina', cat: 'bikes', kg: 25, dims: [140, 25, 80], from: 'Toronto', to: 'Regina', fromDay: 3, toDay: 7, budget: 6500 });
+await mkRequest(lena, { title: 'Two armchairs to Calgary', cat: 'furniture', kg: 60, dims: [90, 90, 90], from: 'Toronto', to: 'Calgary', fromDay: 3, toDay: 7, budget: 12000 });
+// lena asks daniel to carry three small shipments together for one price (pending bundle)
+const bundleId = (await pool.query(`SELECT gen_random_uuid() AS id`)).rows[0].id as string;
+for (const [t, kg, cents] of [['Plant pots to Winnipeg', 30, 4000], ['Lamp and mirror to Winnipeg', 20, 3500]] as const) {
+  const rq = await mkRequest(lena, { title: t, cat: 'furniture', kg, dims: [60, 40, 40], from: 'Toronto', to: 'Winnipeg', fromDay: 3, toDay: 7 });
+  await pool.query(`INSERT INTO offers(kind,customer_id,provider_id,proposer_id,request_id,journey_id,amount_cents,expires_at,bundle_id) VALUES ('transport',$1,$2,$1,$3,$4,$5, now() + interval '2 days',$6)`, [lena, daniel, rq, tor, cents, bundleId]);
+}
+
 await pool.query(`INSERT INTO banned_words(term,severity) VALUES ('counterfeit','block'),('western union','flag'),('wire transfer only','flag')`);
 
 console.log(`Done. Sign in with any seeded username (admin, moderator, amara, marcus, daniel, priya, lena, omar, calgarylife, brightside) and password "${PASSWORD}".`);

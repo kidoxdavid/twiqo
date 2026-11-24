@@ -1,3 +1,4 @@
+import { VoiceBubble, VoiceRecorder } from '../components/voice';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -19,7 +20,7 @@ export function Inbox() {
           <Link key={x.id} to={`/messages/${x.id}`}><Avatar user={x.other} size={48} />
             <div style={{ flex: 1, minWidth: 0 }}><div className="row"><b>{x.other.display_name}</b><span className="sp" /><span className="muted sm">{ago(x.last_message_at)}</span></div>
               {x.subject && <div className="sm" style={{ color: 'var(--blue)', fontWeight: 600 }}>Re: {x.subject.title}</div>}
-              <div className="last">{x.last_message ? (x.last_message.kind === 'image' ? '📷 Photo' : x.last_message.body) : 'No messages yet'}</div></div>
+              <div className="last">{x.last_message ? (x.last_message.kind === 'image' ? '📷 Photo' : x.last_message.kind === 'voice' ? '🎤 Voice message' : x.last_message.body) : 'No messages yet'}</div></div>
             {x.unread > 0 && <span className="unread" aria-label={`${x.unread} unread`}>{x.unread}</span>}</Link>))}</div>}
     </main>
   );
@@ -83,15 +84,16 @@ export function Thread() {
             if (m.kind === 'booking') return <div key={m.id} className="sm muted" style={{ alignSelf: 'center', textAlign: 'center', padding: '4px 10px', background: 'var(--cloud)', borderRadius: 12 }}>{({ pickup_confirmed: 'Pickup confirmed', in_transit: 'On the way', update: 'New update', delivered: 'Delivery confirmed', cancelled: 'Booking cancelled' } as Record<string, string>)[m.payload.event] ?? 'Booking update'} · <Link style={{ color: 'var(--blue)', fontWeight: 700 }} to={`/bookings/${m.payload.booking_id}`}>View</Link></div>;
             return (
               <div key={m.id} className={`msg ${mine ? 'out' : 'in'}`} onContextMenu={(e) => { if (!mine) { e.preventDefault(); setReport(m.id); } }}>
-                {m.removed ? <i>Message removed</i> : m.image_url ? <img src={m.image_url} alt="Shared" /> : m.body}{m.warning && <div role="alert" style={{ marginTop: 6, padding: '8px 10px', borderRadius: 10, background: '#FFF1D6', color: '#6B4300', fontSize: 12.5, fontWeight: 600 }}>⚠ {m.warning}</div>}
+                {m.removed ? <i>Message removed</i> : m.voice ? <VoiceBubble voice={m.voice} /> : m.image_url ? <img src={m.image_url} alt="Shared" /> : m.body}{m.warning && <div role="alert" style={{ marginTop: 6, padding: '8px 10px', borderRadius: 10, background: '#FFF1D6', color: '#6B4300', fontSize: 12.5, fontWeight: 600 }}>⚠ {m.warning}</div>}
                 <div className="tm">{ago(m.created_at)}{mine && <svg width="16" height="12" viewBox="0 0 70 50" fill="none" strokeWidth="9" strokeLinecap="round" strokeLinejoin="round" aria-label={m.read ? 'Read' : 'Sent'}><path d="M5 25L17 37L39 9" stroke={m.read ? '#7FF0E8' : 'rgba(255,255,255,.55)'} />{m.read && <path d="M23 27L35 39L61 9" stroke="#7FF0E8" />}</svg>}</div>
-                {!mine && !m.removed && <button className="sm" style={{ opacity: 0.6, fontSize: 11, marginTop: 4 }} onClick={() => setReport(m.id)}>Report</button>}
+                {!mine && !m.removed && <button className="sm" style={{ color: 'var(--ink2)', fontSize: 11, marginTop: 4, textDecoration: 'underline' }} onClick={() => setReport(m.id)}>Report</button>}
               </div>);
           })}
           <div ref={end} />
         </div>
         <div className="composer">
           <ImageUploader value={photo} onChange={setPhoto} max={1} />
+          <VoiceRecorder conversationId={id!} onSent={() => qc.invalidateQueries({ queryKey: ['thread', id] })} />
           <input className="input" aria-label="Message" placeholder="Message…" value={body} maxLength={4000} onChange={(e) => setBody(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (body.trim() || photo[0]) && send()} />
           <button className="btn" disabled={busy || (!body.trim() && !photo[0])} onClick={send} aria-label="Send"><Icon name="share" /></button>
         </div>

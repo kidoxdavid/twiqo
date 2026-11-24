@@ -8,6 +8,7 @@ import { Icon } from '../components/Icon';
 import { useToast } from '../components/Toast';
 import { CATEGORIES, CityInput, JourneyCard, OfferCard, OfferDialog, RequestCard, RouteMap, ServiceCard, Stars, VEHICLES, fmtDate, fmtDateTime, windowText, type Match } from '../components/transport';
 import { BoostButton } from '../components/payments';
+import { BookBundleDialog } from '../components/bundles';
 import { ReturnSuggestions, SaveSearchButton } from '../components/tools';
 import { Avatar, Menu, ReportDialog, State, Verified, errMsg, money } from '../components/ui';
 
@@ -68,6 +69,7 @@ function Person({ u, role }: { u: any; role: string }) {
 export function JourneyPage() {
   const { id } = useParams(); const nav = useNavigate(); const { me } = useAuth(); const toast = useToast(); const qc = useQueryClient(); const guard = useRequireAuth();
   const [offer, setOffer] = useState(false); const [report, setReport] = useState(false);
+  const [bundle, setBundle] = useState(false);
   const q = useQuery({ queryKey: ['journey', id, me?.id], queryFn: () => api(`/transport/journeys/${id}`) });
   const j = q.data; const owner = j?.viewer.is_owner;
   const matches = useQuery({ queryKey: ['jmatches', id], queryFn: () => api(`/transport/journeys/${id}/matches`), enabled: !!owner && j?.status === 'open' });
@@ -94,6 +96,8 @@ export function JourneyPage() {
         {(j.pickup_preferences || j.delivery_preferences) && <div className="card pad sm col" style={{ gap: 4 }}>{j.pickup_preferences && <div><b>Pickup:</b> {j.pickup_preferences}</div>}{j.delivery_preferences && <div><b>Delivery:</b> {j.delivery_preferences}</div>}</div>}
         <div className="row wrap">
           {!owner && j.status === 'open' && <button className="btn" style={{ flex: 1 }} onClick={() => guard(() => setOffer(true))}>Book space / make offer</button>}
+          {!owner && j.status === 'open' && <button className="btn soft" onClick={() => guard(() => setBundle(true))}>Book several shipments</button>}
+          {owner && <Link className="btn soft" to={`/trip-plan/${j.id}`}>Plan this trip</Link>}
           {!owner && <button className="btn ghost" onClick={() => guard(() => nav(`/messages/new?to=${j.driver.id}&subject_type=journey&subject_id=${j.id}`))}><Icon name="chat" />Message</button>}
           {owner && ['open', 'full'].includes(j.status) && <><button className="btn soft" onClick={() => confirm('Mark this journey as departed? New offers will be closed.') && act('/depart')}>Mark departed</button><button className="btn ghost" onClick={() => confirm('Cancel this journey?') && act('', 'DELETE').then(() => nav('/move'))}>Cancel journey</button></>}
         </div>
@@ -104,6 +108,7 @@ export function JourneyPage() {
         <h2 className="sec">Questions</h2><Comments target={{ type: 'journey' as any, id: j.id }} />
       </div>
       {offer && <OfferDialog target={{ kind: 'journey', journey: j }} onClose={() => setOffer(false)} />}
+      {bundle && <BookBundleDialog journey={j} onClose={() => setBundle(false)} />}
       {report && <ReportDialog target={{ type: 'journey', id: j.id }} onClose={() => setReport(false)} />}
     </main>
   );

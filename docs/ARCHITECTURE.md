@@ -277,3 +277,14 @@ The schema in `apps/api/migrations` is written so later phases add tables and mo
 **Operations.** Request id on every response and log line; query strings are never logged (the realtime stream carries a token there). `/ready` fails when the database is down or the oldest due job is over 10 minutes late. The authorization sweep walks the registered routes: any new write route without a sign-in guard, or admin route open to members, fails the test suite.
 
 **Known limits.** Saved-search matching scans up to 5,000 searches per new item (fine for tens of thousands of users; index or move to a search service after that). Analytics and jobs share the primary database. The in-process cache is per node. The Docker files and CSP header are untested in a browser.
+
+
+## 12. Phase 7 design notes
+
+**Voice.** `messages.kind='voice'` with `audio_key`/`audio_ms`. Uploads are sniffed by magic bytes, probed with ffprobe (duration, audio stream), limited to `voice.max_seconds`, and always transcoded, so what is stored is never the raw upload. The file is removed again if the message is refused. Playback links are HMAC-signed with user id and expiry and re-checked against conversation membership and blocks on every request; the thread API hands them out fresh each time. Range requests are supported because Safari will not play audio without them.
+
+**Manifest ordering.** Each shipment's pick-up and drop-off are projected onto the journey line (`ST_LineLocatePoint`); stops sort by position, deliveries first on ties. A shipment whose drop-off projects before its pick-up is flagged rather than silently reordered. This is a route-order heuristic, not a vehicle-routing solver: it ignores road geometry and traffic.
+
+**Best bundle.** Up to 12 top-scoring candidates, all 4,095 subsets checked against remaining kg and m³, maximise value then minimise detour then fewer shipments. Value is the shipper's budget, else the journey price (flagged as an estimate).
+
+**Bundles in the data model.** `offers.bundle_id` only groups offers; there is no bundle table or bundle booking. All validation reuses `createOffer` / `acceptOffer`, so instant book, locking order and notifications behave identically. Creating a bundle is all-or-nothing (earlier offers are withdrawn if a later one fails); accepting is sequential with an up-front capacity check and honest partial results.

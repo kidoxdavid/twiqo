@@ -38,6 +38,7 @@ const VerificationPage = lazy(() => import('./pages/Settings').then((m) => ({ de
 const SafetySettings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.SafetySettings })));
 const TripPage = lazy(() => import('./pages/Trip').then((m) => ({ default: m.TripPage })));
 const LegalPage = lazy(() => import('./pages/Legal').then((m) => ({ default: m.LegalPage })));
+const TripPlanPage = lazy(() => import('./pages/TripPlan').then((m) => ({ default: m.TripPlanPage })));
 const InsightsPage = lazy(() => import('./pages/Growth').then((m) => ({ default: m.InsightsPage })));
 
 function CreateSheet({ onClose }: { onClose: () => void }) {
@@ -154,6 +155,7 @@ export function App() {
             <Route path="/bookings/:id" element={<Private><BookingPage /></Private>} />
             <Route path="/orders/:id" element={<Private><OrderPage /></Private>} />
             <Route path="/u/:username" element={<Profile />} />
+            <Route path="/trip-plan/:id" element={<Private><TripPlanPage /></Private>} />
             <Route path="/settings" element={<Private><SettingsHub /></Private>} />
             <Route path="/settings/security" element={<Private><SecurityPage /></Private>} />
             <Route path="/settings/notifications" element={<Private><NotificationSettings /></Private>} />

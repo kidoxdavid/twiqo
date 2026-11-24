@@ -1,3 +1,4 @@
+import { BundleActions } from './bundles';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -176,6 +177,7 @@ export function OfferCard({ o, compact, onChanged }: { o: any; compact?: boolean
       </div>
       <div className="row"><div style={{ fontSize: 28, fontWeight: 800, letterSpacing: -0.6 }}>{money(o.amount_cents)}</div><span className="sp" />{o.status === 'pending' && <span className="muted sm">expires {ago(o.expires_at) === 'now' ? 'soon' : new Date(o.expires_at).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric' })}</span>}</div>
       {o.message && <div className="sm" style={{ background: 'var(--cloud)', borderRadius: 12, padding: '8px 10px' }}>“{o.message}”</div>}
+      {o.bundle && o.bundle.count > 1 && !compact && <BundleActions o={o} onDone={done} />}
       {o.can_respond && !counter && <div className="row"><button className="btn teal" style={{ flex: 1 }} disabled={busy} onClick={async () => { const r = await act('accept', {}, 'Connection confirmed'); if (r?.booking_id) nav(`/bookings/${r.booking_id}`); else if (r?.order_id) nav(`/orders/${r.order_id}`); }}>Accept</button><button className="btn ghost" style={{ flex: 1 }} disabled={busy} onClick={() => setCounter(true)}>Counter</button><button className="btn soft" disabled={busy} aria-label="Decline" onClick={() => act('reject', {}, 'Declined')}><Icon name="x" /></button></div>}
       {o.can_respond && counter && <div className="row"><input className="input" aria-label="Counter amount" inputMode="decimal" value={amt} onChange={(e) => setAmt(e.target.value.replace(/[^\d.]/g, ''))} /><button className="btn" disabled={busy} onClick={async () => { await act('counter', { amount_cents: Math.round(parseFloat(amt) * 100) }, 'Counteroffer sent'); setCounter(false); }}>Send</button><button className="btn soft" onClick={() => setCounter(false)}>Cancel</button></div>}
       {o.can_withdraw && <button className="btn soft sm" disabled={busy} onClick={() => act('withdraw', {}, 'Withdrawn')}>Withdraw offer</button>}

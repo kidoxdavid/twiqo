@@ -112,4 +112,11 @@ Legend: ✅ done and tested · 🟡 partial · ⬜ not started
 - ✅ Legal drafts (terms, privacy, guidelines, refunds, prohibited items) — **drafts, need a lawyer**
 - ✅ Logging + request ids, /ready, system health page, write rate limit, authorization sweep test, dependency audit in CI, backup + verified restore, Dockerfiles/compose (unrun), PWA
 - ✅ Accessibility: axe (WCAG 2.1 A/AA) clean on 20 key pages, contrast fixes; **manual screen-reader and keyboard testing still needed**
-- ⬜ Not built / not possible here: voice messages, multi-stop consolidation, virus scanning of uploads, CDN, Redis cache, live Stripe/Identity/SMTP/push verification, penetration test, native apps, French for every screen, SMS (emergency contacts get email only)
+- ⬜ Not built / not possible here: virus scanning of uploads, CDN, Redis cache, live Stripe/Identity/SMTP/push verification, penetration test, native apps, French for every screen, SMS (emergency contacts get email only)
+
+
+## Phase 7 — Voice messages and shipment bundles ✅
+- ✅ Voice messages: in-browser recorder (Chrome/Firefox/Safari formats), server-side validation and AAC re-encode, private storage, signed expiring playback links with byte-range support, retention + deletion on account removal
+- ✅ Trip manifest: ordered stops, load tracking, ETAs, warnings, privacy-aware addresses
+- ✅ Consolidation: best-fit bundle under kg and m³ limits, driver offer-bundle, shipper book-bundle (weight-split or fixed price), instant book applies per shipment, accept/decline/withdraw all
+- ⬜ Not built: automatic route re-optimisation with real road distances and traffic (order follows the straight route line), waveform display for voice, speech-to-text, partial-bundle repricing when one shipment drops out

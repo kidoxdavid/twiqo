@@ -123,6 +123,13 @@ Honest status: the Stripe adapter is covered by tests against a mocked Stripe cl
 - **Operations**: JSON logs with request ids (`LOG_LEVEL`), `GET /ready` for load balancers, Admin → System health, blanket write rate limit, `npm audit` in CI, an automated authorization sweep over every route, `scripts/backup.sh` and `scripts/restore-check.sh` (restore is actually tested), Dockerfiles + `docker-compose.yml` (demo/staging with fake providers; **not run in this build, no Docker daemon was available**), PWA (installable, offline page, push).
 - **Before you launch**, work through [docs/LAUNCH-CHECKLIST.md](docs/LAUNCH-CHECKLIST.md). Several items need people (a lawyer, an accountant, a Stripe test run, a security test), not code.
 
+## Voice messages and shipment bundles (Phase 7)
+
+- **Voice messages**: tap the mic in a chat, record up to 2 minutes, preview, send. The server checks the recording by content (WebM/Opus from Chrome and Firefox, MP4/AAC from Safari), re-encodes it to mono AAC `.m4a` with metadata removed (needs `ffmpeg`/`ffprobe` on the server, which the Docker image includes), and stores it privately. Playback uses a signed link that expires after an hour and only goes to members of the conversation; blocking someone stops playback. Recordings are deleted after `voice.retention_days` (default 180) and when an account is deleted; the message stays, marked as expired. Voice can't be text-scanned, so moderation relies on reports. Microphone access requires HTTPS in production.
+- **Trip plan** (`/trip-plan/:journeyId`, drivers): every shipment on a journey as ordered pick-ups and drop-offs along the route (drops before pick-ups at the same place), running load, estimated times at 70 km/h, addresses for jobs still to do, and warnings for opposite-direction shipments, over-capacity, and pick-up or deliver-by dates the trip can't meet.
+- **Fill the empty space**: the best set of matching open shipments that fits the remaining kilograms and cubic metres, chosen by exhaustive search (highest earnings, then least detour), with one tap to offer to carry them all. Shipments that already have an open offer on the trip are left out.
+- **Bundles**: a shipper can book several of their shipments on one journey for one total (split by weight, or the fixed price each); a driver can offer a bundle. Each shipment stays its own offer and booking, so PINs, payments, disputes and reviews are unchanged. Recipients can accept, decline or withdraw all at once; if one accept fails part-way the rest are reported honestly (partial), not rolled back after the fact.
+
 ## Honest scope notes
 
 * Payments are **not implemented yet** (Phase 4); the UI says so plainly instead of faking it.

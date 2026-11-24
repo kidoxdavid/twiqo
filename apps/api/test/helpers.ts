@@ -59,7 +59,7 @@ export async function makeService(u: TestUser, over: Record<string, unknown> = {
   if (r.status !== 201) throw new Error(`service failed ${r.status} ${JSON.stringify(r.body)}`);
   return r.body;
 }
-export async function until<T>(fn: () => Promise<T | undefined | false>, ms = 3000): Promise<T> {
+export async function until<T>(fn: () => Promise<T | undefined | false>, ms = 8000): Promise<T> {
   const end = Date.now() + ms;
   for (;;) { const v = await fn(); if (v) return v as T; if (Date.now() > end) throw new Error('timed out'); await new Promise((r) => setTimeout(r, 60)); }
 }

@@ -15,7 +15,7 @@ const DOCS: Record<string, Doc> = {
     '8. Changes and contact', P('We may update these terms and will tell you about important changes. Contact support@twiqo.example.'),
   ] },
   privacy: { title: 'Privacy Policy', updated: '2026-01 (draft)', body: [
-    'What we collect', P('Account details (name, email, username, city), what you post and send, deals and payments, device and sign-in information, and first-party usage events (pages viewed, searches). We do not store your exact address on public pages: addresses are shared only between the two people in a booking.'),
+    'What we collect', P('Account details (name, email, username, city), what you post and send (including voice messages, which are kept for 180 days and deleted with your account), deals and payments, device and sign-in information, and first-party usage events (pages viewed, searches). We do not store your exact address on public pages: addresses are shared only between the two people in a booking.'),
     'Why we use it', P('To run the marketplace, keep it safe (fraud checks, reports, verification), process payments through Stripe, send notifications you ask for, and understand how twiqo is used.'),
     'Who sees it', P('Other members see your public profile and listings. Stripe processes payments and identity checks. Service providers host and deliver email and notifications for us. We do not sell your personal information.'),
     'Your choices', P('You can download your data, change notification settings, and delete your account in Settings → Account security. Some records (payments, disputes) must be kept for legal reasons and are kept without your name. Browsers that send Do Not Track or Global Privacy Control are not included in our analytics.'),
