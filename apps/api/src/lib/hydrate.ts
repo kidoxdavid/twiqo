@@ -49,6 +49,15 @@ export async function hydratePosts(ids: string[], viewer: string | null) {
   return out;
 }
 
+
+/** Mark items with an active "featured" boost. Featured items rank higher in browse/search but are not labelled as ads. */
+async function markFeatured(out: Map<string, any>, type: 'listing' | 'transport_service') {
+  for (const v of out.values()) v.featured = false;
+  if (!out.size) return;
+  const { rows } = await pool.query(`SELECT target_id FROM boosts WHERE target_type=$1 AND placement='featured' AND status='active' AND ends_at > now() AND target_id = ANY($2::uuid[])`, [type, [...out.keys()]]);
+  for (const r of rows) { const v = out.get(r.target_id); if (v) v.featured = true; }
+}
+
 export async function hydrateListings(ids: string[], viewer: string | null, distanceFrom?: { lng: number; lat: number }) {
   const out = new Map<string, any>();
   if (!ids.length) return out;
@@ -78,6 +87,7 @@ export async function hydrateListings(ids: string[], viewer: string | null, dist
       viewer: { liked: r.liked, saved: r.saved }, created_at: r.created_at,
     });
   }
+  await markFeatured(out, 'listing');
   return out;
 }
 
@@ -170,5 +180,6 @@ export async function hydrateServices(ids: string[], viewer: string | null) {
       counts: { likes: r.like_count, comments: r.comment_count, saves: r.save_count }, viewer: { liked: r.liked, saved: r.saved, is_owner: viewer === r.provider_id }, created_at: r.created_at,
     });
   }
+  await markFeatured(out, 'transport_service');
   return out;
 }

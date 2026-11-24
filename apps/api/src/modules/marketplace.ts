@@ -127,7 +127,8 @@ marketplace.get('/listings', optionalAuth, wrap(async (req, res) => {
     dist = `ST_Distance(l.location, ${pt})`;
     if (radius) where.push(`ST_DWithin(l.location, ${pt}, ${add(radius * 1000)})`);
   }
-  const order = { newest: 'l.created_at DESC, l.id', price_asc: 'l.price_cents ASC, l.id', price_desc: 'l.price_cents DESC, l.id', distance: `${dist} ASC, l.id`, relevance: `${rank} DESC, l.created_at DESC` }[q.sort];
+  const FEAT = "(EXISTS (SELECT 1 FROM boosts bo WHERE bo.target_type='listing' AND bo.target_id=l.id AND bo.placement='featured' AND bo.status='active' AND bo.ends_at > now())) DESC, ";
+  const order = { newest: `${FEAT}l.created_at DESC, l.id`, price_asc: 'l.price_cents ASC, l.id', price_desc: 'l.price_cents DESC, l.id', distance: `${dist} ASC, l.id`, relevance: `${FEAT}${rank} DESC, l.created_at DESC` }[q.sort];
   const sql = `SELECT l.id FROM listings l WHERE ${where.join(' AND ')} ORDER BY ${order} LIMIT ${q.limit + 1} OFFSET ${offset}`;
   const { rows } = await pool.query(sql, p);
   const more = rows.length > q.limit;

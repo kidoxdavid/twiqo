@@ -11,6 +11,8 @@ import { ensureConversation, postCard } from '../lib/conversations.js';
 import { mediaUrl, thumbUrl } from '../lib/views.js';
 import { assertOwnsMedia } from './content.js';
 import { setFeedStatus } from './transport.js';
+import { settleCancelled } from './payments.js';
+import { hasOpenDispute } from './disputes.js';
 
 export const bookings = Router();
 const uuid = z.string().uuid();
@@ -55,8 +57,10 @@ export async function bookingView(id: string, me: string) {
   if (!isShipper && ['pickup_confirmed', 'in_transit'].includes(b.status)) actions.push('post_update', 'confirm_delivery');
   if (isShipper && b.status === 'delivered') actions.push('confirm_receipt');
   if (b.status === 'completed' && !mine) actions.push('review');
+  if (isShipper && b.payment_status === 'unpaid' && !['cancelled', 'completed'].includes(b.status)) actions.push('pay');
+  const openDispute = (await pool.query(`SELECT id FROM disputes WHERE booking_id=$1 AND status='open'`, [id])).rows[0];
   return {
-    id: b.id, status: b.status, agreed_cents: b.agreed_cents, currency: b.currency, created_at: b.created_at, my_role: isShipper ? 'shipper' : 'transporter',
+    id: b.id, status: b.status, payment_status: b.payment_status, dispute_id: openDispute?.id ?? null, agreed_cents: b.agreed_cents, currency: b.currency, created_at: b.created_at, my_role: isShipper ? 'shipper' : 'transporter',
     shipper: who(b, 's'), transporter: who(b, 't'), counterparty: isShipper ? who(b, 't') : who(b, 's'),
     shipment: { request_id: b.request_id, title: b.r_title, category: b.item_category, quantity: b.r_qty, weight_kg: Number(b.weight_kg), fragile: b.fragile, special_handling: b.special_handling,
       from: { city: b.origin_city, province: b.origin_province, area: b.pickup_area }, to: { city: b.dest_city, province: b.dest_province, area: b.delivery_area },
@@ -140,6 +144,7 @@ bookings.post('/bookings/:id/pickup', requireAuth, wrap(async (req, res) => {
   const bk = await mine(pool, id, me);
   if (bk.transporter_id !== me) throw forbidden('Only the transporter confirms pickup');
   if (bk.status !== 'confirmed') throw conflict(`Pickup can't be confirmed while the booking is ${bk.status.replace('_', ' ')}`);
+  if (bk.payment_status === 'unpaid' && (await setting('payments.required_for_pickup', false)) === true) throw conflict('This booking has to be paid on twiqo before pickup can be confirmed', 'payment_required');
   await verifyPin(id, 'pickup_pin', b.pin);
   await tx(async (c) => {
     const cur = await mine(c, id, me, true);
@@ -202,6 +207,7 @@ bookings.post('/bookings/:id/complete', requireAuth, wrap(async (req, res) => {
     const bk = await mine(c, id, me, true);
     if (bk.shipper_id !== me) throw forbidden('Only the shipper confirms receipt');
     if (bk.status !== 'delivered') throw conflict('The transporter has not confirmed delivery yet');
+    if (await hasOpenDispute(c, { bookingId: id })) throw conflict('There is an open dispute on this booking. It can be completed once the dispute is resolved.', 'dispute_open');
     await completeBooking(c, id, me);
   });
   res.json(await bookingView(id, me));
@@ -228,6 +234,7 @@ bookings.post('/bookings/:id/cancel', requireAuth, wrap(async (req, res) => {
     await addEvent(c, id, me, 'cancelled', reason);
     await bookingCard(c, bk, me, 'cancelled');
   });
+  await settleCancelled({ bookingId: id }, me);
   res.json(await bookingView(id, me));
 }));
 
@@ -244,10 +251,10 @@ async function orderView(id: string, me: string) {
   const buyer = o.buyer_id === me; const mineR = reviews.find((r) => r.reviewer_id === me);
   const tr = (await pool.query(`SELECT id, status FROM transport_requests WHERE linked_listing_id=$1 AND requester_id=$2 ORDER BY created_at DESC LIMIT 1`, [o.listing_id, o.buyer_id])).rows[0];
   return {
-    id: o.id, status: o.status, quantity: o.quantity, total_cents: o.total_cents, currency: o.currency, created_at: o.created_at, completed_at: o.completed_at, my_role: buyer ? 'buyer' : 'seller',
+    id: o.id, status: o.status, payment_status: o.payment_status, quantity: o.quantity, total_cents: o.total_cents, currency: o.currency, created_at: o.created_at, completed_at: o.completed_at, my_role: buyer ? 'buyer' : 'seller',
     listing: { id: o.listing_id, title: o.title, image_url: o.img ? thumbUrl(o.img) : null, city: o.city }, buyer: who(o, 'b'), seller: who(o, 's'), counterparty: buyer ? who(o, 's') : who(o, 'b'),
     transport_request: buyer && tr ? { id: tr.id, status: tr.status } : null, review: { mine: mineR ?? null, theirs: reviews.find((r) => r.reviewer_id !== me) ?? null },
-    actions: [...(o.status === 'agreed' ? ['complete', 'cancel'] : []), ...(o.status === 'completed' && !mineR ? ['review'] : []), ...(buyer && o.status === 'agreed' && !tr ? ['arrange_transport'] : [])],
+    actions: [...(o.status === 'agreed' ? ['complete', 'cancel'] : []), ...(o.status === 'completed' && !mineR ? ['review'] : []), ...(buyer && o.status === 'agreed' && !tr ? ['arrange_transport'] : []), ...(buyer && o.status === 'agreed' && o.payment_status === 'unpaid' ? ['pay'] : [])],
   };
 }
 bookings.get('/orders', requireAuth, wrap(async (req, res) => {
@@ -263,6 +270,7 @@ bookings.post('/orders/:id/complete', requireAuth, wrap(async (req, res) => {
     const o = (await c.query('SELECT * FROM orders WHERE id=$1 FOR NO KEY UPDATE', [id])).rows[0];
     if (!o || (o.buyer_id !== me && o.seller_id !== me)) throw notFound('Order');
     if (o.status !== 'agreed') throw conflict(`This order is already ${o.status}`);
+    if (await hasOpenDispute(c, { orderId: id })) throw conflict('There is an open dispute on this order. It can be completed once the dispute is resolved.', 'dispute_open');
     await c.query(`UPDATE orders SET status='completed', completed_at=now() WHERE id=$1`, [id]);
     await notify(c, { userId: me === o.buyer_id ? o.seller_id : o.buyer_id, type: 'booking_update', actorId: me, targetType: 'order', targetId: id, data: { event: 'completed' } });
   });
@@ -280,6 +288,7 @@ bookings.post('/orders/:id/cancel', requireAuth, wrap(async (req, res) => {
     if (l.status === 'sold') await c.query(`UPDATE feed_items SET status='active' WHERE item_type='listing' AND item_id=$1`, [o.listing_id]);
     await notify(c, { userId: me === o.buyer_id ? o.seller_id : o.buyer_id, type: 'booking_update', actorId: me, targetType: 'order', targetId: id, data: { event: 'cancelled' } });
   });
+  await settleCancelled({ orderId: id }, me);
   res.json(await orderView(id, me));
 }));
 

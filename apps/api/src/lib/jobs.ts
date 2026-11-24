@@ -3,10 +3,12 @@ import { setting } from './policy.js';
 import { expireOffers, rejectOpenOffers } from '../modules/offers.js';
 import { completeBooking } from '../modules/bookings.js';
 import { notify } from './notify.js';
+import { refundPayment } from '../modules/payments.js';
+import { paymentProvider } from './payments.js';
 
 /** Idempotent housekeeping. Runs on an interval today; move to a queue worker when one exists. */
 export async function runHousekeeping() {
-  const out = { offers: 0, listings: 0, journeys: 0, requests: 0, bookings: 0, stories: 0, reminders: 0 };
+  const out = { offers: 0, listings: 0, journeys: 0, requests: 0, bookings: 0, stories: 0, reminders: 0, boosts: 0, abandoned_payments: 0, retried_refunds: 0 };
   out.offers = await expireOffers();
 
   const l = await pool.query(`UPDATE listings SET status='expired' WHERE status='active' AND expires_at < now() RETURNING id`);
@@ -31,7 +33,7 @@ export async function runHousekeeping() {
   out.requests = rs.rowCount ?? 0;
 
   const hours = Number(await setting('booking.auto_complete_hours', 72));
-  const bs = await pool.query(`SELECT id FROM bookings WHERE status='delivered' AND delivered_at < now() - ($1::int || ' hours')::interval`, [hours]);
+  const bs = await pool.query(`SELECT id FROM bookings WHERE status='delivered' AND delivered_at < now() - ($1::int || ' hours')::interval AND NOT EXISTS (SELECT 1 FROM disputes d WHERE d.booking_id=bookings.id AND d.status='open')`, [hours]);
   for (const b of bs.rows) await tx((c) => completeBooking(c, b.id, null).then(() => undefined));
   out.bookings = bs.rowCount ?? 0;
 
@@ -41,5 +43,20 @@ export async function runHousekeeping() {
   const evs = (await pool.query(`SELECT e.id, e.title FROM events e WHERE e.status='scheduled' AND e.starts_at > now() AND e.starts_at < now() + ($1::int || ' hours')::interval`, [remindH])).rows;
   for (const e of evs) for (const r of (await pool.query(`SELECT user_id FROM event_rsvps WHERE event_id=$1`, [e.id])).rows)
     if (await notify(pool, { userId: r.user_id, type: 'event_reminder', targetType: 'event', targetId: e.id, data: { title: e.title }, dedupeKey: e.id })) out.reminders++;
+
+  // boosts: expire finished ones; unpaid ones are abandoned after a day
+  out.boosts = (await pool.query(`UPDATE boosts SET status='expired' WHERE status='active' AND ends_at < now()`)).rowCount ?? 0;
+  const stale = (await pool.query(`UPDATE payments SET status='canceled' WHERE status='requires_payment' AND created_at < now() - interval '24 hours' RETURNING id, provider_payment_id, boost_id`)).rows;
+  for (const p of stale) {
+    if (p.provider_payment_id) await paymentProvider().cancelPayment(p.provider_payment_id).catch(() => undefined);
+    if (p.boost_id) await pool.query(`UPDATE boosts SET status='canceled' WHERE id=$1 AND status='pending_payment'`, [p.boost_id]);
+  }
+  out.abandoned_payments = stale.length;
+
+  // paid but the order/booking was cancelled and the automatic refund failed: try again
+  const owed = (await pool.query(`SELECT p.id FROM payments p WHERE p.status IN ('succeeded','partially_refunded') AND p.refunded_cents < p.amount_cents AND p.kind <> 'boost'
+    AND ((p.order_id IS NOT NULL AND EXISTS (SELECT 1 FROM orders o WHERE o.id=p.order_id AND o.status='cancelled')) OR (p.booking_id IS NOT NULL AND EXISTS (SELECT 1 FROM bookings b WHERE b.id=p.booking_id AND b.status='cancelled')))
+    AND NOT EXISTS (SELECT 1 FROM refunds r WHERE r.payment_id=p.id AND r.status='pending') LIMIT 25`)).rows;
+  for (const p of owed) { try { await refundPayment(p.id, { reason: 'Cancelled before completion', source: 'cancellation', initiatedBy: null }); out.retried_refunds++; } catch (e) { console.error('refund retry failed', (e as Error).message); } }
   return out;
 }

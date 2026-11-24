@@ -370,7 +370,7 @@ transport.get('/transport/services', optionalAuth, wrap(async (req, res) => {
   if (q.vehicle) where.push(`s.vehicle_type=${add(q.vehicle)}`);
   if (q.provider) where.push(`s.provider_id = (SELECT id FROM users WHERE username=${add(q.provider)})`);
   const o = off(q.cursor);
-  const { rows } = await pool.query(`SELECT s.id FROM transport_services s WHERE ${where.join(' AND ')} ORDER BY s.created_at DESC, s.id LIMIT ${q.limit + 1} OFFSET ${o}`, p);
+  const { rows } = await pool.query(`SELECT s.id FROM transport_services s WHERE ${where.join(' AND ')} ORDER BY (EXISTS (SELECT 1 FROM boosts bo WHERE bo.target_type='transport_service' AND bo.target_id=s.id AND bo.placement='featured' AND bo.status='active' AND bo.ends_at > now())) DESC, s.created_at DESC, s.id LIMIT ${q.limit + 1} OFFSET ${o}`, p);
   const ids = rows.slice(0, q.limit).map((r) => r.id); const map = await hydrateServices(ids, viewer);
   res.json({ items: ids.map((i) => map.get(i)), next_cursor: nextCursor(rows.length > q.limit, o, q.limit) });
 }));

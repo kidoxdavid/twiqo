@@ -7,7 +7,7 @@ export class HttpError extends Error {
 export const notFound = (what = 'Resource') => new HttpError(404, `${what} not found`, 'not_found');
 export const forbidden = (m = 'You do not have permission to do that') => new HttpError(403, m, 'forbidden');
 export const badRequest = (m: string) => new HttpError(400, m, 'bad_request');
-export const conflict = (m: string) => new HttpError(409, m, 'conflict');
+export const conflict = (m: string, code = 'conflict') => new HttpError(409, m, code);
 
 export const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>): RequestHandler =>
   (req, res, next) => { fn(req, res, next).catch(next); };

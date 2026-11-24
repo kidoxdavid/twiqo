@@ -16,6 +16,9 @@ export const NOTIFICATION_TYPES: { type: string; label: string }[] = [
   { type: 'group_activity', label: 'Circle activity (requests, approvals, roles, events)' },
   { type: 'event_reminder', label: 'Event reminders' },
   { type: 'story_reply', label: 'Story views and replies' },
+  { type: 'payment_update', label: 'Payments, refunds and payouts' },
+  { type: 'dispute_update', label: 'Dispute updates' },
+  { type: 'boost_update', label: 'Boost and promotion updates' },
 ];
 
 /** Create a notification unless the recipient turned that type off or the pair is blocked. Returns true if stored. */

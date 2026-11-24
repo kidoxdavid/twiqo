@@ -18,11 +18,23 @@ const schema = z.object({
   BUNNY_API_KEY: z.string().optional(),           // library API key (server side only)
   BUNNY_CDN_HOSTNAME: z.string().optional(),      // e.g. vz-xxxxxxxx-xxx.b-cdn.net
   BUNNY_WEBHOOK_SECRET: z.string().optional(),    // random string you append to the webhook URL as ?secret=
+  // Payments: 'fake' = in-memory test provider (development only), 'stripe' = Stripe Connect
+  PAYMENT_PROVIDER: z.enum(['fake', 'stripe']).default('fake'),
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_PUBLISHABLE_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),            // endpoint for account events (payments, refunds)
+  STRIPE_CONNECT_WEBHOOK_SECRET: z.string().optional(),    // endpoint for events from connected accounts (account.updated, payouts)
 });
 
 export const config = schema.parse(process.env);
 if (config.VIDEO_PROVIDER === 'bunny' && !(config.BUNNY_LIBRARY_ID && config.BUNNY_API_KEY && config.BUNNY_CDN_HOSTNAME)) {
   throw new Error('VIDEO_PROVIDER=bunny needs BUNNY_LIBRARY_ID, BUNNY_API_KEY and BUNNY_CDN_HOSTNAME');
+}
+if (config.PAYMENT_PROVIDER === 'stripe' && !(config.STRIPE_SECRET_KEY && config.STRIPE_PUBLISHABLE_KEY && config.STRIPE_WEBHOOK_SECRET)) {
+  throw new Error('PAYMENT_PROVIDER=stripe needs STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY and STRIPE_WEBHOOK_SECRET');
+}
+if (config.NODE_ENV === 'production' && config.PAYMENT_PROVIDER === 'fake') {
+  throw new Error('The fake payment provider cannot be used in production. Set PAYMENT_PROVIDER=stripe.');
 }
 if (config.NODE_ENV === 'production' && config.JWT_SECRET.startsWith('dev-only')) {
   throw new Error('JWT_SECRET must be set in production');

@@ -1,3 +1,4 @@
+import { pickSponsored } from './boosts.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import { pool } from '../db/pool.js';
@@ -77,7 +78,12 @@ feed.get('/feed', optionalAuth, wrap(async (req, res) => {
   const ids = (t: string) => rows.filter((r) => r.item_type === t).map((r) => r.item_id);
   const [reqs, jrns, svcs] = await Promise.all([hydrateRequests(ids('transport_request'), viewer), hydrateJourneys(ids('journey'), viewer), hydrateServices(ids('transport_service'), viewer)]);
   const pick = (r: { item_type: string; item_id: string }) => ({ post: posts, listing: listings, transport_request: reqs, journey: jrns, transport_service: svcs } as Record<string, Map<string, any>>)[r.item_type]?.get(r.item_id);
-  const items = rows.map(pick).filter(Boolean);
+  const items: any[] = rows.map(pick).filter(Boolean);
+  // at most one clearly labelled sponsored item per page, in the For You and Nearby feeds only
+  if (a.tab === 'for_you' || a.tab === 'nearby') {
+    const sp = await pickSponsored(viewer, items.map((i) => i.id), items.length);
+    if (sp) items.splice(Math.min(items.length, Number(await setting('ads.every_n', 8)) - 1), 0, sp);
+  }
   res.json({ items, next_cursor: next });
 }));
 
