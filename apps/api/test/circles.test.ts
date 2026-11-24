@@ -198,7 +198,8 @@ describe('circles (acceptance F + G)', () => {
   it('makes circle posts public in public circles and visible in the main feed and comments work', async () => {
     const owner = await makeUser('fo'), mem = await makeUser('fm'), anyone = await makeUser('fa'); const c = await makeCircle(owner); await join(mem, c.slug);
     const p = (await post(mem, c.slug, { group_id: c.id, body: 'public circle chatter' })).body; expect(p.visibility).toBe('public');
-    expect((await api().get('/api/feed').query({ tab: 'for_you', limit: 30 }).set(auth(anyone))).body.items.map((i: any) => i.id)).toContain(p.id);
+    await api().post(`/api/follows/user/${mem.id}`).set(auth(anyone));   // ranked For You is capped; Following is deterministic
+    expect((await api().get('/api/feed').query({ tab: 'following', limit: 30 }).set(auth(anyone))).body.items.map((i: any) => i.id)).toContain(p.id);
     expect((await api().post('/api/comments').set(auth(anyone)).send({ target_type: 'post', target_id: p.id, body: 'nice' })).status).toBe(201);
     // changing a circle to private re-labels existing posts so they stop leaking
     await api().patch(`/api/circles/${c.slug}`).set(auth(owner)).send({ visibility: 'private' });
