@@ -1,3 +1,8 @@
+import { createReadStream } from 'node:fs';
+import fs from 'node:fs/promises';
+import multer from 'multer';
+import { setting } from '../lib/policy.js';
+import { saveVoice, voicePath, removeVoice, voiceUrl, verifyVoiceLink } from '../lib/voice.js';
 import { enforceVelocity, recordRisk, scanText, CHAT_WARNING_REASONS } from '../lib/risk.js';
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
@@ -87,7 +92,7 @@ messaging.get('/conversations/:id/messages', requireAuth, wrap(async (req, res) 
   await assertMember(id, req.user!.id);
   const before = typeof req.query.before === 'string' ? new Date(req.query.before) : null;
   const { rows } = await pool.query(
-    `SELECT m.id, m.sender_id, m.kind, CASE WHEN m.status='removed' THEN NULL ELSE m.body END AS body, m.payload, m.status, m.created_at, m.flags,
+    `SELECT m.id, m.sender_id, m.kind, CASE WHEN m.status='removed' THEN NULL ELSE m.body END AS body, m.payload, m.status, m.created_at, m.flags, m.audio_key, m.audio_ms,
             (SELECT storage_key FROM media_assets WHERE id=m.media_id) AS media_key
      FROM messages m WHERE m.conversation_id=$1 AND ($2::timestamptz IS NULL OR m.created_at < $2) ORDER BY m.created_at DESC LIMIT 50`, [id, before]);
   const other = await otherMember(id, req.user!.id);
@@ -96,25 +101,26 @@ messaging.get('/conversations/:id/messages', requireAuth, wrap(async (req, res) 
   const cards = await offerViews(offerIds, req.user!.id);
   res.json({ items: rows.reverse().map((m) => ({ id: m.id, sender_id: m.sender_id, kind: m.kind, body: m.body, payload: m.payload, offer: m.payload?.offer_id ? cards.get(m.payload.offer_id) ?? null : null, removed: m.status === 'removed',
     image_url: m.media_key ? mediaUrl(m.media_key) : null, created_at: m.created_at,
+    voice: m.kind === 'voice' && m.status !== 'removed' ? (m.audio_key ? { url: voiceUrl(m.id, req.user!.id), duration_ms: m.audio_ms } : { expired: true, duration_ms: m.audio_ms }) : undefined,
     // only the person receiving a risky message is warned; the sender never learns the heuristics
     warning: m.sender_id !== req.user!.id && m.flags?.length ? 'This message asks you to pay or arrange things outside twiqo. Payments made outside twiqo are not covered by our refund and dispute review. Be careful, and report it if it feels wrong.' : undefined,
     read: m.sender_id === req.user!.id && readAt ? new Date(readAt) >= new Date(m.created_at) : undefined })) });
 }));
 
-async function sendMessage(conversationId: string, sender: string, m: { kind: 'text' | 'image'; body?: string; media_id?: string }) {
+async function sendMessage(conversationId: string, sender: string, m: { kind: 'text' | 'image' | 'voice'; body?: string; media_id?: string; audio_key?: string; audio_ms?: number }) {
   const other = await otherMember(conversationId, sender);
   if (other) await assertCanMessage(sender, other);
   if (m.kind === 'text') { const flagged = await checkText(m.body); if (flagged) throw new HttpError(422, 'This message breaks our community guidelines', 'policy_violation'); }
   const row = await tx(async (c) => {
     if (m.media_id) await assertOwnsMedia(c, sender, [m.media_id]);
     const flags = m.kind === 'text' ? scanText(m.body).reasons.filter((x) => CHAT_WARNING_REASONS.has(x)) : [];
-    const r = await c.query(`INSERT INTO messages(conversation_id,sender_id,kind,body,media_id,flags) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, created_at`, [conversationId, sender, m.kind, m.body ?? null, m.media_id ?? null, flags]);
+    const r = await c.query(`INSERT INTO messages(conversation_id,sender_id,kind,body,media_id,flags,audio_key,audio_ms) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, created_at`, [conversationId, sender, m.kind, m.body ?? null, m.media_id ?? null, flags, m.audio_key ?? null, m.audio_ms ?? null]);
     if (flags.length) await recordRisk(c, { entityType: 'message', entityId: r.rows[0].id, userId: sender, score: 3, reasons: flags });
     await c.query(`UPDATE conversations SET last_message_at = $2 WHERE id=$1`, [conversationId, r.rows[0].created_at]);
     await c.query(`UPDATE conversation_members SET last_read_at = $3 WHERE conversation_id=$1 AND user_id=$2`, [conversationId, sender, r.rows[0].created_at]);
     return r.rows[0];
   });
-  const payload = { conversation_id: conversationId, message: { id: row.id, sender_id: sender, kind: m.kind, body: m.body ?? null, created_at: row.created_at } };
+  const payload = { conversation_id: conversationId, message: { id: row.id, sender_id: sender, kind: m.kind, body: m.body ?? null, created_at: row.created_at, ...(m.kind === 'voice' ? { duration_ms: m.audio_ms } : {}) } };
   if (other) publish(other, 'message', payload);
   publish(sender, 'message', payload);
   return row;
@@ -127,6 +133,31 @@ messaging.post('/conversations/:id/messages', requireAuth, msgLimiter, wrap(asyn
   await assertMember(id, req.user!.id);
   const row = await sendMessage(id, req.user!.id, b);
   res.status(201).json({ id: row.id, created_at: row.created_at });
+}));
+
+/** Voice messages: a short recording, checked and re-encoded on the server. Played back through a signed, expiring link that is only handed to members of the conversation. */
+const voiceUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 3 * 1024 * 1024, files: 1 } });
+messaging.post('/conversations/:id/voice', requireAuth, msgLimiter, voiceUpload.single('file'), wrap(async (req, res) => {
+  const id = uuid.parse(req.params.id); await assertMember(id, req.user!.id);
+  if (!req.file) throw badRequest('Record a message first');
+  const saved = await saveVoice(req.file.buffer, Number(await setting('voice.max_seconds', 120)));
+  try { const row = await sendMessage(id, req.user!.id, { kind: 'voice', audio_key: saved.key, audio_ms: saved.ms }); res.status(201).json({ id: row.id, created_at: row.created_at, duration_ms: saved.ms }); }
+  catch (e) { await removeVoice(saved.key).catch(() => undefined); throw e; }   // blocked, rate-limited or similar: don't leave the file behind
+}));
+messaging.get('/voice/:id', wrap(async (req, res) => {
+  const id = uuid.parse(req.params.id); const u = z.object({ u: uuid, exp: z.coerce.number().int(), sig: z.string().min(20).max(80) }).safeParse(req.query);
+  if (!u.success || !verifyVoiceLink(id, u.data.u, u.data.exp, u.data.sig)) throw new HttpError(403, 'This link has expired', 'forbidden');
+  const m = (await pool.query(`SELECT m.audio_key FROM messages m JOIN conversation_members cm ON cm.conversation_id=m.conversation_id AND cm.user_id=$2 WHERE m.id=$1 AND m.kind='voice' AND m.status='active' AND m.audio_key IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM blocks b JOIN conversation_members o ON o.conversation_id=m.conversation_id AND o.user_id <> $2 WHERE (b.blocker_id=$2 AND b.blocked_id=o.user_id) OR (b.blocker_id=o.user_id AND b.blocked_id=$2))`, [id, u.data.u])).rows[0];
+  if (!m) throw notFound('Voice message');
+  const file = voicePath(m.audio_key); const size = (await fs.stat(file)).size; const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range ?? ''));
+  res.set({ 'Content-Type': 'audio/mp4', 'Accept-Ranges': 'bytes', 'Cache-Control': 'private, max-age=600', 'X-Content-Type-Options': 'nosniff' });
+  if (range && (range[1] || range[2])) {   // Safari and seeking need byte ranges
+    const start = range[1] ? parseInt(range[1], 10) : Math.max(0, size - parseInt(range[2], 10)); const end = range[1] && range[2] ? Math.min(parseInt(range[2], 10), size - 1) : size - 1;
+    if (start > end || start >= size) return void res.status(416).set('Content-Range', `bytes */${size}`).end();
+    res.status(206).set({ 'Content-Range': `bytes ${start}-${end}/${size}`, 'Content-Length': String(end - start + 1) }); createReadStream(file, { start, end }).pipe(res); return;
+  }
+  res.set('Content-Length', String(size)); createReadStream(file).pipe(res);
 }));
 
 messaging.post('/conversations/:id/read', requireAuth, wrap(async (req, res) => {

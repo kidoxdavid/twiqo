@@ -68,7 +68,8 @@ async function offerViews(ids: string[], me: string) {
         (SELECT m.storage_key FROM listing_media lm JOIN media_assets m ON m.id=lm.media_id WHERE lm.listing_id=l.id ORDER BY lm.position LIMIT 1) AS l_img,
         r.title AS r_title, r.origin_city AS r_oc, r.dest_city AS r_dc, r.weight_kg AS r_kg, r.quantity AS r_qty, r.status AS r_status,
         j.origin_city AS j_oc, j.dest_city AS j_dc, j.departure_at AS j_dep, s.title AS s_title,
-        (SELECT id FROM bookings b WHERE b.offer_id=o.id) AS booking_id, (SELECT id FROM orders od WHERE od.offer_id=o.id) AS order_id
+        (SELECT id FROM bookings b WHERE b.offer_id=o.id) AS booking_id, (SELECT id FROM orders od WHERE od.offer_id=o.id) AS order_id,
+        (SELECT count(*)::int FROM offers x WHERE x.bundle_id=o.bundle_id) AS bundle_n, (SELECT coalesce(sum(x.amount_cents),0)::int FROM offers x WHERE x.bundle_id=o.bundle_id) AS bundle_total, (SELECT count(*)::int FROM offers x WHERE x.bundle_id=o.bundle_id AND x.status='pending' AND x.expires_at > now()) AS bundle_open
      FROM offers o JOIN users cu ON cu.id=o.customer_id JOIN user_profiles cp ON cp.user_id=cu.id JOIN users pu ON pu.id=o.provider_id JOIN user_profiles pp ON pp.user_id=pu.id
      LEFT JOIN listings l ON l.id=o.listing_id LEFT JOIN transport_requests r ON r.id=o.request_id LEFT JOIN journeys j ON j.id=o.journey_id LEFT JOIN transport_services s ON s.id=o.service_id
      WHERE o.id = ANY($1::uuid[])`, [ids]);
@@ -87,6 +88,7 @@ async function offerViews(ids: string[], me: string) {
         : { type: 'transport', request: { id: r.request_id, title: r.r_title, from: r.r_oc, to: r.r_dc, weight_kg: Number(r.r_kg), quantity: r.r_qty },
             journey: r.journey_id ? { id: r.journey_id, from: r.j_oc, to: r.j_dc, departure_at: r.j_dep } : null, service: r.service_id ? { id: r.service_id, title: r.s_title } : null },
       booking_id: r.booking_id, order_id: r.order_id,
+      bundle: r.bundle_id ? { id: r.bundle_id, count: r.bundle_n, total_cents: r.bundle_total, open: r.bundle_open } : null,
     });
   }
   return out;
@@ -96,13 +98,13 @@ export { offerViews };
 
 // ------------------------------------------------------------------------------------------ create
 const base = { amount_cents: z.number().int().min(0).max(100_000_000), message: z.string().trim().max(1000).optional(), expires_in_hours: z.number().int().min(1).max(720).optional() };
-const createSchema = z.discriminatedUnion('kind', [
+export const createSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('goods'), listing_id: uuid, quantity: z.number().int().min(1).max(10000).default(1), ...base }),
   z.object({ kind: z.literal('transport'), request_id: uuid, journey_id: uuid.optional(), service_id: uuid.optional(), ...base }),
 ]);
 
-offers.post('/offers', requireAuth, wrap(async (req, res) => {
-  const b = createSchema.parse(req.body); const me = req.user!.id;
+/** Create an offer as `me`. Shared by the offer route and shipment bundles (which create several offers with one bundle id). */
+export async function createOffer(me: string, b: z.infer<typeof createSchema>, opts: { bundleId?: string } = {}) {
   await checkText(b.message);
   await enforceVelocity(pool, me, 'offer');
   await expireOffers();
@@ -164,9 +166,9 @@ offers.post('/offers', requireAuth, wrap(async (req, res) => {
 
   const id = await tx(async (c) => {
     const o = await c.query(
-      `INSERT INTO offers(kind,customer_id,provider_id,proposer_id,listing_id,request_id,journey_id,service_id,amount_cents,quantity,message,expires_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, now() + ($12 || ' hours')::interval) RETURNING id`,
-      [row.kind, row.customer, row.provider, me, row.listing_id, row.request_id, row.journey_id, row.service_id, row.amount, row.quantity, b.message ?? null, String(hours)]);
+      `INSERT INTO offers(kind,customer_id,provider_id,proposer_id,listing_id,request_id,journey_id,service_id,amount_cents,quantity,message,expires_at,bundle_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, now() + ($12 || ' hours')::interval, $13) RETURNING id`,
+      [row.kind, row.customer, row.provider, me, row.listing_id, row.request_id, row.journey_id, row.service_id, row.amount, row.quantity, b.message ?? null, String(hours), opts.bundleId ?? null]);
     await logEvent(c, o.rows[0].id, me, 'created', b.message);
     const other = me === conv.customer ? conv.provider : conv.customer;
     const cid = await ensureConversation(c, me, other, conv.subject);
@@ -178,8 +180,9 @@ offers.post('/offers', requireAuth, wrap(async (req, res) => {
   // Instant book: a fixed-price journey from a trusted driver is confirmed straight away for an eligible shipper. Anything unusual falls back to a normal pending offer.
   let booking_id: string | undefined;
   if (instantDriver && (await instantEligible(me))) { try { booking_id = (await acceptOffer(id, instantDriver)).booking_id; } catch (e) { console.error('instant book fell back to a normal offer:', (e as Error).message); } }
-  res.status(201).json({ ...(await offerView(id, me)), instant_booked: !!booking_id, booking_id: booking_id ?? undefined });
-}));
+  return { ...(await offerView(id, me)), instant_booked: !!booking_id, booking_id: booking_id ?? undefined };
+}
+offers.post('/offers', requireAuth, wrap(async (req, res) => { res.status(201).json(await createOffer(req.user!.id, createSchema.parse(req.body))); }));
 
 async function instantEligible(shipper: string) {
   const minAge = Number(await setting('instant_book.min_account_age_hours', 24));
@@ -232,8 +235,7 @@ async function guardRespond(c: PoolClient, id: string, me: string) {
   return o;
 }
 
-offers.post('/offers/:id/reject', requireAuth, wrap(async (req, res) => {
-  const id = uuid.parse(req.params.id); const me = req.user!.id; const { reason } = z.object({ reason: z.string().trim().max(500).optional() }).parse(req.body ?? {});
+export async function rejectOffer(id: string, me: string, reason?: string) {
   let expired = false;
   try {
     await tx(async (c) => {
@@ -244,11 +246,13 @@ offers.post('/offers/:id/reject', requireAuth, wrap(async (req, res) => {
     });
   } catch (e) { if (e instanceof HttpError && e.code === 'expired') expired = true; else throw e; }
   if (expired) { await pool.query(`UPDATE offers SET status='expired', responded_at=coalesce(responded_at, now()) WHERE id=$1 AND status='pending'`, [id]); throw new HttpError(409, 'This offer has expired', 'expired'); }
-  res.json(await offerView(id, me));
+}
+offers.post('/offers/:id/reject', requireAuth, wrap(async (req, res) => {
+  const id = uuid.parse(req.params.id); const me = req.user!.id; const { reason } = z.object({ reason: z.string().trim().max(500).optional() }).parse(req.body ?? {});
+  await rejectOffer(id, me, reason); res.json(await offerView(id, me));
 }));
 
-offers.post('/offers/:id/withdraw', requireAuth, wrap(async (req, res) => {
-  const id = uuid.parse(req.params.id); const me = req.user!.id;
+export async function withdrawOffer(id: string, me: string) {
   await tx(async (c) => {
     const o = await loadOffer(c, id, me, true);
     if (o.proposer_id !== me) throw new HttpError(403, 'Only the person who made this offer can withdraw it', 'forbidden');
@@ -256,7 +260,32 @@ offers.post('/offers/:id/withdraw', requireAuth, wrap(async (req, res) => {
     await c.query(`UPDATE offers SET status='withdrawn', responded_at=now() WHERE id=$1`, [id]); await logEvent(c, id, me, 'withdrawn');
     const conv = await convFor(c, o); if (conv) await postCard(c, conv, me, 'offer', { offer_id: id, event: 'withdrawn' });
   });
-  res.json(await offerView(id, me));
+}
+offers.post('/offers/:id/withdraw', requireAuth, wrap(async (req, res) => { const id = uuid.parse(req.params.id); await withdrawOffer(id, req.user!.id); res.json(await offerView(id, req.user!.id)); }));
+
+// ---- bundles: several shipments offered together. Each offer stays its own offer and becomes its own booking, so PINs, payments and disputes work exactly as before.
+async function bundleRows(bundleId: string, me: string, as: 'recipient' | 'proposer') {
+  return (await pool.query(
+    `SELECT o.id, o.journey_id, r.weight_kg * r.quantity AS kg FROM offers o JOIN transport_requests r ON r.id=o.request_id
+     WHERE o.bundle_id=$1 AND o.status='pending' AND o.expires_at > now() AND ${as === 'proposer' ? 'o.proposer_id=$2' : 'o.proposer_id <> $2 AND (o.customer_id=$2 OR o.provider_id=$2)'} ORDER BY o.created_at, o.id`, [bundleId, me])).rows as { id: string; journey_id: string | null; kg: string }[];
+}
+offers.post('/offers/bundle/:bundleId/accept', requireAuth, wrap(async (req, res) => {
+  const bundleId = uuid.parse(req.params.bundleId); const me = req.user!.id; const rows = await bundleRows(bundleId, me, 'recipient');
+  if (!rows.length) throw notFound('Bundle');
+  const jid = rows[0].journey_id;
+  if (jid) { const j = (await pool.query('SELECT remaining_kg FROM journeys WHERE id=$1', [jid])).rows[0]; const need = rows.reduce((a, r) => a + Number(r.kg), 0);
+    if (j && need > j.remaining_kg) throw new HttpError(409, `These shipments add up to ${Math.ceil(need)} kg but only ${j.remaining_kg} kg is left on the journey. Accept them one at a time, or decline some.`, 'bundle_capacity'); }
+  const accepted: { offer_id: string; booking_id?: string }[] = []; const failed: { offer_id: string; reason: string }[] = [];
+  for (const r of rows) { try { const out = await acceptOffer(r.id, me); accepted.push({ offer_id: r.id, booking_id: out.booking_id }); } catch (e) { failed.push({ offer_id: r.id, reason: (e as Error).message }); } }
+  res.json({ accepted, failed, partial: failed.length > 0 && accepted.length > 0 });
+}));
+offers.post('/offers/bundle/:bundleId/reject', requireAuth, wrap(async (req, res) => {
+  const bundleId = uuid.parse(req.params.bundleId); const me = req.user!.id; const { reason } = z.object({ reason: z.string().trim().max(500).optional() }).parse(req.body ?? {}); const rows = await bundleRows(bundleId, me, 'recipient');
+  if (!rows.length) throw notFound('Bundle'); let n = 0; for (const r of rows) { try { await rejectOffer(r.id, me, reason); n++; } catch { /* already handled or expired */ } } res.json({ rejected: n });
+}));
+offers.post('/offers/bundle/:bundleId/withdraw', requireAuth, wrap(async (req, res) => {
+  const bundleId = uuid.parse(req.params.bundleId); const me = req.user!.id; const rows = await bundleRows(bundleId, me, 'proposer');
+  if (!rows.length) throw notFound('Bundle'); let n = 0; for (const r of rows) { try { await withdrawOffer(r.id, me); n++; } catch { /* already handled */ } } res.json({ withdrawn: n });
 }));
 
 async function fixedPriceOf(c: Db, o: any): Promise<boolean> {

@@ -24,6 +24,7 @@ import { stories } from './modules/stories.js';
 import { payments, webhookHandler } from './modules/payments.js';
 import { disputes } from './modules/disputes.js';
 import { boosts } from './modules/boosts.js';
+import { bundles } from './modules/bundles.js';
 import { commerce } from './modules/commerce.js';
 import { ops, readyRouter, writeLimiter } from './modules/ops.js';
 import { requestLogger } from './lib/logger.js';
@@ -50,7 +51,7 @@ export function createApp() {
   app.get('/health', (_req, res) => res.json({ ok: true }));
   app.use(readyRouter);
   app.use('/api', writeLimiter);
-  app.use('/api', ops, identity, users, business, media, content, commerce, marketplace, feed, messaging, search, transport, offers, bookings, videos, circles, clips, stories, payments, disputes, boosts, adminPayments, growth, subscriptions, security, notifications, trust, admin);
+  app.use('/api', ops, identity, users, business, media, content, bundles, commerce, marketplace, feed, messaging, search, transport, offers, bookings, videos, circles, clips, stories, payments, disputes, boosts, adminPayments, growth, subscriptions, security, notifications, trust, admin);
   app.use('/api', (_req, res) => res.status(404).json({ error: { code: 'not_found', message: 'Not found' } }));
   app.use(errorMiddleware);
   return app;

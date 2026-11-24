@@ -10,6 +10,7 @@ import { hashPassword, hashToken, requireAuth, verifyPassword } from '../lib/aut
 import { audit } from '../lib/audit.js';
 import { emailUser } from '../lib/email.js';
 import { decryptField, encryptField, randomToken, sha256 } from '../lib/secrets.js';
+import { removeVoice } from '../lib/voice.js';
 import { newTotpSecret, otpauthUrl, verifyTotp } from '../lib/totp.js';
 
 export const security = Router();
@@ -150,7 +151,7 @@ security.get('/me/export', requireAuth, limiter, wrap(async (req, res) => {
     listings: await q(`SELECT id, title, description, price_cents, status, city, tags, created_at FROM listings WHERE seller_id=$1`),
     posts: await q(`SELECT id, body, visibility, created_at FROM posts WHERE author_id=$1 AND status <> 'removed'`),
     comments: await q(`SELECT id, target_type, target_id, body, created_at FROM comments WHERE author_id=$1`),
-    messages: await q(`SELECT m.id, m.conversation_id, m.body, m.created_at FROM messages m WHERE m.sender_id=$1 ORDER BY m.created_at`),
+    messages: await q(`SELECT m.id, m.conversation_id, m.kind, m.body, m.audio_ms AS voice_duration_ms, m.created_at FROM messages m WHERE m.sender_id=$1 ORDER BY m.created_at`),
     offers: await q(`SELECT id, kind, amount_cents, status, message, created_at FROM offers WHERE proposer_id=$1`),
     orders: await q(`SELECT id, listing_id, total_cents, status, payment_status, created_at FROM orders WHERE buyer_id=$1 OR seller_id=$1`),
     bookings: await q(`SELECT id, request_id, agreed_cents, status, payment_status, created_at FROM bookings WHERE shipper_id=$1 OR transporter_id=$1`),
@@ -175,11 +176,14 @@ security.delete('/me', requireAuth, limiter, wrap(async (req, res) => {
             (SELECT count(*) FROM disputes WHERE (opened_by=$1 OR other_party_id=$1) AND status='open')::int AS disputes,
             (SELECT count(*) FROM payments WHERE payer_id=$1 AND status IN ('requires_payment','processing'))::int AS payments`, [me])).rows[0];
   if (Object.values(open).some((n) => Number(n) > 0)) throw new HttpError(409, 'Finish or cancel your open orders, bookings and disputes first, then you can delete your account.', 'active_deals');
+  const voiceKeys: string[] = [];
   const tombstone = `deleted_${me.replace(/-/g, "").slice(0, 12)}`;
   await tx(async (c) => {
     await c.query(`UPDATE users SET status='deleted', deleted_at=now(), email=$2, username=$3, password_hash='!', totp_secret_enc=NULL, totp_enabled_at=NULL, referral_code=NULL WHERE id=$1`, [me, `${tombstone}@deleted.invalid`, tombstone]);
     await c.query(`UPDATE user_profiles SET display_name='Deleted user', bio=NULL, avatar_media_id=NULL, cover_media_id=NULL, city=NULL, province=NULL, postal_fsa=NULL, location=NULL WHERE user_id=$1`, [me]);
     await c.query(`UPDATE sessions SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL`, [me]);
+    voiceKeys.push(...(await c.query(`SELECT audio_key FROM messages WHERE sender_id=$1 AND audio_key IS NOT NULL`, [me])).rows.map((r) => r.audio_key as string));
+    await c.query(`UPDATE messages SET audio_key = NULL WHERE sender_id=$1 AND audio_key IS NOT NULL`, [me]);
     await c.query(`UPDATE listings SET status='removed' WHERE seller_id=$1 AND status IN ('active','reserved','pending_review','draft')`, [me]);
     await c.query(`UPDATE feed_items SET status='removed' WHERE author_id=$1`, [me]);
     await c.query(`UPDATE posts SET status='removed' WHERE author_id=$1`, [me]);
@@ -192,6 +196,7 @@ security.delete('/me', requireAuth, limiter, wrap(async (req, res) => {
     await c.query(`DELETE FROM user_tokens WHERE user_id=$1`, [me]); await c.query(`DELETE FROM recovery_codes WHERE user_id=$1`, [me]); await c.query(`DELETE FROM known_devices WHERE user_id=$1`, [me]);
     await audit(c, me, 'privacy.account_deleted', 'user', me);
   });
+  for (const k of voiceKeys) await removeVoice(k).catch(() => undefined);   // their recordings go too
   await emailUserAddress(u.email, u.locale, me);
   res.status(204).end();
 }));

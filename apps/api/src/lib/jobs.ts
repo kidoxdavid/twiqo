@@ -6,13 +6,14 @@ import { notify } from './notify.js';
 import { enqueue, registerJob, runQueue } from './queue.js';
 import './email.js';
 import './delivery.js';
+import { removeVoice } from './voice.js';
 import { sendDigests } from './delivery.js';
 import { refundPayment } from '../modules/payments.js';
 import { paymentProvider } from './payments.js';
 
 /** Idempotent housekeeping. Runs on an interval today; move to a queue worker when one exists. */
 export async function runHousekeeping() {
-  const out = { offers: 0, listings: 0, journeys: 0, requests: 0, bookings: 0, stories: 0, reminders: 0, boosts: 0, abandoned_payments: 0, retried_refunds: 0, pruned_events: 0, digests: 0, reviews_revealed: 0, docs_expired: 0 };
+  const out = { offers: 0, listings: 0, journeys: 0, requests: 0, bookings: 0, stories: 0, reminders: 0, boosts: 0, abandoned_payments: 0, retried_refunds: 0, pruned_events: 0, digests: 0, reviews_revealed: 0, docs_expired: 0, voice_expired: 0 };
   out.offers = await expireOffers();
 
   const l = await pool.query(`UPDATE listings SET status='expired' WHERE status='active' AND expires_at < now() RETURNING id`);
@@ -67,6 +68,10 @@ export async function runHousekeeping() {
   for (const w of warn) await notify(pool, { userId: w.user_id, type: 'document_review', targetType: 'account', targetId: w.user_id, data: { decision: 'rejected', kind: w.kind, note: `Your ${String(w.kind).replace('_', ' ')} expires on ${String(w.expires_on instanceof Date ? w.expires_on.toISOString() : w.expires_on).slice(0, 10)}. Upload a new one to keep your driver badge.` } });
   out.docs_expired = (await pool.query(`UPDATE driver_documents SET status='expired' WHERE status='approved' AND expires_on < current_date`)).rowCount ?? 0;
   await pool.query(`DELETE FROM booking_locations WHERE booking_id IN (SELECT id FROM bookings WHERE status IN ('completed','cancelled') AND coalesce(completed_at, cancelled_at, created_at) < now() - interval '2 days')`);
+  // voice recordings are personal data: delete the files after the retention window, keep the message marked as expired
+  const oldVoice = (await pool.query(`SELECT id, audio_key FROM messages WHERE audio_key IS NOT NULL AND created_at < now() - ($1 || ' days')::interval LIMIT 500`, [String(await setting('voice.retention_days', 180))])).rows;
+  for (const m of oldVoice) { await removeVoice(m.audio_key).catch(() => undefined); await pool.query('UPDATE messages SET audio_key = NULL WHERE id=$1', [m.id]); }
+  out.voice_expired = oldVoice.length;
   out.digests = await sendDigests();
   out.reviews_revealed = (await pool.query(`UPDATE reviews SET revealed_at = now() WHERE revealed_at IS NULL AND created_at < now() - ($1 || ' days')::interval`, [String(await setting('reviews.reveal_after_days', 7))])).rowCount ?? 0;
   out.pruned_events = (await pool.query(`DELETE FROM analytics_events WHERE created_at < now() - interval '180 days'`)).rowCount ?? 0;
