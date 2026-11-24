@@ -83,7 +83,7 @@ const searchQuery = z.object({
   lat: z.coerce.number().min(-90).max(90).optional(), lng: z.coerce.number().min(-180).max(180).optional(),
   radius_km: z.coerce.number().min(1).max(5000).optional(),
   price_type: z.enum(['fixed', 'negotiable', 'free']).optional(),
-  seller: z.string().optional(),
+  seller: z.string().optional(), business: z.string().optional(),
   sort: z.enum(['newest', 'price_asc', 'price_desc', 'distance', 'relevance']).default('newest'),
   limit: z.coerce.number().int().min(1).max(50).default(20),
   cursor: z.string().optional(),
@@ -118,6 +118,7 @@ marketplace.get('/listings', optionalAuth, wrap(async (req, res) => {
   if (q.max_price !== undefined) where.push(`l.price_cents <= ${add(q.max_price)}`);
   if (q.condition) where.push(`l.condition = ANY(${add(q.condition.split(','))}::text[])`);
   if (q.price_type) where.push(`l.price_type = ${add(q.price_type)}`);
+  if (q.business) where.push(`l.business_id = (SELECT id FROM businesses WHERE slug = ${add(q.business)})`);
   if (q.seller) where.push(`l.seller_id = (SELECT id FROM users WHERE username = ${add(q.seller)})`);
   let dist = 'NULL::float8';
   if (center) {
