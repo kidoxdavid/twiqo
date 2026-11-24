@@ -9,7 +9,7 @@ export const api = () => request(app);
 export interface TestUser { id: string; username: string; token: string; refresh: string }
 
 export async function makeUser(prefix = 'u', city = 'Calgary'): Promise<TestUser> {
-  const username = `${prefix}${crypto.randomBytes(3).toString('hex')}`;
+  const username = `${prefix.toLowerCase().replace(/[^a-z0-9_.]/g, '')}${crypto.randomBytes(3).toString('hex')}`;
   const r = await api().post('/api/auth/register').send({ email: `${username}@t.test`, username, password: 'password123', display_name: prefix, city });
   if (r.status !== 201) throw new Error(`register failed ${r.status} ${JSON.stringify(r.body)}`);
   return { id: r.body.user.id, username, token: r.body.access_token, refresh: r.body.refresh_token };
@@ -35,3 +35,39 @@ export async function makeListing(u: TestUser, categoryId: string, over: Record<
 
 // 1x1 PNG
 export const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+
+// ---------------------------------------------------------------- phase 2 helpers
+export const ymd = (days: number) => new Date(Date.now() + days * 864e5).toISOString().slice(0, 10);
+export const iso = (days: number) => new Date(Date.now() + days * 864e5).toISOString();
+
+export async function makeRequest(u: TestUser, over: Record<string, unknown> = {}) {
+  const r = await api().post('/api/transport/requests').set(auth(u)).send({
+    title: 'Four winter tires', item_category: 'tires', quantity: 1, weight_kg: 36, length_cm: 70, width_cm: 70, height_cm: 60,
+    origin_city: 'Toronto', dest_city: 'Calgary', pickup_from: ymd(3), pickup_to: ymd(6), budget_cents: 12000, ...over });
+  if (r.status !== 201) throw new Error(`request failed ${r.status} ${JSON.stringify(r.body)}`);
+  return r.body;
+}
+export async function makeJourney(u: TestUser, over: Record<string, unknown> = {}) {
+  const r = await api().post('/api/transport/journeys').set(auth(u)).send({
+    origin_city: 'Toronto', dest_city: 'Calgary', waypoints: [{ city: 'Thunder Bay' }, { city: 'Winnipeg' }, { city: 'Regina' }], departure_at: iso(4),
+    vehicle_type: 'pickup_truck', capacity_kg: 400, capacity_m3: 3, price_cents: 9000, price_type: 'negotiable', ...over });
+  if (r.status !== 201) throw new Error(`journey failed ${r.status} ${JSON.stringify(r.body)}`);
+  return r.body;
+}
+export async function makeService(u: TestUser, over: Record<string, unknown> = {}) {
+  const r = await api().post('/api/transport/services').set(auth(u)).send({ title: 'Local furniture delivery', vehicle_type: 'pickup_truck', service_city: 'Calgary', service_radius_km: 40, capacity_kg: 800, price_cents: 7500, helps_loading: true, ...over });
+  if (r.status !== 201) throw new Error(`service failed ${r.status} ${JSON.stringify(r.body)}`);
+  return r.body;
+}
+export async function until<T>(fn: () => Promise<T | undefined | false>, ms = 3000): Promise<T> {
+  const end = Date.now() + ms;
+  for (;;) { const v = await fn(); if (v) return v as T; if (Date.now() > end) throw new Error('timed out'); await new Promise((r) => setTimeout(r, 60)); }
+}
+/** shipper books `journey` for `request`: offer then accept. Returns booking id. */
+export async function bookJourney(shipper: TestUser, driver: TestUser, request: any, journey: any, amount = journey.price_cents) {
+  const o = await api().post('/api/offers').set(auth(shipper)).send({ kind: 'transport', request_id: request.id, journey_id: journey.id, amount_cents: amount });
+  if (o.status !== 201) throw new Error(`offer failed ${o.status} ${JSON.stringify(o.body)}`);
+  const a = await api().post(`/api/offers/${o.body.id}/accept`).set(auth(driver));
+  if (a.status !== 200) throw new Error(`accept failed ${a.status} ${JSON.stringify(a.body)}`);
+  return a.body.booking_id as string;
+}

@@ -4,7 +4,7 @@ import { pool } from '../db/pool.js';
 import { badRequest, notFound, wrap } from '../lib/errors.js';
 import { optionalAuth } from '../lib/auth.js';
 import { setting } from '../lib/policy.js';
-import { hydrateListings, hydratePosts } from '../lib/hydrate.js';
+import { hydrateJourneys, hydrateListings, hydratePosts, hydrateRequests, hydrateServices } from '../lib/hydrate.js';
 import { visibleTo } from '../lib/views.js';
 import { resolvePlace } from '../lib/geo.js';
 
@@ -72,7 +72,10 @@ feed.get('/feed', optionalAuth, wrap(async (req, res) => {
   rows = rows.slice(0, a.limit);
   const posts = await hydratePosts(rows.filter((r) => r.item_type === 'post').map((r) => r.item_id), viewer);
   const listings = await hydrateListings(rows.filter((r) => r.item_type === 'listing').map((r) => r.item_id), viewer, center ?? undefined);
-  const items = rows.map((r) => (r.item_type === 'post' ? posts.get(r.item_id) : listings.get(r.item_id))).filter(Boolean);
+  const ids = (t: string) => rows.filter((r) => r.item_type === t).map((r) => r.item_id);
+  const [reqs, jrns, svcs] = await Promise.all([hydrateRequests(ids('transport_request'), viewer), hydrateJourneys(ids('journey'), viewer), hydrateServices(ids('transport_service'), viewer)]);
+  const pick = (r: { item_type: string; item_id: string }) => ({ post: posts, listing: listings, transport_request: reqs, journey: jrns, transport_service: svcs } as Record<string, Map<string, any>>)[r.item_type]?.get(r.item_id);
+  const items = rows.map(pick).filter(Boolean);
   res.json({ items, next_cursor: next });
 }));
 

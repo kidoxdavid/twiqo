@@ -10,6 +10,8 @@ import { checkText } from '../lib/policy.js';
 import { publish, subscribe } from '../lib/realtime.js';
 import { thumbUrl, mediaUrl } from '../lib/views.js';
 import { assertOwnsMedia } from './content.js';
+import { ensureConversation } from '../lib/conversations.js';
+import { offerViews } from './offers.js';
 
 export const messaging = Router();
 const uuid = z.string().uuid();
@@ -38,25 +40,21 @@ async function assertCanMessage(from: string, to: string) {
   }
 }
 
+const SUBJECT_OWNER: Record<string, string> = {
+  listing: 'SELECT seller_id AS o FROM listings WHERE id=$1', journey: 'SELECT driver_id AS o FROM journeys WHERE id=$1',
+  service: 'SELECT provider_id AS o FROM transport_services WHERE id=$1', transport_request: 'SELECT requester_id AS o FROM transport_requests WHERE id=$1',
+};
 messaging.post('/conversations', requireAuth, wrap(async (req, res) => {
-  const b = z.object({ recipient_id: uuid, subject_type: z.enum(['listing']).optional(), subject_id: uuid.optional(), message: z.string().trim().max(4000).optional() }).parse(req.body);
+  const b = z.object({ recipient_id: uuid, subject_type: z.enum(['listing', 'journey', 'service', 'transport_request']).optional(), subject_id: uuid.optional(), message: z.string().trim().max(4000).optional() }).parse(req.body);
   const me = req.user!.id;
   if (b.recipient_id === me) throw badRequest('You cannot message yourself');
   if (!!b.subject_type !== !!b.subject_id) throw badRequest('Subject is incomplete');
   await assertCanMessage(me, b.recipient_id);
-  if (b.subject_type === 'listing') {
-    const l = await pool.query(`SELECT 1 FROM listings WHERE id=$1 AND seller_id=$2`, [b.subject_id, b.recipient_id]);
-    if (!l.rowCount) throw badRequest('That listing does not belong to this person');
+  if (b.subject_type) {
+    const l = await pool.query(SUBJECT_OWNER[b.subject_type], [b.subject_id]);
+    if (!l.rows[0] || l.rows[0].o !== b.recipient_id) throw badRequest('That does not belong to this person');
   }
-  const id = await tx(async (c) => {
-    const found = await c.query(`SELECT id FROM conversations WHERE pair_key=$1 AND coalesce(subject_type,'')=$2 AND coalesce(subject_id,'00000000-0000-0000-0000-000000000000')=$3`,
-      [pairKey(me, b.recipient_id), b.subject_type ?? '', b.subject_id ?? '00000000-0000-0000-0000-000000000000']);
-    if (found.rows[0]) return found.rows[0].id as string;
-    const r = await c.query(`INSERT INTO conversations(kind,subject_type,subject_id,pair_key,created_by) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
-      [b.subject_type ?? 'direct', b.subject_type ?? null, b.subject_id ?? null, pairKey(me, b.recipient_id), me]);
-    await c.query(`INSERT INTO conversation_members(conversation_id,user_id) VALUES ($1,$2),($1,$3)`, [r.rows[0].id, me, b.recipient_id]);
-    return r.rows[0].id as string;
-  });
+  const id = await tx((c) => ensureConversation(c, me, b.recipient_id, b.subject_type ? { type: b.subject_type, id: b.subject_id! } : undefined));
   if (b.message) await sendMessage(id, me, { kind: 'text', body: b.message });
   res.status(201).json({ id });
 }));
@@ -68,7 +66,7 @@ messaging.get('/conversations', requireAuth, wrap(async (req, res) => {
             o.user_id AS other_id, ou.username, op.display_name, (SELECT storage_key FROM media_assets WHERE id=op.avatar_media_id) AS avatar_key,
             (SELECT json_build_object('body', m.body, 'kind', m.kind, 'sender_id', m.sender_id, 'created_at', m.created_at) FROM messages m WHERE m.conversation_id=c.id AND m.status='active' ORDER BY m.created_at DESC LIMIT 1) AS last_message,
             (SELECT count(*) FROM messages m WHERE m.conversation_id=c.id AND m.sender_id<>$1 AND m.status='active' AND m.created_at > cm.last_read_at)::int AS unread,
-            (SELECT title FROM listings WHERE id=c.subject_id AND c.subject_type='listing') AS listing_title
+            coalesce((SELECT title FROM listings WHERE id=c.subject_id AND c.subject_type='listing'), (SELECT title FROM transport_requests WHERE id=c.subject_id AND c.subject_type='transport_request'), (SELECT title FROM transport_services WHERE id=c.subject_id AND c.subject_type='service'), (SELECT origin_city || ' → ' || dest_city FROM journeys WHERE id=c.subject_id AND c.subject_type='journey')) AS listing_title
      FROM conversation_members cm JOIN conversations c ON c.id=cm.conversation_id
      JOIN conversation_members o ON o.conversation_id=c.id AND o.user_id<>$1
      JOIN users ou ON ou.id=o.user_id JOIN user_profiles op ON op.user_id=o.user_id
@@ -92,7 +90,9 @@ messaging.get('/conversations/:id/messages', requireAuth, wrap(async (req, res) 
      FROM messages m WHERE m.conversation_id=$1 AND ($2::timestamptz IS NULL OR m.created_at < $2) ORDER BY m.created_at DESC LIMIT 50`, [id, before]);
   const other = await otherMember(id, req.user!.id);
   const readAt = other ? (await pool.query(`SELECT last_read_at FROM conversation_members WHERE conversation_id=$1 AND user_id=$2`, [id, other])).rows[0]?.last_read_at : null;
-  res.json({ items: rows.reverse().map((m) => ({ id: m.id, sender_id: m.sender_id, kind: m.kind, body: m.body, payload: m.payload, removed: m.status === 'removed',
+  const offerIds = [...new Set(rows.filter((m) => m.payload?.offer_id).map((m) => m.payload.offer_id as string))];
+  const cards = await offerViews(offerIds, req.user!.id);
+  res.json({ items: rows.reverse().map((m) => ({ id: m.id, sender_id: m.sender_id, kind: m.kind, body: m.body, payload: m.payload, offer: m.payload?.offer_id ? cards.get(m.payload.offer_id) ?? null : null, removed: m.status === 'removed',
     image_url: m.media_key ? mediaUrl(m.media_key) : null, created_at: m.created_at,
     read: m.sender_id === req.user!.id && readAt ? new Date(readAt) >= new Date(m.created_at) : undefined })) });
 }));

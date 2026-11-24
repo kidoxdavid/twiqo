@@ -20,6 +20,8 @@ export async function hydratePosts(ids: string[], viewer: string | null) {
      LEFT JOIN businesses b ON b.id = p.business_id WHERE p.id = ANY($1::uuid[])`, [ids, viewer]);
   const listingIds = rows.filter((r) => r.attachment_type === 'listing').map((r) => r.attachment_id);
   const listings = await hydrateListings(listingIds, viewer);
+  const att = (t: string) => rows.filter((r) => r.attachment_type === t).map((r) => r.attachment_id);
+  const [reqs, jrns, svcs] = await Promise.all([hydrateRequests(att('transport_request'), viewer), hydrateJourneys(att('journey'), viewer), hydrateServices(att('transport_service'), viewer)]);
   for (const r of rows) {
     out.set(r.id, {
       type: 'post', id: r.id, kind: r.kind, body: r.status === 'removed' ? null : r.body, status: r.status,
@@ -27,7 +29,11 @@ export async function hydratePosts(ids: string[], viewer: string | null) {
       business: r.business_id ? { id: r.business_id, name: r.business_name, slug: r.business_slug, verified: r.business_verification === 'verified' } : null,
       location: r.city ? { city: r.city, province: r.province } : null,
       media: r.media.map((m: any) => ({ id: m.id, url: mediaUrl(m.key), thumb_url: thumbUrl(m.key), width: m.width, height: m.height })),
-      attachment: r.attachment_type === 'listing' ? { type: 'listing', id: r.attachment_id, listing: listings.get(r.attachment_id) ?? null } : r.attachment_type ? { type: r.attachment_type, id: r.attachment_id } : null,
+      attachment: r.attachment_type === 'listing' ? { type: 'listing', id: r.attachment_id, listing: listings.get(r.attachment_id) ?? null }
+        : r.attachment_type === 'transport_request' ? { type: 'transport_request', id: r.attachment_id, request: reqs.get(r.attachment_id) ?? null }
+        : r.attachment_type === 'journey' ? { type: 'journey', id: r.attachment_id, journey: jrns.get(r.attachment_id) ?? null }
+        : r.attachment_type === 'transport_service' ? { type: 'transport_service', id: r.attachment_id, service: svcs.get(r.attachment_id) ?? null }
+        : r.attachment_type ? { type: r.attachment_type, id: r.attachment_id } : null,
       counts: { likes: r.like_count, comments: r.comment_count, shares: r.share_count, saves: r.save_count },
       viewer: { liked: r.liked, saved: r.saved }, visibility: r.visibility, created_at: r.created_at,
     });
@@ -62,6 +68,98 @@ export async function hydrateListings(ids: string[], viewer: string | null, dist
       business: r.business_id ? { id: r.business_id, name: r.business_name, slug: r.business_slug, verified: r.business_verification === 'verified' } : null,
       counts: { likes: r.like_count, comments: r.comment_count, saves: r.save_count },
       viewer: { liked: r.liked, saved: r.saved }, created_at: r.created_at,
+    });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------------------- transport objects
+const ownerSql = (idCol: string, role: 'transporter' | 'shipper') => `
+  u.username, pr.display_name, pr.verification_level,
+  (SELECT storage_key FROM media_assets WHERE id = pr.avatar_media_id) AS avatar_key,
+  (SELECT round(avg(rv.rating)::numeric, 2) FROM reviews rv WHERE rv.reviewee_id = ${idCol} AND rv.status='active' AND rv.role='${role}') AS rating_avg,
+  (SELECT count(*) FROM reviews rv WHERE rv.reviewee_id = ${idCol} AND rv.status='active' AND rv.role='${role}')::int AS rating_count,
+  (SELECT count(*) FROM bookings bk WHERE bk.${role}_id = ${idCol} AND bk.status='completed')::int AS completed`;
+
+const ownerView = (r: any, id: string) => ({
+  id, username: r.username, display_name: r.display_name, avatar_url: av(r.avatar_key), verification_level: r.verification_level,
+  rating_avg: r.rating_avg === null ? null : Number(r.rating_avg), rating_count: r.rating_count, completed: r.completed,
+});
+const place = (city: string, province: string, pt: { x: number; y: number }, area?: string | null) => ({ city, province, lat: pt.y, lng: pt.x, ...(area !== undefined ? { area } : {}) });
+const ST = (c: string) => `json_build_object('x', ST_X(${c}::geometry), 'y', ST_Y(${c}::geometry))`;
+
+export async function hydrateRequests(ids: string[], viewer: string | null) {
+  const out = new Map<string, any>();
+  if (!ids.length) return out;
+  const { rows } = await pool.query(
+    `SELECT r.*, ${ST('r.origin')} AS o_pt, ${ST('r.dest')} AS d_pt, ${ownerSql('r.requester_id', 'shipper')},
+       b.name AS business_name, b.slug AS business_slug, ll.title AS listing_title,
+       EXISTS (SELECT 1 FROM reactions x WHERE x.user_id=$2 AND x.target_type='transport_request' AND x.target_id=r.id) AS liked,
+       EXISTS (SELECT 1 FROM saved_items x WHERE x.user_id=$2 AND x.target_type='transport_request' AND x.target_id=r.id) AS saved,
+       (SELECT count(*) FROM offers o WHERE o.request_id=r.id AND o.status='pending')::int AS pending_offers,
+       coalesce((SELECT json_agg(json_build_object('id', m.id, 'key', m.storage_key, 'width', m.width, 'height', m.height) ORDER BY rm.position)
+                 FROM transport_request_media rm JOIN media_assets m ON m.id = rm.media_id WHERE rm.request_id = r.id), '[]') AS media
+     FROM transport_requests r JOIN users u ON u.id = r.requester_id JOIN user_profiles pr ON pr.user_id = u.id
+     LEFT JOIN businesses b ON b.id = r.business_id LEFT JOIN listings ll ON ll.id = r.linked_listing_id WHERE r.id = ANY($1::uuid[])`, [ids, viewer]);
+  for (const r of rows) {
+    out.set(r.id, {
+      type: 'transport_request', id: r.id, title: r.title, description: r.description, item_category: r.item_category, quantity: r.quantity, weight_kg: Number(r.weight_kg),
+      dimensions_cm: { length: r.length_cm, width: r.width_cm, height: r.height_cm }, fragile: r.fragile, special_handling: r.special_handling,
+      needs_loading_help: r.needs_loading_help, needs_unloading_help: r.needs_unloading_help,
+      origin: place(r.origin_city, r.origin_province, r.o_pt, r.pickup_area), destination: place(r.dest_city, r.dest_province, r.d_pt, r.delivery_area),
+      pickup_from: r.pickup_from instanceof Date ? r.pickup_from.toISOString().slice(0, 10) : r.pickup_from, pickup_to: r.pickup_to instanceof Date ? r.pickup_to.toISOString().slice(0, 10) : r.pickup_to,
+      deliver_by: r.deliver_by instanceof Date ? r.deliver_by.toISOString().slice(0, 10) : r.deliver_by, budget_cents: r.budget_cents, price_type: r.price_type,
+      preferred_vehicles: r.preferred_vehicles, visibility: r.visibility, status: r.status,
+      images: r.media.map((m: any) => ({ id: m.id, url: mediaUrl(m.key), thumb_url: thumbUrl(m.key), width: m.width, height: m.height })),
+      linked_listing: r.linked_listing_id ? { id: r.linked_listing_id, title: r.listing_title } : null,
+      requester: ownerView(r, r.requester_id), business: r.business_id ? { id: r.business_id, name: r.business_name, slug: r.business_slug } : null,
+      pending_offers: viewer === r.requester_id ? r.pending_offers : undefined,
+      counts: { likes: r.like_count, comments: r.comment_count, saves: r.save_count }, viewer: { liked: r.liked, saved: r.saved, is_owner: viewer === r.requester_id }, created_at: r.created_at,
+    });
+  }
+  return out;
+}
+
+export async function hydrateJourneys(ids: string[], viewer: string | null) {
+  const out = new Map<string, any>();
+  if (!ids.length) return out;
+  const { rows } = await pool.query(
+    `SELECT j.*, ${ST('j.origin')} AS o_pt, ${ST('j.dest')} AS d_pt, ${ownerSql('j.driver_id', 'transporter')}, b.name AS business_name, b.slug AS business_slug,
+       EXISTS (SELECT 1 FROM reactions x WHERE x.user_id=$2 AND x.target_type='journey' AND x.target_id=j.id) AS liked,
+       EXISTS (SELECT 1 FROM saved_items x WHERE x.user_id=$2 AND x.target_type='journey' AND x.target_id=j.id) AS saved
+     FROM journeys j JOIN users u ON u.id = j.driver_id JOIN user_profiles pr ON pr.user_id = u.id
+     LEFT JOIN businesses b ON b.id = j.business_id WHERE j.id = ANY($1::uuid[])`, [ids, viewer]);
+  for (const r of rows) {
+    out.set(r.id, {
+      type: 'journey', id: r.id, description: r.description, origin: place(r.origin_city, r.origin_province, r.o_pt), destination: place(r.dest_city, r.dest_province, r.d_pt),
+      waypoints: r.waypoints, distance_km: r.distance_km, max_detour_km: r.max_detour_km, departure_at: r.departure_at, arrival_at: r.arrival_at, vehicle_type: r.vehicle_type,
+      capacity_kg: r.capacity_kg, remaining_kg: r.remaining_kg, capacity_m3: r.capacity_m3 === null ? null : Number(r.capacity_m3), remaining_m3: r.remaining_m3 === null ? null : Number(r.remaining_m3),
+      max_dimensions_cm: { length: r.max_length_cm, width: r.max_width_cm, height: r.max_height_cm }, item_restrictions: r.item_restrictions,
+      price_cents: r.price_cents, price_type: r.price_type, pickup_preferences: r.pickup_preferences, delivery_preferences: r.delivery_preferences, helps_loading: r.helps_loading,
+      status: r.status, driver: ownerView(r, r.driver_id), business: r.business_id ? { id: r.business_id, name: r.business_name, slug: r.business_slug } : null,
+      counts: { likes: r.like_count, comments: r.comment_count, saves: r.save_count }, viewer: { liked: r.liked, saved: r.saved, is_owner: viewer === r.driver_id }, created_at: r.created_at,
+    });
+  }
+  return out;
+}
+
+export async function hydrateServices(ids: string[], viewer: string | null) {
+  const out = new Map<string, any>();
+  if (!ids.length) return out;
+  const { rows } = await pool.query(
+    `SELECT s.*, ${ST('s.service_center')} AS c_pt, ${ownerSql('s.provider_id', 'transporter')}, b.name AS business_name, b.slug AS business_slug,
+       EXISTS (SELECT 1 FROM reactions x WHERE x.user_id=$2 AND x.target_type='transport_service' AND x.target_id=s.id) AS liked,
+       EXISTS (SELECT 1 FROM saved_items x WHERE x.user_id=$2 AND x.target_type='transport_service' AND x.target_id=s.id) AS saved
+     FROM transport_services s JOIN users u ON u.id = s.provider_id JOIN user_profiles pr ON pr.user_id = u.id
+     LEFT JOIN businesses b ON b.id = s.business_id WHERE s.id = ANY($1::uuid[])`, [ids, viewer]);
+  for (const r of rows) {
+    out.set(r.id, {
+      type: 'transport_service', id: r.id, title: r.title, description: r.description, vehicle_type: r.vehicle_type,
+      area: place(r.service_city, r.service_province, r.c_pt), service_radius_km: r.service_radius_km, intercity: r.intercity, capacity_kg: r.capacity_kg,
+      max_dimensions_cm: { length: r.max_length_cm, width: r.max_width_cm, height: r.max_height_cm }, helps_loading: r.helps_loading, item_restrictions: r.item_restrictions,
+      pricing_model: r.pricing_model, price_cents: r.price_cents, price_type: r.price_type, status: r.status, provider: ownerView(r, r.provider_id),
+      business: r.business_id ? { id: r.business_id, name: r.business_name, slug: r.business_slug } : null,
+      counts: { likes: r.like_count, comments: r.comment_count, saves: r.save_count }, viewer: { liked: r.liked, saved: r.saved, is_owner: viewer === r.provider_id }, created_at: r.created_at,
     });
   }
   return out;

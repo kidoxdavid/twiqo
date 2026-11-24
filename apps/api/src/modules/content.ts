@@ -7,7 +7,8 @@ import type { Db } from '../db/pool.js';
 import { HttpError, badRequest, forbidden, notFound, wrap } from '../lib/errors.js';
 import { optionalAuth, requireAuth } from '../lib/auth.js';
 import { checkText } from '../lib/policy.js';
-import { hydratePosts } from '../lib/hydrate.js';
+import { hydratePosts, hydrateJourneys, hydrateRequests, hydrateServices } from '../lib/hydrate.js';
+import { notify } from '../lib/notify.js';
 import { visibleTo } from '../lib/views.js';
 import { audit } from '../lib/audit.js';
 import { can } from './business.js';
@@ -23,7 +24,7 @@ const postSchema = z.object({
   kind: z.enum(['text', 'photo', 'video', 'poll', 'share']).default('text'),
   body: z.string().trim().max(5000).optional(),
   media_ids: z.array(uuid).max(10).default([]),
-  attachment_type: z.enum(['listing', 'business']).optional(),   // other structured types arrive with their phases
+  attachment_type: z.enum(['listing', 'business', 'transport_request', 'journey', 'transport_service']).optional(),   // events arrive with Circles
   attachment_id: uuid.optional(),
   visibility: z.enum(['public', 'followers', 'private']).default('public'),
   business_id: uuid.optional(),
@@ -51,6 +52,9 @@ content.post('/posts', requireAuth, postLimiter, wrap(async (req, res) => {
       const l = await c.query(`SELECT 1 FROM listings l WHERE l.id=$1 AND l.status IN ('active','reserved') AND l.visibility='public'`, [b.attachment_id]);
       if (!l.rowCount) throw badRequest('That listing is not available to share');
     }
+    if (b.attachment_type === 'transport_request' && !(await c.query(`SELECT 1 FROM transport_requests WHERE id=$1 AND status='open' AND visibility='public'`, [b.attachment_id])).rowCount) throw badRequest('That request is not available to share');
+    if (b.attachment_type === 'journey' && !(await c.query(`SELECT 1 FROM journeys WHERE id=$1 AND status IN ('open','full')`, [b.attachment_id])).rowCount) throw badRequest('That journey is not available to share');
+    if (b.attachment_type === 'transport_service' && !(await c.query(`SELECT 1 FROM transport_services WHERE id=$1 AND status='active'`, [b.attachment_id])).rowCount) throw badRequest('That service is not available to share');
     if (b.attachment_type === 'business') {
       if (!(await c.query(`SELECT 1 FROM businesses WHERE id=$1 AND status='active'`, [b.attachment_id])).rowCount) throw badRequest('That business is not available to share');
     }
@@ -89,18 +93,21 @@ content.delete('/posts/:id', requireAuth, wrap(async (req, res) => {
 }));
 
 // ---- comments (threaded, one level of replies) ------------------------------
-const TARGETS: Record<string, { table: string; hasCount: boolean }> = {
-  post: { table: 'posts', hasCount: true }, listing: { table: 'listings', hasCount: true },
+const TARGETS: Record<string, { table: string }> = {
+  post: { table: 'posts' }, listing: { table: 'listings' }, transport_request: { table: 'transport_requests' }, journey: { table: 'journeys' }, transport_service: { table: 'transport_services' },
 };
+const BLOCK = (owner: string) => `NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id=$2::uuid AND b.blocked_id=${owner}) OR (b.blocker_id=${owner} AND b.blocked_id=$2::uuid))`;
 
 async function assertTargetVisible(db: Db, type: string, id: string, viewer: string | null) {
-  const t = TARGETS[type];
-  if (!t) throw new HttpError(422, 'Comments are not available on that yet', 'not_available');
-  const q = type === 'post'
-    ? `SELECT p.author_id FROM posts p WHERE p.id=$1 AND ${visibleTo('p', '$2')}`
-    : `SELECT l.seller_id AS author_id FROM listings l WHERE l.id=$1 AND l.status IN ('active','reserved','sold')
-         AND NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id=$2::uuid AND b.blocked_id=l.seller_id) OR (b.blocker_id=l.seller_id AND b.blocked_id=$2::uuid))`;
-  const { rows } = await db.query(q, [id, viewer]);
+  if (!TARGETS[type]) throw new HttpError(422, 'Comments are not available on that yet', 'not_available');
+  const q: Record<string, string> = {
+    post: `SELECT p.author_id FROM posts p WHERE p.id=$1 AND ${visibleTo('p', '$2')}`,
+    listing: `SELECT l.seller_id AS author_id FROM listings l WHERE l.id=$1 AND l.status IN ('active','reserved','sold') AND ${BLOCK('l.seller_id')}`,
+    transport_request: `SELECT r.requester_id AS author_id FROM transport_requests r WHERE r.id=$1 AND ((r.status='open' AND r.visibility='public') OR r.requester_id=$2::uuid) AND ${BLOCK('r.requester_id')}`,
+    journey: `SELECT j.driver_id AS author_id FROM journeys j WHERE j.id=$1 AND j.status IN ('open','full','departed') AND ${BLOCK('j.driver_id')}`,
+    transport_service: `SELECT s.provider_id AS author_id FROM transport_services s WHERE s.id=$1 AND s.status='active' AND ${BLOCK('s.provider_id')}`,
+  };
+  const { rows } = await db.query(q[type], [id, viewer]);
   if (!rows[0]) throw notFound('Item');
   return rows[0].author_id as string;
 }
@@ -111,7 +118,7 @@ const commentView = (r: any) => ({
 });
 
 content.get('/comments', optionalAuth, wrap(async (req, res) => {
-  const q = z.object({ target_type: z.enum(['post', 'listing']), target_id: uuid, limit: z.coerce.number().int().min(1).max(50).default(20), before: z.string().datetime().optional() }).parse(req.query);
+  const q = z.object({ target_type: z.enum(['post', 'listing', 'transport_request', 'journey', 'transport_service']), target_id: uuid, limit: z.coerce.number().int().min(1).max(50).default(20), before: z.string().datetime().optional() }).parse(req.query);
   const viewer = req.user?.id ?? null;
   await assertTargetVisible(pool, q.target_type, q.target_id, viewer);
   const { rows } = await pool.query(
@@ -132,7 +139,7 @@ content.get('/comments', optionalAuth, wrap(async (req, res) => {
 }));
 
 content.post('/comments', requireAuth, postLimiter, wrap(async (req, res) => {
-  const b = z.object({ target_type: z.enum(['post', 'listing']), target_id: uuid, parent_id: uuid.optional(), body: z.string().trim().min(1).max(2000) }).parse(req.body);
+  const b = z.object({ target_type: z.enum(['post', 'listing', 'transport_request', 'journey', 'transport_service']), target_id: uuid, parent_id: uuid.optional(), body: z.string().trim().min(1).max(2000) }).parse(req.body);
   const uid = req.user!.id;
   const flagged = await checkText(b.body);
   if (flagged) throw new HttpError(422, 'This content breaks our community guidelines', 'policy_violation');
@@ -146,8 +153,7 @@ content.post('/comments', requireAuth, postLimiter, wrap(async (req, res) => {
     }
     const r = await c.query(`INSERT INTO comments(target_type,target_id,author_id,parent_id,body) VALUES ($1,$2,$3,$4,$5) RETURNING id`, [b.target_type, b.target_id, uid, parent, b.body]);
     await c.query(`UPDATE ${TARGETS[b.target_type].table} SET comment_count = comment_count + 1 WHERE id = $1`, [b.target_id]);
-    if (owner !== uid) await c.query(`INSERT INTO notifications(user_id,type,actor_id,target_type,target_id,data) VALUES ($1,$2,$3,$4,$5,$6)`,
-      [owner, parent ? 'reply' : 'comment', uid, b.target_type, b.target_id, JSON.stringify({ comment_id: r.rows[0].id })]);
+    await notify(c, { userId: owner, type: parent ? 'reply' : 'comment', actorId: uid, targetType: b.target_type, targetId: b.target_id, data: { comment_id: r.rows[0].id } });
     return r.rows[0].id as string;
   });
   const { rows } = await pool.query(`SELECT c.*, u.username, p.display_name FROM comments c JOIN users u ON u.id=c.author_id JOIN user_profiles p ON p.user_id=u.id WHERE c.id=$1`, [id]);
@@ -170,8 +176,8 @@ content.delete('/comments/:id', requireAuth, wrap(async (req, res) => {
 }));
 
 // ---- reactions / saves ---------------------------------------------------------------
-const COUNTED: Record<string, string> = { post: 'posts', comment: 'comments', listing: 'listings' };
-const reactParams = z.object({ type: z.enum(['post', 'comment', 'listing']), id: uuid });
+const COUNTED: Record<string, string> = { post: 'posts', comment: 'comments', listing: 'listings', transport_request: 'transport_requests', journey: 'journeys', transport_service: 'transport_services' };
+const reactParams = z.object({ type: z.enum(['post', 'comment', 'listing', 'transport_request', 'journey', 'transport_service']), id: uuid });
 
 content.put('/reactions/:type/:id', requireAuth, wrap(async (req, res) => {
   const { type, id } = reactParams.parse(req.params);
@@ -195,7 +201,7 @@ content.delete('/reactions/:type/:id', requireAuth, wrap(async (req, res) => {
   res.json({ liked: false, like_count: count });
 }));
 
-const saveParams = z.object({ type: z.enum(['post', 'listing', 'business']), id: uuid });
+const saveParams = z.object({ type: z.enum(['post', 'listing', 'transport_request', 'journey', 'transport_service', 'business']), id: uuid });
 content.put('/saves/:type/:id', requireAuth, wrap(async (req, res) => {
   const { type, id } = saveParams.parse(req.params);
   await tx(async (c) => {
@@ -215,17 +221,17 @@ content.delete('/saves/:type/:id', requireAuth, wrap(async (req, res) => {
 }));
 
 content.get('/me/saved', requireAuth, wrap(async (req, res) => {
-  const { rows } = await pool.query(`SELECT target_type, target_id FROM saved_items WHERE user_id=$1 AND target_type IN ('post','listing') ORDER BY created_at DESC LIMIT 100`, [req.user!.id]);
+  const { rows } = await pool.query(`SELECT target_type, target_id FROM saved_items WHERE user_id=$1 AND target_type <> 'business' ORDER BY created_at DESC LIMIT 100`, [req.user!.id]);
   const { hydrateListings } = await import('../lib/hydrate.js');
-  const posts = await hydratePosts(rows.filter((r) => r.target_type === 'post').map((r) => r.target_id), req.user!.id);
-  const listings = await hydrateListings(rows.filter((r) => r.target_type === 'listing').map((r) => r.target_id), req.user!.id);
-  res.json({ items: rows.map((r) => (r.target_type === 'post' ? posts.get(r.target_id) : listings.get(r.target_id))).filter((x) => x && x.status !== 'removed') });
+  const ids = (t: string) => rows.filter((r) => r.target_type === t).map((r) => r.target_id); const me = req.user!.id;
+  const maps: Record<string, Map<string, any>> = { post: await hydratePosts(ids('post'), me), listing: await hydrateListings(ids('listing'), me), transport_request: await hydrateRequests(ids('transport_request'), me), journey: await hydrateJourneys(ids('journey'), me), transport_service: await hydrateServices(ids('transport_service'), me) };
+  res.json({ items: rows.map((r) => maps[r.target_type].get(r.target_id)).filter((x) => x && x.status !== 'removed' && x.status !== 'cancelled') });
 }));
 
 // ---- reports ------------------------------------------------------------------------------
 content.post('/reports', requireAuth, wrap(async (req, res) => {
   const b = z.object({
-    target_type: z.enum(['user', 'post', 'comment', 'listing', 'business', 'message']), target_id: uuid,
+    target_type: z.enum(['user', 'post', 'comment', 'listing', 'business', 'message', 'transport_request', 'journey', 'transport_service']), target_id: uuid,
     reason: z.enum(['spam', 'prohibited_item', 'fraud', 'harassment', 'nudity', 'violence', 'misleading', 'other']),
     details: z.string().max(1000).optional(),
   }).parse(req.body);
@@ -235,7 +241,7 @@ content.post('/reports', requireAuth, wrap(async (req, res) => {
     const m = await pool.query(`SELECT 1 FROM messages m JOIN conversation_members cm ON cm.conversation_id=m.conversation_id AND cm.user_id=$2 WHERE m.id=$1`, [b.target_id, uid]);
     if (!m.rowCount) throw notFound('Message');
   } else {
-    const tbl = { user: 'users', post: 'posts', comment: 'comments', listing: 'listings', business: 'businesses' }[b.target_type]!;
+    const tbl = { user: 'users', post: 'posts', comment: 'comments', listing: 'listings', business: 'businesses', transport_request: 'transport_requests', journey: 'journeys', transport_service: 'transport_services' }[b.target_type]!;
     if (!(await pool.query(`SELECT 1 FROM ${tbl} WHERE id=$1`, [b.target_id])).rowCount) throw notFound('Item');
   }
   await pool.query(`INSERT INTO reports(reporter_id,target_type,target_id,reason,details) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (reporter_id,target_type,target_id) DO NOTHING`,

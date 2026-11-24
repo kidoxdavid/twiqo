@@ -6,6 +6,7 @@ import { optionalAuth, requireAuth } from '../lib/auth.js';
 import { resolvePlace } from '../lib/geo.js';
 import { checkText } from '../lib/policy.js';
 import { mediaUrl, thumbUrl } from '../lib/views.js';
+import { notify } from '../lib/notify.js';
 import { meView } from './identity.js';
 
 export const users = Router();
@@ -91,7 +92,7 @@ users.post('/follows/:type/:id', requireAuth, wrap(async (req, res) => {
     if (ins.rowCount) {
       await c.query(`UPDATE user_profiles SET following_count = following_count + 1 WHERE user_id = $1`, [me]);
       await c.query(type === 'user' ? `UPDATE user_profiles SET follower_count = follower_count + 1 WHERE user_id = $1` : `UPDATE businesses SET follower_count = follower_count + 1 WHERE id = $1`, [id]);
-      if (type === 'user') await c.query(`INSERT INTO notifications(user_id,type,actor_id,target_type,target_id) VALUES ($1,'follow',$2,'user',$2)`, [id, me]);
+      if (type === 'user') await notify(c, { userId: id, type: 'follow', actorId: me, targetType: 'user', targetId: me });
     }
   });
   res.status(204).end();

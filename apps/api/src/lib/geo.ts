@@ -18,3 +18,10 @@ export async function resolvePlace(city: string, province?: string, db: Db = poo
 /** SQL expression for a snapped geography point from two numeric params. */
 export const pointSql = (lngParam: string, latParam: string) =>
   `ST_SetSRID(ST_MakePoint(round(${lngParam}::numeric/0.05)*0.05, round(${latParam}::numeric/0.05)*0.05), 4326)::geography`;
+
+import { HttpError } from './errors.js';
+export async function requirePlace(city: string, province?: string, db: Db = pool): Promise<Place> {
+  const p = await resolvePlace(city, province, db);
+  if (!p) throw new HttpError(400, `We don't recognise "${city}" yet. Choose a city from the list.`, 'unknown_place');
+  return p;
+}

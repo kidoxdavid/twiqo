@@ -27,16 +27,17 @@ admin.get('/admin/stats', requirePermission('view.analytics'), wrap(async (_req,
 }));
 
 // ---- moderation: one code path removes/restores content on every surface --------------------------------
-const TABLES: Record<string, string> = { post: 'posts', comment: 'comments', listing: 'listings', message: 'messages', business: 'businesses' };
+const TABLES: Record<string, string> = { post: 'posts', comment: 'comments', listing: 'listings', message: 'messages', business: 'businesses', review: 'reviews', transport_request: 'transport_requests', journey: 'journeys', transport_service: 'transport_services' };
+const RESTORED: Record<string, string> = { transport_request: 'open', journey: 'open' };
 
 export async function setRemoved(c: PoolClient, actor: string, type: string, id: string, removed: boolean, reason: string, reportId: string | null, addr: string | null) {
   const t = TABLES[type];
   if (!t) throw badRequest('Unsupported content type');
   const cur = await c.query(`SELECT status FROM ${t} WHERE id=$1 FOR UPDATE`, [id]);
   if (!cur.rows[0]) throw notFound('Content');
-  const next = removed ? 'removed' : (type === 'listing' ? 'active' : type === 'business' ? 'active' : 'active');
+  const next = removed ? 'removed' : (RESTORED[type] ?? 'active');
   await c.query(`UPDATE ${t} SET status=$2 WHERE id=$1`, [id, next]);
-  if (type === 'post' || type === 'listing') await c.query(`UPDATE feed_items SET status=$3 WHERE item_type=$1 AND item_id=$2`, [type, id, next]);
+  if (['post', 'listing', 'transport_request', 'journey', 'transport_service'].includes(type)) await c.query(`UPDATE feed_items SET status=$3 WHERE item_type=$1 AND item_id=$2`, [type, id, ['removed'].includes(next) ? 'removed' : 'active']);
   await c.query(`INSERT INTO moderation_actions(moderator_id,target_type,target_id,action,reason,report_id) VALUES ($1,$2,$3,$4,$5,$6)`, [actor, type, id, removed ? 'remove' : 'restore', reason, reportId]);
   await audit(c, actor, removed ? 'content.remove' : 'content.restore', type, id, { status: cur.rows[0].status }, { status: next, reason }, addr);
 }
@@ -91,7 +92,7 @@ admin.post('/admin/reports/:id/resolve', requirePermission('moderate.content'), 
 
 async function ownerOf(c: PoolClient, type: string, id: string): Promise<string> {
   const q: Record<string, string> = { user: 'SELECT id AS u FROM users WHERE id=$1', post: 'SELECT author_id AS u FROM posts WHERE id=$1', comment: 'SELECT author_id AS u FROM comments WHERE id=$1',
-    listing: 'SELECT seller_id AS u FROM listings WHERE id=$1', business: 'SELECT owner_id AS u FROM businesses WHERE id=$1', message: 'SELECT sender_id AS u FROM messages WHERE id=$1' };
+    listing: 'SELECT seller_id AS u FROM listings WHERE id=$1', transport_request: 'SELECT requester_id AS u FROM transport_requests WHERE id=$1', journey: 'SELECT driver_id AS u FROM journeys WHERE id=$1', transport_service: 'SELECT provider_id AS u FROM transport_services WHERE id=$1', business: 'SELECT owner_id AS u FROM businesses WHERE id=$1', message: 'SELECT sender_id AS u FROM messages WHERE id=$1' };
   const r = await c.query(q[type], [id]);
   if (!r.rows[0]) throw notFound('Target');
   return r.rows[0].u;
