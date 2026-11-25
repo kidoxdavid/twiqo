@@ -198,3 +198,68 @@ h2.sec{font-size:17px;font-weight:800;margin:6px 0 10px}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 .msg .tm{opacity:1}.msg.in .tm{color:var(--ink2)}.msg.out .tm{color:#fff}
+
+/* ===== Move-first layout (Home hero, Move, Create sheet, listing hand-off) ===== */
+:root{--mv:#087F79;--mvd:#06615C;--mv-tint:#DDF6F4}
+svg.i.xs{width:14px;height:14px}.flip{transform:rotate(180deg);width:18px;height:18px}.link{color:var(--blue);font-weight:800;display:inline-flex;align-items:center;gap:2px}
+.btn.mv-btn{background:var(--mv)}.btn.mv-ghost{background:#fff;color:var(--mvd);box-shadow:inset 0 0 0 1.5px var(--mv)}.btn.mv-white{background:#fff;color:var(--mvd)}.btn.mv-out{background:rgba(255,255,255,.14);color:#fff;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.6)}
+.nav a.mv.active{color:var(--mvd)}
+.meter{height:8px;border-radius:5px;background:#E1E9F7;overflow:hidden}.meter b{display:block;height:100%;background:var(--mv);border-radius:5px}
+.trust{width:44px;height:44px;border-radius:50%;background:var(--mv-tint);color:var(--mvd);display:flex;align-items:center;justify-content:center;flex:none}
+/* hero */
+.mv-hero{margin:4px 16px 0;padding:20px 18px;border-radius:24px;color:#fff;background:linear-gradient(140deg,#0E2A52 0%,#0A5F7A 62%,#087F79 118%);position:relative;overflow:hidden}
+.mv-hero:after{content:"";position:absolute;right:-60px;top:-60px;width:180px;height:180px;border-radius:50%;background:rgba(255,255,255,.07);pointer-events:none}
+.mv-hero h1{font-size:27px;line-height:1.12;letter-spacing:-.6px;font-weight:800}.mv-hero p{margin-top:8px;color:rgba(255,255,255,.9);font-size:14px;line-height:1.4}
+.mv-hero .field label{color:#fff}.mv-hero .input{min-height:50px;font-size:16px}.mv-hero .btn{min-height:50px}
+.mv-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.18);border-radius:12px;padding:6px 10px;font-size:12px;font-weight:700;margin-bottom:12px}.mv-badge svg{width:15px;height:15px}
+.greet{display:flex;align-items:center;gap:10px;padding:2px 18px 12px}.greet small{display:block;color:var(--ink2);font-size:12.5px;font-weight:700}.greet b{font-size:23px;letter-spacing:-.5px}
+.locchip{margin-left:auto;display:inline-flex;align-items:center;gap:5px;min-height:40px;padding:0 14px;border-radius:20px;background:var(--mv-tint);color:var(--mvd);font-size:13px;font-weight:800}.locchip svg{width:16px;height:16px}
+.secrow{display:flex;align-items:center;justify-content:space-between;padding:0 16px;margin-top:18px}.secrow .sec{margin:0}.more{color:var(--blue);font-weight:800;font-size:14px;min-height:44px;display:inline-flex;align-items:center;padding-left:10px}.shortcuts{display:flex;gap:6px}
+.steps{list-style:none;display:flex;flex-direction:column;gap:16px}.steps li{display:flex;gap:12px;align-items:flex-start}.steps .n{width:34px;height:34px;border-radius:50%;background:#E1EBFF;color:var(--blue);font-weight:800;display:flex;align-items:center;justify-content:center;flex:none}.steps b{display:block}.steps small{color:var(--ink2);font-size:13px}
+section>.hscroll{padding:2px 16px 10px}.mv-driver{width:250px;flex:none;display:flex}.shop-tile{width:128px;flex:none;display:block}
+.shop-tile .th{position:relative;height:104px;border-radius:16px;overflow:hidden;background:var(--cloud)}.shop-tile .th img{width:100%;height:100%;object-fit:cover}.shop-tile .th .noimg{width:100%;height:100%}
+.shop-tile b{display:block;margin-top:6px;font-size:15px}.shop-tile .t{display:block;font-size:13px;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tagover{display:inline-flex;align-items:center;gap:4px}.tagover svg{color:var(--mvd)}
+/* Move page */
+.mvpage .seg{display:flex;margin:0 16px 12px;background:#E6ECF8;border-radius:16px;padding:4px;gap:2px}
+.mvpage .seg .tab{flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.15;padding:0 4px;border-radius:12px;background:transparent;color:var(--ink2);font-size:13.5px;font-weight:700;white-space:normal}
+.mvpage .seg .tab.on{background:#fff;color:var(--mvd);box-shadow:0 2px 8px rgba(20,33,61,.1)}
+.mvform{margin:0 16px 12px;gap:12px}.mvform .input{min-height:50px;font-size:16px}
+.mvactions{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 16px 12px}.mvactions .btn:first-child{grid-column:1/-1}.mvactions .btn{min-height:48px}
+.mv-space{margin-top:12px}.mv-space .meter{margin-top:6px}
+/* Market banner + listing hand-off */
+.mv-banner{display:flex;align-items:center;gap:12px;margin:0 16px 14px;padding:12px 14px;background:linear-gradient(135deg,#E3F6F4,#EAF1FF)}.mv-banner b{display:block;font-size:14.5px}.mv-banner small{color:var(--ink2);font-size:12.5px}
+.mv-deliver{background:linear-gradient(135deg,#E3F6F4,#EEF4FF)}
+.buybar{display:flex;gap:10px}.buybar .btn{min-height:50px}
+@media(max-width:899px){
+  .buybar{position:fixed;left:0;right:0;bottom:0;z-index:35;background:#fff;border-top:1px solid var(--line);padding:10px 16px calc(12px + env(safe-area-inset-bottom))}
+  body:has(.buybar) .nav{display:none}body:has(.buybar) .main{padding-bottom:110px}
+  .deskonly{display:none}
+}
+@media(min-width:900px){.mobsearch{display:none}.buybar .btn{min-height:44px}}
+/* Create sheet */
+.cs .gl{font-size:12px;font-weight:800;letter-spacing:.8px;color:var(--ink2);margin:16px 2px 8px;text-transform:uppercase}.cs .gl:first-child{margin-top:4px}
+.cs .big{display:flex;align-items:center;gap:14px;border-radius:20px;padding:14px;min-height:72px;color:#fff;font-weight:800}.cs .big .ic{width:46px;height:46px;border-radius:15px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;flex:none}
+.cs .big .tx{flex:1}.cs .big .tx b{display:block;font-size:16.5px}.cs .big small{display:block;font-size:12.5px;font-weight:500;opacity:.95;margin-top:2px}.cs .mvbg{background:var(--mv)}.cs .navybg{background:#0E2A52;flex:1;padding:12px;min-height:68px;font-size:15px}.cs .two{display:flex;gap:10px;margin-top:10px}
+.cs .sellrow{display:flex;align-items:center;gap:12px;padding:12px 14px;min-height:64px;border-radius:18px;box-shadow:inset 0 0 0 1.5px var(--line)}.cs .sellrow .ic{width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;color:var(--navy);flex:none}.cs .sellrow .tx{flex:1}.cs .sellrow b{display:block}.cs .sellrow small{color:var(--ink2);font-size:12.5px}
+.cs .share{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.cs .share a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:78px;border-radius:16px;background:var(--cloud);font-size:12.5px;font-weight:700}.cs .share span{width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff}
+/* ===== Touch targets: at least 44px on every control ===== */
+.iconbtn{width:44px;height:44px}
+.tab{min-height:44px;display:inline-flex;align-items:center}.chip{min-height:44px;display:inline-flex;align-items:center}
+.btn.sm{min-height:44px}.searchbox{min-height:48px}.searchbox input{font-size:16px}
+.input,select.input,textarea.input{font-size:16px;min-height:48px}textarea.input{min-height:110px}
+.top .brand{min-height:44px}
+button.row.muted{min-height:44px}
+footer a{min-height:44px;display:inline-flex;align-items:center;padding:0 6px}
+@media(max-width:899px){.nav a{min-height:48px;justify-content:center}}
+.btn{min-height:44px}
+.heart{width:44px;height:44px;top:4px;right:4px}.heart svg{width:19px;height:19px}
+a.pill,button.pill{min-height:44px;display:inline-flex;align-items:center}
+button.sm{min-height:44px;padding:0 6px}
+.locchip{min-height:44px}
+.pc .t a,.cards a b.sm{display:inline-flex;align-items:center;min-height:44px}
+.pplink{display:inline-flex;align-items:center;min-height:44px}
+.act{min-height:44px;min-width:44px}
+.post .who a,.listing-seller a{min-height:44px;min-width:44px;display:inline-flex;align-items:center}
+.searchbox input{min-height:44px}
+.card.row>a,a.card.row b{min-height:0}

@@ -38,5 +38,5 @@ export function PeopleToFollow() {
   if (!me || !q.data?.items.length) return null;
   const follow = async (id: string) => { try { await api(`/follows/user/${id}`, { method: 'POST' }); qc.setQueryData(['rec-people', me.id], (o: any) => ({ items: o.items.filter((p: any) => p.id !== id) })); qc.invalidateQueries({ queryKey: ['feed'] }); } catch (e) { toast(errMsg(e), 'err'); } };
   return <section style={{ padding: '0 16px 12px' }}><h2 className="sec">{t('home.people')}</h2><div className="hscroll">{q.data.items.slice(0, 8).map((p: any) => <div key={p.id} className="card pad col" style={{ width: 168, flex: 'none', alignItems: 'center', textAlign: 'center', gap: 6 }}>
-    <Link to={`/u/${p.username}`}><Avatar user={p} size={56} /></Link><Link to={`/u/${p.username}`}><b className="sm">{p.display_name}</b></Link><div className="muted sm" style={{ minHeight: 32 }}>{p.reason}</div><button className="btn sm" onClick={() => follow(p.id)}>{t('home.follow')}</button></div>)}</div></section>;
+    <Link to={`/u/${p.username}`}><Avatar user={p} size={56} /></Link><Link to={`/u/${p.username}`} className="pplink"><b className="sm">{p.display_name}</b></Link><div className="muted sm" style={{ minHeight: 32 }}>{p.reason}</div><button className="btn sm" onClick={() => follow(p.id)}>{t('home.follow')}</button></div>)}</div></section>;
 }

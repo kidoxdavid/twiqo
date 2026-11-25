@@ -10,6 +10,7 @@ import { CATEGORIES, CityInput, JourneyCard, OfferCard, OfferDialog, RequestCard
 import { BoostButton } from '../components/payments';
 import { BookBundleDialog } from '../components/bundles';
 import { ReturnSuggestions, SaveSearchButton } from '../components/tools';
+import { t } from '../i18n';
 import { Avatar, Menu, ReportDialog, State, Verified, errMsg, money } from '../components/ui';
 
 type Tab = 'journeys' | 'requests' | 'services';
@@ -28,21 +29,22 @@ export function Move() {
   const items = q.data?.pages.flatMap((p: any) => p.items) ?? [];
   const search = (e: React.FormEvent) => { e.preventDefault(); const n = new URLSearchParams(sp); for (const [k, v] of [['from', from], ['to', to], ['date', date]]) v ? n.set(k, v) : n.delete(k); setSp(n, { replace: true }); };
   return (
-    <main className="main">
-      <div className="row" style={{ padding: '0 16px' }}><h1 className="page" style={{ padding: '6px 0 12px', flex: 1 }}>Move</h1>{me && <><Link className="btn sm soft" to="/bookings">My moves</Link><Link className="btn sm soft" to="/offers">Offers</Link></>}</div>
-      <div className="seg" role="tablist" style={{ display: 'flex', margin: '0 16px 12px', background: '#fff', borderRadius: 16, padding: 4 }}>
-        {(['journeys', 'requests', 'services'] as Tab[]).map((t) => <button key={t} role="tab" aria-selected={tab === t} className={`tab ${tab === t ? 'on' : ''}`} style={{ flex: 1 }} onClick={() => set('tab', t === 'journeys' ? '' : t)}>{t === 'journeys' ? 'Journeys' : t === 'requests' ? 'Requests' : 'Services'}</button>)}
+    <main className="main mvpage">
+      <div className="row" style={{ padding: '0 16px' }}><h1 className="page" style={{ padding: '6px 0 4px', flex: 1 }}>Move</h1>{me && <><Link className="btn sm soft" to="/bookings">My moves</Link><Link className="btn sm soft" to="/offers">Offers</Link></>}</div>
+      <p className="muted" style={{ padding: '0 16px 12px', fontSize: 13.5 }}>{t('move.sub')}</p>
+      <div className="seg" role="tablist" aria-label="Move">
+        {(['journeys', 'requests', 'services'] as Tab[]).map((k) => <button key={k} role="tab" aria-selected={tab === k} className={`tab ${tab === k ? 'on' : ''}`} onClick={() => set('tab', k === 'journeys' ? '' : k)}>{t(`move.tab.${k}`)}</button>)}
       </div>
-      <form className="card pad col" style={{ margin: '0 16px 12px', gap: 10 }} onSubmit={search}>
-        <div className="row wrap" style={{ alignItems: 'flex-end' }}><div style={{ flex: 1, minWidth: 130 }}><CityInput id="mf" label={tab === 'services' ? 'Your city' : 'From'} value={from} onChange={setFrom} /></div>
-          {tab !== 'services' && <div style={{ flex: 1, minWidth: 130 }}><CityInput id="mt" label="To" value={to} onChange={setTo} /></div>}
-          {tab !== 'services' && <div className="field" style={{ minWidth: 140 }}><label htmlFor="md">{tab === 'journeys' ? 'Departing after' : 'Pickup after'}</label><input id="md" type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} /></div>}
-          <button className="btn">Search</button></div>
+      <form className="card pad col mvform" onSubmit={search}>
+        <CityInput id="mf" label={tab === 'services' ? 'Your city' : 'From'} value={from} onChange={setFrom} />
+        {tab !== 'services' && <CityInput id="mt" label="To" value={to} onChange={setTo} />}
+        {tab !== 'services' && <div className="field"><label htmlFor="md">{tab === 'journeys' ? 'Leaving after' : 'Pickup after'}</label><input id="md" type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} /></div>}
+        <button className="btn mv-btn">{t(`move.search.${tab}`)}</button>
         {tab !== 'services' && sp.get('from') && sp.get('to') && <div className="row"><SaveSearchButton kind={tab === 'journeys' ? 'journey' : 'request'} suggestedName={`${sp.get('from')} → ${sp.get('to')}`} params={{ from: sp.get('from'), to: sp.get('to'), ...(sp.get('date') ? { earliest: sp.get('date') } : {}) }} /></div>}
         {tab === 'journeys' && <div className="muted sm">We look for drivers who pass through your pickup and drop-off, not only drivers with the exact same start and end.</div>}
       </form>
-      <div className="row wrap" style={{ padding: '0 16px 12px' }}>
-        <Link className="btn teal sm" to="/create/request"><Icon name="box" />Find someone to move it</Link><Link className="btn ghost sm" to="/create/journey"><Icon name="route" />Offer a journey</Link><Link className="btn ghost sm" to="/create/service"><Icon name="truck" />Offer a service</Link>
+      <div className="mvactions">
+        <Link className="btn mv-ghost" to="/create/request"><Icon name="box" />{t('move.post_request')}</Link><Link className="btn mv-ghost" to="/create/journey"><Icon name="route" />{t('move.offer_trip')}</Link><Link className="btn mv-ghost" to="/create/service"><Icon name="truck" />{t('move.offer_service')}</Link>
       </div>
       {q.isLoading ? <State kind="loading" /> : q.isError ? <State kind="error" text={(q.error as Error).message} /> : items.length === 0
         ? <State kind="empty" title={tab === 'journeys' ? 'No journeys match' : tab === 'requests' ? 'No requests match' : 'No services here yet'} text="Try a wider search, or post what you need and let drivers come to you." action={<Link className="btn" to={tab === 'journeys' ? '/create/request' : tab === 'requests' ? '/create/journey' : '/create/service'}>{tab === 'journeys' ? 'Post a request' : tab === 'requests' ? 'Post a journey' : 'Offer a service'}</Link>} />

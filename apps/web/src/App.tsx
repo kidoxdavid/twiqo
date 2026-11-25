@@ -43,22 +43,20 @@ const InsightsPage = lazy(() => import('./pages/Growth').then((m) => ({ default:
 
 function CreateSheet({ onClose }: { onClose: () => void }) {
   useLocale();
-  const items: [string, string, string, string, string?][] = [
-    ['/create/post', t('create.post'), t('create.post.d'), 'img', 'var(--blue)'],
-    ['/create/listing', t('create.sell'), t('create.sell.d'), 'bag', 'var(--amber)'],
-    ['/create/clip', t('create.clip'), t('create.clip.d'), 'film', '#8E6CF5'],
-    ['/create/story', t('create.story'), t('create.story.d'), 'camera', '#5B6784'],
-    ['/create/post?poll=1', t('create.poll'), t('create.poll.d'), 'chat', '#2FA45F'],
-    ['/create/circle', t('create.circle'), t('create.circle.d'), 'users', '#F76B6B'],
-    ['/create/request', t('create.request'), t('create.request.d'), 'box', 'var(--teal)'],
-    ['/create/journey', t('create.journey'), t('create.journey.d'), 'route', 'var(--navy)'],
-    ['/create/service', t('create.service'), t('create.service.d'), 'truck', '#F76B6B'],
-    ['/business/new', t('create.business'), t('create.business.d'), 'users', '#8E6CF5'],
+  const small: [string, string, string, string][] = [
+    ['/create/post', t('create.post'), 'img', 'var(--blue)'], ['/create/clip', t('create.clip'), 'film', '#8E6CF5'], ['/create/story', t('create.story'), 'camera', '#5B6784'], ['/create/circle', t('create.circle'), 'users', '#D94A4A'],
+    ['/create/post?poll=1', t('create.poll'), 'chat', '#2A8F55'], ['/business/new', t('create.business'), 'users', '#7B5AE0'],
   ];
   return (
     <Modal onClose={onClose} title={t('create.title')}>
-      <div className="cg">
-        {items.map(([to, t, d, ic, bg]) => <Link key={to} to={to} onClick={onClose}><span className="ic" style={{ background: bg }}><Icon name={ic} /></span>{t}<small>{d}</small></Link>)}
+      <div className="cs">
+        <h3 className="gl">{t('create.group.move')}</h3>
+        <Link to="/create/request" onClick={onClose} className="big mvbg"><span className="ic"><Icon name="box" /></span><span className="tx"><b>{t('create.send')}</b><small>{t('create.send.d')}</small></span><Icon name="chev" /></Link>
+        <div className="two"><Link to="/create/journey" onClick={onClose} className="big navybg"><span className="ic"><Icon name="route" /></span><b>{t('create.journey')}</b></Link><Link to="/create/service" onClick={onClose} className="big navybg"><span className="ic"><Icon name="truck" /></span><b>{t('create.service')}</b></Link></div>
+        <h3 className="gl">{t('create.group.sell')}</h3>
+        <Link to="/create/listing" onClick={onClose} className="sellrow"><span className="ic" style={{ background: 'var(--amber)' }}><Icon name="bag" /></span><span className="tx"><b>{t('create.sell')}</b><small>{t('create.sell.d')}</small></span><Icon name="chev" /></Link>
+        <h3 className="gl">{t('create.group.share')}</h3>
+        <div className="share">{small.map(([to, label, ic, bg]) => <Link key={to} to={to} onClick={onClose}><span style={{ background: bg }}><Icon name={ic} /></span>{label}</Link>)}</div>
       </div>
     </Modal>
   );
@@ -89,9 +87,9 @@ function Shell({ children }: { children: React.ReactNode }) {
         <nav className="navwrap" aria-label="Main">
           <div className="nav">
             <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}><Icon name="home" />{t('nav.home')}</NavLink>
-            <NavLink to="/market" className={({ isActive }) => (isActive ? 'active' : '')}><Icon name="bag" />{t('nav.market')}</NavLink>
+            <NavLink to="/move" className={({ isActive }) => `mv ${isActive ? 'active' : ''}`}><Icon name="truck" />{t('nav.move')}</NavLink>
             <a className="plus" href="#create" onClick={(e) => { e.preventDefault(); me ? setCreate(true) : nav('/login'); }}><span><Icon name="plus" /></span><span style={{ fontSize: 'inherit' }} className="lbl">{t('nav.create')}</span></a>
-            <NavLink to="/move" className={({ isActive }) => (isActive ? 'active' : '')}><Icon name="truck" />{t('nav.move')}</NavLink>
+            <NavLink to="/market" className={({ isActive }) => (isActive ? 'active' : '')}><Icon name="bag" />{t('nav.market')}</NavLink>
             <NavLink to={me ? `/u/${me.username}` : '/login'} className={({ isActive }) => (isActive && loc.pathname.startsWith('/u/') ? 'active' : '')}><Icon name="user" />{me ? t('nav.me') : t('nav.signin')}</NavLink>
           </div>
         </nav>
@@ -99,8 +97,9 @@ function Shell({ children }: { children: React.ReactNode }) {
           <Icon name="search" /><input aria-label={t('nav.search_aria')} placeholder={t('nav.search')} value={q} onChange={(e) => setQ(e.target.value)} />
         </form>
         <div className="row" style={{ gap: 2 }}>
-          <Link to="/clips" className="iconbtn" aria-label="Clips"><Icon name="film" /></Link>
-          <Link to="/search" className="iconbtn" aria-label="Find people"><Icon name="users" /></Link>
+          <Link to="/market?focus=1" className="iconbtn mobsearch" aria-label="Search"><Icon name="search" /></Link>
+          <Link to="/clips" className="iconbtn deskonly" aria-label="Clips"><Icon name="film" /></Link>
+          <Link to="/search" className="iconbtn deskonly" aria-label="Find people"><Icon name="users" /></Link>
           {me && <><Link to="/messages" className="iconbtn" aria-label="Messages"><Icon name="chat" />{unread.data?.messages > 0 && <span className="badge">{unread.data.messages}</span>}</Link>
             <Link to="/notifications" className="iconbtn" aria-label="Notifications"><Icon name="bell" />{unread.data?.notifications > 0 && <span className="badge">{unread.data.notifications}</span>}</Link>
             {isAdmin && <Link to="/admin" className="iconbtn" aria-label="Admin"><Icon name="gear" /></Link>}</>}

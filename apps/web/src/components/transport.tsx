@@ -78,7 +78,8 @@ export function JourneyCard({ j, match, to }: { j: any; match?: Match; to?: stri
       <div className="row sm muted"><span>Departs {fmtDate(j.departure_at)}</span><span className="sp" /><span>{j.arrival_at ? `Arrives ${fmtDate(j.arrival_at)} · ` : ''}{j.distance_km.toLocaleString()} km</span></div>
       {j.waypoints.length > 0 && <div className="sm muted" style={{ marginTop: 4 }}>Via {j.waypoints.map((w: any) => w.city).join(', ')}</div>}
       {match && <MatchBox m={match} />}
-      <div className="row" style={{ marginTop: 12 }}><div><div style={{ fontWeight: 800, fontSize: 18 }}>{j.price_type === 'fixed' ? '' : 'From '}{money(j.price_cents)}</div><span className="muted sm">{j.price_type === 'fixed' ? 'Fixed price' : 'Negotiable'} · {j.remaining_kg} kg left</span></div><span className="sp" /><span className="btn sm">View</span></div>
+      <div className="mv-space"><div className="sm muted"><b style={{ color: 'var(--navy)' }}>{j.remaining_kg} kg</b> space left</div><div className="meter" aria-hidden="true"><b style={{ width: `${Math.max(6, Math.min(100, Math.round((j.remaining_kg / Math.max(1, j.capacity_kg ?? j.remaining_kg)) * 100)))}%` }} /></div></div>
+      <div className="row" style={{ marginTop: 12 }}><div><div style={{ fontWeight: 800, fontSize: 18 }}>{j.price_type === 'fixed' ? '' : 'From '}{money(j.price_cents)}</div><span className="muted sm">{j.price_type === 'fixed' ? 'Fixed price' : 'Negotiable'}</span></div><span className="sp" /><span className="btn mv-btn sm">See details</span></div>
     </Link>
   );
 }

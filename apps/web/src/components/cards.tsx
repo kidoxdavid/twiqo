@@ -45,7 +45,7 @@ export function Comments({ target, onCount }: { target: { type: 'post' | 'listin
       <Avatar user={c.author} size={nested ? 28 : 34} />
       <div style={{ flex: 1 }}>
         <div style={{ background: 'var(--cloud)', borderRadius: 16, padding: '8px 12px' }}>
-          <Link to={`/u/${c.author.username}`} style={{ fontWeight: 700, fontSize: 13 }}>{c.author.display_name}</Link>
+          <Link to={`/u/${c.author.username}`} style={{ fontWeight: 700, fontSize: 13, display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>{c.author.display_name}</Link>
           <div style={{ fontSize: 14, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }} className={c.removed ? 'muted' : ''}>{c.removed ? 'Comment removed' : c.body}</div>
         </div>
         <div className="row sm muted" style={{ padding: '2px 8px', gap: 14 }}>

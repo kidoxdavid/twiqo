@@ -7,6 +7,7 @@ import { Comments, ListingCard, shareLink, useRequireAuth, useToggle } from '../
 import { Icon } from '../components/Icon';
 import { useToast } from '../components/Toast';
 import { OfferDialog } from '../components/transport';
+import { DeliveryCard } from '../components/movehome';
 import { BoostButton } from '../components/payments';
 import { SaveSearchButton } from '../components/tools';
 import { DiscoverStrip, RecommendedListings, SimilarListings } from '../components/growth';
@@ -25,15 +26,17 @@ export function Market() {
   const items = q.data?.pages.flatMap((p) => p.items) ?? [];
   return (
     <main className="main wide">
-      <h1 className="page">{t('market.title')}</h1>
+      <h1 className="page" style={{ paddingBottom: 2 }}>{t('market.title')}</h1>
+      <p className="muted" style={{ padding: '0 16px 12px', fontSize: 13.5 }}>{t('market.sub')}</p>
       <form className="row" style={{ padding: '0 16px 12px' }} role="search" onSubmit={(e) => { e.preventDefault(); const v = (new FormData(e.currentTarget).get('q') as string).trim(); if (v) track('search', undefined, { q_len: v.length }); set('q', v); }}>
-        <div className="searchbox" style={{ display: 'flex', maxWidth: 'none' }}><Icon name="search" /><input name="q" aria-label="Search listings" placeholder={t('market.search')} defaultValue={get('q')} key={get('q')} /></div>
+        <div className="searchbox" style={{ display: 'flex', maxWidth: 'none' }}><Icon name="search" /><input name="q" aria-label="Search listings" placeholder={t('market.search')} defaultValue={get('q')} key={get('q')} autoFocus={!!get('focus')} /></div>
         <button type="button" className="btn soft" aria-expanded={showFilters} onClick={() => setShowFilters(!showFilters)}><Icon name="filter" />{t('market.filters')}</button>
       </form>
       <div className="chips" role="group" aria-label="Categories">
         <button className={`chip ${!get('category') ? 'on' : ''}`} onClick={() => set('category', '')}>{t('common.all')}</button>
         {cats.data?.items.map((c: any) => <button key={c.id} className={`chip ${get('category') === c.slug ? 'on' : ''}`} onClick={() => set('category', c.slug)}>{c.name}</button>)}
       </div>
+      {!get('q') && !get('category') && <Link to="/move" className="card mv-banner"><span className="trust"><Icon name="truck" /></span><span className="sp"><b>{t('market.banner')}</b><small>{t('market.banner_d')}</small></span><span className="link">{t('market.banner_cta')}<Icon name="chev" className="xs" /></span></Link>}
       {showFilters && (
         <div className="filters">
           <div className="field"><label htmlFor="mn">Min $</label><input id="mn" className="input" inputMode="numeric" value={get('min')} onChange={(e) => set('min', e.target.value.replace(/\D/g, ''))} /></div>
@@ -79,9 +82,14 @@ export function ListingDetail() {
           <div className="price">{money(l.price_cents, l.price_type)} {l.price_type === 'negotiable' && <span className="pill t" style={{ verticalAlign: 'middle' }}>Negotiable</span>}</div>
           <div className="muted sm">{CONDITIONS[l.condition]} · {l.location.city}, {l.location.province} · Listed {ago(l.created_at)} ago · Quantity {l.quantity}</div>
           <div className="row wrap">{l.fulfillment.pickup && <span className="pill">Pickup</span>}{l.fulfillment.delivery && <span className="pill t">Delivery available</span>}{l.fulfillment.shipping && <span className="pill">Shipping</span>}</div>
+          {!mine && l.fulfillment.delivery && l.status === 'active' && <DeliveryCard l={l} />}
           <Link to={l.business ? `/b/${l.business.slug}` : `/u/${l.seller.username}`} className="card pad row"><Avatar user={l.seller} size={44} /><div><b>{l.business?.name ?? l.seller.display_name} {(l.business?.verified || l.seller.verification_level === 'identity') && <Verified />}</b><div className="muted sm">{l.business ? 'Business' : `@${l.seller.username}`}</div></div><span className="sp" /><span className="muted" style={{ transform: 'rotate(180deg)', display: 'flex' }}><Icon name="back" /></span></Link>
           {l.description && <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.55 }}>{l.description}</p>}
           {l.tags.length > 0 && <div className="row wrap">{l.tags.map((t: string) => <Link key={t} className="pill" to={`/market?q=${t}`}>#{t}</Link>)}</div>}
+          {!mine && <div className="buybar">
+            <button className="btn ghost" onClick={() => guard(() => nav(`/messages/new?to=${l.seller.id}&listing=${l.id}`))}><Icon name="chat" />Message</button>
+            {l.status === 'active' && <button className="btn" style={{ flex: 1 }} onClick={() => guard(() => setOffer(true))}>{l.price_type === 'fixed' ? 'Buy at listed price' : l.price_type === 'free' ? 'Ask for it' : 'Make offer'}</button>}
+          </div>}
           <div className="row wrap">
             {mine ? <>
               {l.status === 'active' && <><button className="btn teal" onClick={() => setStatus('sold')}>Mark as sold</button><button className="btn soft" onClick={() => setStatus('reserved')}>Reserve</button></>}
@@ -91,8 +99,6 @@ export function ListingDetail() {
               {l.status === 'active' && !l.featured && <BoostButton targetType="listing" targetId={l.id} />}
               {['active', 'expired'].includes(l.status) && <button className="btn soft" onClick={async () => { try { await api(`/listings/${id}/renew`, { body: {} }); toast('Renewed for another 30 days'); q.refetch(); } catch (e) { toast(errMsg(e), 'err'); } }}>{l.status === 'expired' ? 'Relist' : 'Renew'}</button>}
             </> : <>
-              {l.status === 'active' && <button className="btn" style={{ flex: 1 }} onClick={() => guard(() => setOffer(true))}>{l.price_type === 'fixed' ? 'Buy at listed price' : l.price_type === 'free' ? 'Ask for it' : 'Make offer'}</button>}
-              <button className="btn ghost" onClick={() => guard(() => nav(`/messages/new?to=${l.seller.id}&listing=${l.id}`))}><Icon name="chat" />Message</button>
               {l.status === 'active' && <button className="btn teal" onClick={() => guard(() => nav(`/create/request?listing=${l.id}`))}><Icon name="truck" />Get it moved</button>}</>}
             <button className={`btn soft ${like.on ? '' : ''}`} onClick={like.toggle} aria-pressed={like.on} aria-label="Like"><Icon name="heart" fill={like.on} />{like.count}</button>
             <button className="btn soft" onClick={save.toggle} aria-pressed={save.on} aria-label="Save"><Icon name="save" fill={save.on} /></button>
