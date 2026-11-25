@@ -313,3 +313,12 @@ button[aria-label$="stars"],button[aria-label$="star"]{min-width:44px;min-height
   .mvl{position:sticky;top:76px}
   .mvr .card.pad,.mvr a.card{margin-left:0!important;margin-right:0!important}
 }
+/* wide admin tables scroll inside themselves instead of widening the page */
+.table{display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.brand{min-width:44px;justify-content:center}
+[role=radiogroup]{flex-wrap:wrap}
+@media(max-width:899px){
+  main button{min-height:44px}
+  main a.card,main a.attach,main a.pill,main a.sm,main .card>a{min-height:44px}
+  main a.sm,main .card>a:not(.card):not(.btn){display:inline-flex;align-items:center}
+}
