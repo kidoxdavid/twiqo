@@ -260,7 +260,6 @@ button.sm{min-height:44px;padding:0 6px}
 .act{min-height:44px;min-width:44px}
 .post .who a,.listing-seller a{min-height:44px;min-width:44px;display:inline-flex;align-items:center}
 .searchbox input{min-height:44px}
-.card.row>a,a.card.row b{min-height:0}
 
 /* ===== Slim Move box, How it works, header ===== */
 .mv-hero{padding:14px;border-radius:20px;margin-top:2px}.mv-hero:after{display:none}
@@ -314,7 +313,7 @@ button[aria-label$="stars"],button[aria-label$="star"]{min-width:44px;min-height
   .mvr .card.pad,.mvr a.card{margin-left:0!important;margin-right:0!important}
 }
 /* wide admin tables scroll inside themselves instead of widening the page */
-.table{display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.table{display:block;position:relative;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
 .brand{min-width:44px;justify-content:center}
 [role=radiogroup]{flex-wrap:wrap}
 @media(max-width:899px){
@@ -322,3 +321,9 @@ button[aria-label$="stars"],button[aria-label$="star"]{min-width:44px;min-height
   main a.card,main a.attach,main a.pill,main a.sm,main .card>a{min-height:44px}
   main a.sm,main .card>a:not(.card):not(.btn){display:inline-flex;align-items:center}
 }
+@media(max-width:899px){
+  main a.row,main .row>a:not(.btn):not(.iconbtn):not(.pill){min-height:44px;display:inline-flex;align-items:center}
+  main a.row{display:flex}
+}
+input[type=file]{min-height:44px}
+button.pill,a.pill{min-width:44px;justify-content:center}
