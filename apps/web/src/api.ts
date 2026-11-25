@@ -27,15 +27,26 @@ export class ApiError extends Error {
 }
 
 let refreshing: Promise<boolean> | null = null;
+/** Refresh tokens rotate and live in localStorage, which every tab of the browser shares. Without care, two tabs (or a retry after a
+ *  dropped connection) present the same token, the second is rejected, and the person is signed out everywhere. So: one refresh at a time
+ *  across tabs (Web Locks), always re-read the newest stored token inside the lock, and only sign out when the server says the session
+ *  itself is gone, never on a network blip or a 5xx. */
+async function doRefresh(): Promise<boolean> {
+  const r = storedRefresh(); if (!r) return false;
+  let res: Response;
+  try { res = await fetch(`${BASE}/api/auth/refresh`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: r }) }); }
+  catch { return false; }   // offline: keep the session, try again later
+  if (res.ok) { const j = await res.json(); setTokens(j.access_token, j.refresh_token); return true; }
+  if (res.status === 401 || res.status === 403) {
+    if (storedRefresh() !== r) return storedRefresh() ? doRefresh() : false;   // another tab already rotated it: use theirs
+    setTokens(null, null);
+  }
+  return false;
+}
 export function refreshSession(): Promise<boolean> {
   refreshing ??= (async () => {
-    const r = storedRefresh();
-    if (!r) return false;
-    const res = await fetch(`${BASE}/api/auth/refresh`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: r }) });
-    if (!res.ok) { setTokens(null, null); return false; }
-    const j = await res.json();
-    setTokens(j.access_token, j.refresh_token);
-    return true;
+    const locks = (typeof navigator !== 'undefined' ? navigator.locks : undefined);
+    return locks ? locks.request('twiqo-refresh', () => doRefresh()) : doRefresh();
   })().finally(() => { refreshing = null; });
   return refreshing;
 }

@@ -16,7 +16,7 @@ export function BusinessPage() {
   const team = useQuery({ queryKey: ['team', b.data?.id], enabled: !!b.data?.viewer.role, queryFn: () => api(`/businesses/${b.data.id}/members`) });
   const [member, setMember] = useState(''); const [role, setRole] = useState('listing_manager');
   if (b.isLoading) return <main className="main"><State kind="loading" /></main>;
-  if (b.isError) return <main className="main"><State kind="empty" title="Business not found" action={<Link className="btn" to="/">Back home</Link>} /></main>;
+  if (b.isError) return <main className="main"><State h1 kind="empty" title="Business not found" action={<Link className="btn" to="/">Back home</Link>} /></main>;
   const x = b.data; const canTeam = ['owner', 'manager'].includes(x.viewer.role);
   return (
     <main className="main">

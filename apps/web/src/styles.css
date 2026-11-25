@@ -286,3 +286,30 @@ button.sm{min-height:44px;padding:0 6px}
 .hows .stp b{display:block}.hows .stp small{color:var(--ink2);font-size:13px;line-height:1.4;display:block}
 .hows .trustrow{background:#E3F6F4;border-radius:16px;padding:12px 14px;display:flex;gap:12px;align-items:center;margin-top:4px}.hows .trustrow .tr{color:var(--mvd);display:flex}.hows .trustrow .tr svg{width:26px;height:26px}.hows .trustrow b{font-size:14.5px;display:block}.hows .trustrow small{font-size:12.5px;color:var(--ink2)}
 .hows .gl{font-size:12px;font-weight:800;letter-spacing:.8px;color:var(--ink2);margin:16px 0 8px;text-transform:uppercase}.hows .drv{display:flex;align-items:center;gap:12px}.hows .drv span{flex:1;font-size:13px;color:var(--ink2);line-height:1.4}
+
+/* ===== Audit fixes: shared utilities and touch targets ===== */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.inl{font-size:inherit;font-weight:700;line-height:1.2}
+.state h1{font-size:inherit;font-weight:800;display:block}
+.state h1+*{margin-top:4px}
+/* every "back" control is a real 44px target, aligned with the page gutter */
+button[aria-label^="Back"]{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;margin-left:-10px}
+.clips-top button,.clips-top a{min-height:44px;min-width:44px}
+/* the header has five controls for admins; on the narrowest phones the wordmark yields so nothing overflows */
+@media(max-width:359px){.brand .wm{display:none}.top .in{gap:6px;padding-left:12px}}
+/* swatches, ratings and inline links are tappable at 44px */
+[role=radiogroup] button{min-width:44px;min-height:44px}
+button[aria-label$="stars"],button[aria-label$="star"]{min-width:44px;min-height:44px}
+.attach+a,.row.wrap>a.sm{min-height:44px;display:inline-flex;align-items:center}
+@media(max-width:899px){.table td .btn,.table td button{min-height:44px}}
+.mytiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 16px 4px}
+.mytiles a{display:flex;align-items:center;gap:10px;min-height:52px;padding:0 14px;border-radius:16px;background:#fff;box-shadow:var(--shadow);font-weight:700;font-size:14px}
+.mytiles svg{width:22px;height:22px;color:var(--blue)}
+@media(min-width:720px){.mytiles{grid-template-columns:repeat(4,1fr)}}
+/* Move on wide screens: search on the left, results beside it */
+@media(min-width:1000px){
+  .main.mvpage{max-width:1100px}
+  .mvcols{display:grid;grid-template-columns:400px minmax(0,1fr);gap:0 24px;align-items:start}
+  .mvl{position:sticky;top:76px}
+  .mvr .card.pad,.mvr a.card{margin-left:0!important;margin-right:0!important}
+}

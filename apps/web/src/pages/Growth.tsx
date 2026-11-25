@@ -13,7 +13,7 @@ const Head = ({ title }: { title: string }) => { const nav = useNavigate(); retu
 export function InvitePage() {
   useLocale(); const toast = useToast(); const q = useQuery({ queryKey: ['referrals'], queryFn: () => api('/referrals/me') });
   if (q.isLoading) return <main className="main"><State kind="loading" /></main>;
-  if (q.isError) return <main className="main"><State kind="error" /></main>;
+  if (q.isError) return <main className="main"><State h1 kind="error" /></main>;
   const r = q.data;
   const copy = async () => { try { await navigator.clipboard.writeText(r.link); toast(t('common.copied')); } catch { toast(r.link); } };
   const share = async () => { if (navigator.share) { try { await navigator.share({ title: 'twiqo', url: r.link }); } catch { /* cancelled */ } } else copy(); };
@@ -35,7 +35,7 @@ export function ProPage() {
   useLocale(); const toast = useToast(); const qc = useQueryClient(); const [sp] = useSearchParams(); const [busy, setBusy] = useState(false);
   const q = useQuery({ queryKey: ['sub'], queryFn: () => api('/subscriptions/me') });
   if (q.isLoading) return <main className="main"><State kind="loading" /></main>;
-  if (q.isError) return <main className="main"><State kind="error" /></main>;
+  if (q.isError) return <main className="main"><State h1 kind="error" /></main>;
   const s = q.data; const fakeReturn = sp.get('fake_subscription');
   const act = async (fn: () => Promise<unknown>) => { setBusy(true); try { await fn(); await qc.invalidateQueries({ queryKey: ['sub'] }); } catch (e) { toast(errMsg(e), 'err'); } finally { setBusy(false); } };
   const subscribe = () => act(async () => { const r = await api('/subscriptions/checkout', { method: 'POST', body: {} }); window.location.href = r.url; });

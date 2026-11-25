@@ -15,7 +15,7 @@ export function TripPlanPage() {
   const m = useQuery({ queryKey: ['manifest', id], queryFn: () => api(`/transport/journeys/${id}/manifest`), refetchInterval: 30_000 });
   const canAdd = !!m.data && ['open', 'full'].includes(m.data.journey.status);
   const c = useQuery({ queryKey: ['consolidation', id], queryFn: () => api(`/transport/journeys/${id}/consolidation`), enabled: canAdd });
-  if (m.isLoading) return <main className="main"><State kind="loading" /></main>; if (m.isError) return <main className="main"><State kind="empty" title="Trip not found" action={<Link className="btn" to="/move">Back</Link>} /></main>;
+  if (m.isLoading) return <main className="main"><State kind="loading" /></main>; if (m.isError) return <main className="main"><State h1 kind="empty" title="Trip not found" action={<Link className="btn" to="/move">Back</Link>} /></main>;
   const d = m.data; const s = d.summary;
   return <main className="main"><div className="row" style={{ padding: '0 16px 8px' }}><button onClick={() => nav(`/j/${id}`)} aria-label="Back to the journey"><Icon name="back" /></button><h1 style={{ fontSize: 20, fontWeight: 800 }}>Trip plan</h1></div>
     <div className="col" style={{ padding: '0 16px' }}>

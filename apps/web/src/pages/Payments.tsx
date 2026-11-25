@@ -65,7 +65,7 @@ export function DisputePage() {
   const { id } = useParams(); const nav = useNavigate(); const toast = useToast(); const qc = useQueryClient(); const [text, setText] = useState(''); const [busy, setBusy] = useState(false);
   const q = useQuery({ queryKey: ['dispute', id], queryFn: () => api(`/disputes/${id}`), refetchInterval: 15_000 });
   if (q.isLoading) return <main className="main"><State kind="loading" /></main>;
-  if (q.isError) return <main className="main"><State kind="empty" title="Report not found" action={<Link className="btn" to="/settings/payments">Back</Link>} /></main>;
+  if (q.isError) return <main className="main"><State h1 kind="empty" title="Report not found" action={<Link className="btn" to="/settings/payments">Back</Link>} /></main>;
   const d = q.data; const open = d.status === 'open';
   const send = async () => { setBusy(true); try { await api(`/disputes/${id}/messages`, { body: { body: text.trim() } }); setText(''); q.refetch(); } catch (e) { toast(errMsg(e), 'err'); } finally { setBusy(false); } };
   return (

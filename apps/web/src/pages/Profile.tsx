@@ -1,4 +1,5 @@
-import { t, LanguageSwitch } from '../i18n';
+import { t } from '../i18n';
+import { Icon } from '../components/Icon';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -19,7 +20,7 @@ export function Profile() {
   const tr = useQuery({ queryKey: ['utransport', username, me?.id], queryFn: () => api(`/users/${username}/transport`), enabled: p.isSuccess });
   const rv = useQuery({ queryKey: ['ureviews', username], queryFn: () => api(`/users/${username}/reviews`), enabled: p.isSuccess });
   if (p.isLoading) return <main className="main"><State kind="loading" /></main>;
-  if (p.isError) return <main className="main"><State kind="empty" title="Profile not found" text="This account doesn't exist or isn't available." action={<Link className="btn" to="/">Back home</Link>} /></main>;
+  if (p.isError) return <main className="main"><State h1 kind="empty" title="Profile not found" text="This account doesn't exist or isn't available." action={<Link className="btn" to="/">Back home</Link>} /></main>;
   const u = p.data; const self = u.viewer?.is_self;
   const refresh = () => { qc.invalidateQueries({ queryKey: ['profile'] }); qc.invalidateQueries({ queryKey: ['feed'] }); };
   async function follow() { await guard(async () => { try { await api(`/follows/user/${u.id}`, { method: u.viewer.following ? 'DELETE' : 'POST' }); refresh(); } catch (e) { toast(errMsg(e), 'err'); } }); }
@@ -38,10 +39,13 @@ export function Profile() {
           <div className="stat"><b>{u.counts.posts}</b><span>Posts</span></div><div className="stat"><b>{u.counts.listings}</b><span>Listings</span></div>
         </div>
         <div className="row wrap">
-          {self ? <><Link className="btn ghost" to="/settings/profile">Edit profile</Link><Link className="btn soft" to="/settings">Settings</Link><Link className="btn soft" to="/offers">Offers</Link><Link className="btn soft" to="/bookings">Moves &amp; orders</Link><Link className="btn soft" to="/insights">{t('me.insights')}</Link><Link className="btn soft" to="/saved">Saved</Link><button className="btn soft" onClick={async () => { await logout(); nav('/login'); }}>{t('me.signout')}</button><LanguageSwitch signedIn /></>
+          {self ? <><Link className="btn ghost" style={{ flex: 1 }} to="/settings/profile">Edit profile</Link><Link className="btn soft" style={{ flex: 1 }} to="/settings">Settings</Link></>
             : <><button className={`btn ${u.viewer?.following ? 'soft' : ''}`} style={{ flex: 1 }} onClick={follow}>{u.viewer?.following ? 'Following' : 'Follow'}</button>
               <button className="btn ghost" style={{ flex: 1 }} onClick={() => guard(() => nav(`/messages/new?to=${u.id}`))}>Message</button></>}
         </div>
+        {self && <nav className="mytiles" aria-label="My activity">
+          <Link to="/offers"><Icon name="chat" />Offers</Link><Link to="/bookings"><Icon name="truck" />Moves &amp; orders</Link><Link to="/saved"><Icon name="save" />Saved</Link><Link to="/insights"><Icon name="gear" />{t('me.insights')}</Link>
+        </nav>}
         {self && biz.data?.items.length > 0 && <div className="row wrap" style={{ marginTop: 10 }}>{biz.data.items.map((b: any) => <Link key={b.id} to={`/b/${b.slug}`} className="pill b">{b.name} · {b.role.replace('_', ' ')}</Link>)}</div>}
       </div>
       <div className="tabs" style={{ marginTop: 14 }}>{(['posts', 'listings', 'transport', 'reviews'] as const).map((t) => <button key={t} className={`tab ${tab === t ? 'on' : ''}`} onClick={() => setTab(t)}>{{ posts: 'Posts', listings: 'Listings', transport: 'Transport', reviews: 'Reviews' }[t]}</button>)}</div>

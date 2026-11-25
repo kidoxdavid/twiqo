@@ -81,8 +81,8 @@ export function Clips() {
   useEffect(() => { setActive(0); root.current?.scrollTo({ top: 0 }); }, [tab]);
   return (
     <div className="clips-wrap">
-      <div className="clips-top"><button aria-label="Back" onClick={() => nav(-1)}><Icon name="back" /></button>
-        {(['for_you', 'following', 'nearby'] as Tab[]).map((t) => <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{{ for_you: 'For You', following: 'Following', nearby: 'Nearby' }[t]}</button>)}
+      <div className="clips-top"><button aria-label="Back" onClick={() => nav(-1)}><Icon name="back" /></button><h1 className="sr-only">Clips</h1>
+        <div role="tablist" aria-label="Clips feed" className="row" style={{ gap: 4 }}>{(['for_you', 'following', 'nearby'] as Tab[]).map((t) => <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{{ for_you: 'For You', following: 'Following', nearby: 'Nearby' }[t]}</button>)}</div>
         <span className="sp" /><Link to="/create/clip" aria-label="Create a clip" className="iconbtn"><Icon name="plus" /></Link></div>
       {tab === 'nearby' && !me && <div style={{ position: 'absolute', top: 64, left: 16, right: 16, zIndex: 5 }}><input className="input" aria-label="City" placeholder="Enter a city, e.g. Calgary" value={city} onChange={(e) => setCity(e.target.value)} /></div>}
       <div className="clips" ref={root}>

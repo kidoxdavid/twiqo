@@ -52,5 +52,5 @@ export function Home() {
 export function PostPage() {
   const { id } = useParams(); const nav = useNavigate();
   const q = useQuery({ queryKey: ['post', id], queryFn: () => api(`/posts/${id}`) });
-  return <main className="main">{q.isLoading ? <State kind="loading" /> : q.isError ? <State kind="empty" title="This post isn't available" text="It may have been removed or is private." action={<Link className="btn" to="/">Back home</Link>} /> : <PostCard p={q.data} onRemoved={() => nav('/')} />}</main>;
+  return <main className="main"><h1 className="sr-only">Post</h1>{q.isLoading ? <State kind="loading" /> : q.isError ? <State kind="empty" title="This post isn't available" text="It may have been removed or is private." action={<Link className="btn" to="/">Back home</Link>} /> : <PostCard p={q.data} onRemoved={() => nav('/')} />}</main>;
 }

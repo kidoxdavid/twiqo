@@ -13,9 +13,10 @@ export function Avatar({ user, size = 40 }: { user: { display_name?: string; use
 }
 export const Verified = () => <Icon name="shield" className="vf" />;
 
-export function State({ kind, title, text, action }: { kind: 'loading' | 'empty' | 'error'; title?: string; text?: string; action?: ReactNode }) {
+export function State({ kind, title, text, action, h1 }: { kind: 'loading' | 'empty' | 'error'; title?: string; text?: string; action?: ReactNode; h1?: boolean }) {
   if (kind === 'loading') return <div className="col" style={{ padding: 16 }} aria-busy="true"><div className="skel" style={{ height: 120 }} /><div className="skel" style={{ height: 120 }} /><div className="skel" style={{ height: 120 }} /></div>;
-  return <div className="state"><b>{title ?? (kind === 'error' ? 'Something went wrong' : 'Nothing here yet')}</b>{text}{action && <div style={{ marginTop: 14 }}>{action}</div>}</div>;
+  const heading = title ?? (kind === 'error' ? 'Something went wrong' : 'Nothing here yet');
+  return <div className="state">{h1 ? <h1>{heading}</h1> : <b>{heading}</b>}{text}{action && <div style={{ marginTop: 14 }}>{action}</div>}</div>;
 }
 
 export function Modal({ onClose, children, title }: { onClose: () => void; children: ReactNode; title?: string }) {

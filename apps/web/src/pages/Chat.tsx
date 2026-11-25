@@ -31,7 +31,7 @@ export function NewThread() {
   const l = useQuery({ queryKey: ['listing', listing], queryFn: () => api(`/listings/${listing}`), enabled: !!listing });
   const [msg, setMsg] = useState(''); const [busy, setBusy] = useState(false);
   useEffect(() => { if (l.data && !msg) setMsg(`Hi! Is "${l.data.title}" still available?`); }, [l.data]); // eslint-disable-line
-  if (!to) return <main className="main"><State kind="empty" title="Choose someone to message" /></main>;
+  if (!to) return <main className="main"><State h1 kind="empty" title="Choose someone to message" /></main>;
   async function start() {
     setBusy(true);
     try { const r = await api('/conversations', { body: { recipient_id: to, subject_type: subjectType ?? undefined, subject_id: subjectId ?? undefined, message: msg.trim() || undefined } }); nav(`/messages/${r.id}`, { replace: true }); }
@@ -65,12 +65,12 @@ export function Thread() {
       setBody(''); setPhoto([]); await qc.invalidateQueries({ queryKey: ['thread', id] });
     } catch (e) { toast(errMsg(e), 'err'); } finally { setBusy(false); }
   }
-  if (msgs.isError) return <main className="main"><State kind="empty" title="Conversation not found" action={<Link className="btn" to="/messages">Back to messages</Link>} /></main>;
+  if (msgs.isError) return <main className="main"><State h1 kind="empty" title="Conversation not found" action={<Link className="btn" to="/messages">Back to messages</Link>} /></main>;
   return (
     <main className="main" style={{ paddingBottom: 90 }}>
       <div className="row" style={{ padding: '0 16px 10px' }}>
         <button onClick={() => nav('/messages')} aria-label="Back to messages"><Icon name="back" /></button>
-        {conv && <Link to={`/u/${conv.other.username}`} className="row"><Avatar user={conv.other} size={40} /><div><b>{conv.other.display_name}</b>{conv.subject && <div className="sm muted">Re: {conv.subject.title}</div>}</div></Link>}
+        {conv && <Link to={`/u/${conv.other.username}`} className="row"><Avatar user={conv.other} size={40} /><div><h1 className="inl">{conv.other.display_name}</h1>{conv.subject && <div className="sm muted">Re: {conv.subject.title}</div>}</div></Link>}
         <span className="sp" />
         {conv?.subject && conv.subject.type === 'listing' && <Link className="btn sm soft" to={`/l/${conv.subject.id}`}>View listing</Link>}{conv?.subject && conv.subject.type === 'journey' && <Link className="btn sm soft" to={`/j/${conv.subject.id}`}>View journey</Link>}{conv?.subject && conv.subject.type === 'transport_request' && <Link className="btn sm soft" to={`/r/${conv.subject.id}`}>View shipment</Link>}{conv?.subject && conv.subject.type === 'service' && <Link className="btn sm soft" to={`/s/${conv.subject.id}`}>View service</Link>}
       </div>

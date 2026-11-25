@@ -41,7 +41,7 @@ export function SecurityPage() {
   const [off, setOff] = useState(false); const [offF, setOffF] = useState({ password: '', code: '' }); const [del, setDel] = useState(false); const [delPw, setDelPw] = useState(''); const [busy, setBusy] = useState(false);
   const run = async (fn: () => Promise<unknown>, ok?: string) => { setBusy(true); try { await fn(); if (ok) toast(ok); qc.invalidateQueries({ queryKey: ['security'] }); qc.invalidateQueries({ queryKey: ['sessions'] }); return true; } catch (e) { toast(errMsg(e), 'err'); return false; } finally { setBusy(false); } };
   async function download() { const r = await fetch('/api/me/export', { headers: { Authorization: `Bearer ${getAccessToken()}` } }); if (!r.ok) return toast('Could not prepare your data', 'err'); const a = document.createElement('a'); a.href = URL.createObjectURL(await r.blob()); a.download = 'twiqo-my-data.json'; a.click(); }
-  if (sec.isLoading) return <main className="main"><State kind="loading" /></main>; if (sec.isError) return <main className="main"><State kind="error" /></main>;
+  if (sec.isLoading) return <main className="main"><State kind="loading" /></main>; if (sec.isError) return <main className="main"><State h1 kind="error" /></main>;
   const s = sec.data;
   return <main className="main"><Head title="Account security" />
     <div className="col" style={{ padding: '0 16px' }}>

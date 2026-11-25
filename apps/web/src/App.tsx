@@ -83,7 +83,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="app">
       <header className="top"><div className="in">
-        <Link to="/" className="brand"><Ticks />twiqo</Link>
+        <Link to="/" className="brand" aria-label="twiqo home"><Ticks /><span className="wm">twiqo</span></Link>
         <nav className="navwrap" aria-label="Main">
           <div className="nav">
             <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}><Icon name="home" />{t('nav.home')}</NavLink>
@@ -93,7 +93,7 @@ function Shell({ children }: { children: React.ReactNode }) {
             <NavLink to={me ? `/u/${me.username}` : '/login'} className={({ isActive }) => (isActive && loc.pathname.startsWith('/u/') ? 'active' : '')}><Icon name="user" />{me ? t('nav.me') : t('nav.signin')}</NavLink>
           </div>
         </nav>
-        <form className="searchbox" role="search" onSubmit={(e) => { e.preventDefault(); if (q.trim()) nav(`/market?q=${encodeURIComponent(q.trim())}`); }}>
+        <form className="searchbox" role="search" aria-label="Search twiqo" onSubmit={(e) => { e.preventDefault(); if (q.trim()) nav(`/market?q=${encodeURIComponent(q.trim())}`); }}>
           <Icon name="search" /><input aria-label={t('nav.search_aria')} placeholder={t('nav.search')} value={q} onChange={(e) => setQ(e.target.value)} />
         </form>
         <div className="row" style={{ gap: 2 }}>
@@ -176,7 +176,7 @@ export function App() {
             <Route path="/messages/:id" element={<Private><Thread /></Private>} />
             <Route path="/notifications" element={<Private><Notifications /></Private>} />
             <Route path="/admin/*" element={<Private><Admin /></Private>} />
-            <Route path="*" element={<main className="main"><State kind="empty" title="Page not found" action={<Link className="btn" to="/">Back home</Link>} /></main>} />
+            <Route path="*" element={<main className="main"><State h1 kind="empty" title="Page not found" action={<Link className="btn" to="/">Back home</Link>} /></main>} />
           </Routes>
         </Shell>
       } />

@@ -94,7 +94,7 @@ export function BookingPage() {
   const [cancel, setCancel] = useState(false); const [reason, setReason] = useState(''); const [stars, setStars] = useState(5); const [comment, setComment] = useState('');
   const [upd, setUpd] = useState({ note: '', loc: '' }); const [updPhoto, setUpdPhoto] = useState<Uploaded[]>([]); const [addr, setAddr] = useState<any>(null); const [busy, setBusy] = useState(false);
   if (q.isLoading) return <main className="main"><State kind="loading" /></main>;
-  if (q.isError) return <main className="main"><State kind="empty" title="Booking not found" action={<Link className="btn" to="/bookings">My moves</Link>} /></main>;
+  if (q.isError) return <main className="main"><State h1 kind="empty" title="Booking not found" action={<Link className="btn" to="/bookings">My moves</Link>} /></main>;
   const b = q.data; const ship = b.my_role === 'shipper'; const has = (a: string) => b.actions.includes(a); const a = addr ?? b.address;
   const call = async (path: string, body: unknown = {}, ok = 'Updated') => { setBusy(true); try { await api(`/bookings/${id}/${path}`, { body }); toast(ok); refresh(); return true; } catch (e) { toast(errMsg(e), 'err'); return false; } finally { setBusy(false); } };
   return (
@@ -163,7 +163,7 @@ export function OrderPage() {
   const { id } = useParams(); const toast = useToast(); const qc = useQueryClient(); const nav = useNavigate();
   const q = useQuery({ queryKey: ['order', id], queryFn: () => api(`/orders/${id}`) }); const [stars, setStars] = useState(5); const [comment, setComment] = useState(''); const [busy, setBusy] = useState(false);
   if (q.isLoading) return <main className="main"><State kind="loading" /></main>;
-  if (q.isError) return <main className="main"><State kind="empty" title="Order not found" action={<Link className="btn" to="/bookings">My orders</Link>} /></main>;
+  if (q.isError) return <main className="main"><State h1 kind="empty" title="Order not found" action={<Link className="btn" to="/bookings">My orders</Link>} /></main>;
   const o = q.data; const has = (a: string) => o.actions.includes(a);
   const call = async (path: string, body: unknown = {}, ok = 'Updated') => { setBusy(true); try { await api(`/orders/${id}/${path}`, { body }); toast(ok); qc.invalidateQueries(); q.refetch(); } catch (e) { toast(errMsg(e), 'err'); } finally { setBusy(false); } };
   return (

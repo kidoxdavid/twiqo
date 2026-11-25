@@ -93,7 +93,7 @@ export function CirclePage() {
   const pending = useQuery({ queryKey: ['cpending', slug], queryFn: () => api(`/circles/${slug}/members`, { query: { status: 'pending' } }), enabled: isMod && tab === 'members' });
   const [invite, setInvite] = useState(''); const [ev, setEv] = useState({ title: '', starts: '', venue: '', description: '' }); const [edit, setEdit] = useState<any>(null);
   if (q.isLoading) return <main className="main"><State kind="loading" /></main>;
-  if (q.isError) return <main className="main"><State kind="empty" title="Circle not found" text="It may be private or no longer exist." action={<Link className="btn" to="/circles">Browse circles</Link>} /></main>;
+  if (q.isError) return <main className="main"><State h1 kind="empty" title="Circle not found" text="It may be private or no longer exist." action={<Link className="btn" to="/circles">Browse circles</Link>} /></main>;
   const refresh = () => { qc.invalidateQueries({ queryKey: ['circle'] }); qc.invalidateQueries({ queryKey: ['cposts'] }); qc.invalidateQueries({ queryKey: ['cmembers'] }); qc.invalidateQueries({ queryKey: ['cpending'] }); qc.invalidateQueries({ queryKey: ['circles'] }); qc.invalidateQueries({ queryKey: ['mycircles'] }); qc.invalidateQueries({ queryKey: ['feed'] }); };
   const act = async (fn: () => Promise<unknown>, ok?: string) => { setBusy(true); try { await fn(); if (ok) toast(ok); refresh(); } catch (e) { toast(errMsg(e), 'err'); } finally { setBusy(false); } };
   const st = c.viewer?.status;

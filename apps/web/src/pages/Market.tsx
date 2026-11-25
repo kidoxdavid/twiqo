@@ -28,7 +28,7 @@ export function Market() {
     <main className="main wide">
       <h1 className="page" style={{ paddingBottom: 2 }}>{t('market.title')}</h1>
       <p className="muted" style={{ padding: '0 16px 12px', fontSize: 13.5 }}>{t('market.sub')}</p>
-      <form className="row" style={{ padding: '0 16px 12px' }} role="search" onSubmit={(e) => { e.preventDefault(); const v = (new FormData(e.currentTarget).get('q') as string).trim(); if (v) track('search', undefined, { q_len: v.length }); set('q', v); }}>
+      <form className="row" style={{ padding: '0 16px 12px' }} role="search" aria-label="Search the market" onSubmit={(e) => { e.preventDefault(); const v = (new FormData(e.currentTarget).get('q') as string).trim(); if (v) track('search', undefined, { q_len: v.length }); set('q', v); }}>
         <div className="searchbox" style={{ display: 'flex', maxWidth: 'none' }}><Icon name="search" /><input name="q" aria-label="Search listings" placeholder={t('market.search')} defaultValue={get('q')} key={get('q')} autoFocus={!!get('focus')} /></div>
         <button type="button" className="btn soft" aria-expanded={showFilters} onClick={() => setShowFilters(!showFilters)}><Icon name="filter" />{t('market.filters')}</button>
       </form>
@@ -65,7 +65,7 @@ export function ListingDetail() {
   const like = useToggle('reactions', 'listing', id!, l?.viewer.liked ?? false, l?.counts.likes ?? 0);
   const save = useToggle('saves', 'listing', id!, l?.viewer.saved ?? false);
   if (q.isLoading) return <main className="main wide"><State kind="loading" /></main>;
-  if (q.isError) return <main className="main wide"><State kind="empty" title="This listing isn't available" text="It may have been sold, removed, or is private." action={<Link className="btn" to="/market">Browse the market</Link>} /></main>;
+  if (q.isError) return <main className="main wide"><State h1 kind="empty" title="This listing isn't available" text="It may have been sold, removed, or is private." action={<Link className="btn" to="/market">Browse the market</Link>} /></main>;
   const mine = l.viewer.is_owner;
   async function setStatus(status: string) { try { await api(`/listings/${id}`, { method: 'PATCH', body: { status } }); toast('Updated'); q.refetch(); } catch (e) { toast(errMsg(e), 'err'); } }
   return (

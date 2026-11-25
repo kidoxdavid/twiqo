@@ -30,7 +30,7 @@ export function Move() {
   const items = q.data?.pages.flatMap((p: any) => p.items) ?? [];
   const search = (e: React.FormEvent) => { e.preventDefault(); const n = new URLSearchParams(sp); for (const [k, v] of [['from', from], ['to', to], ['date', date]]) v ? n.set(k, v) : n.delete(k); setSp(n, { replace: true }); };
   return (
-    <main className="main mvpage">
+    <main className="main mvpage"><div className="mvcols"><div className="mvl">
       <div className="row" style={{ padding: '0 16px' }}><h1 className="page" style={{ padding: '6px 0 4px', flex: 1 }}>Move</h1>{me && <><Link className="btn sm soft" to="/bookings">My moves</Link><Link className="btn sm soft" to="/offers">Offers</Link></>}</div>
       <p className="muted" style={{ padding: '0 16px 8px', fontSize: 13.5 }}>{t('move.sub')}</p>
       <div style={{ padding: '0 16px 10px' }}><HowLink /></div>
@@ -48,10 +48,12 @@ export function Move() {
       <div className="mvactions">
         <Link className="btn mv-ghost" to="/create/request"><Icon name="box" />{t('move.post_request')}</Link><Link className="btn mv-ghost" to="/create/journey"><Icon name="route" />{t('move.offer_trip')}</Link><Link className="btn mv-ghost" to="/create/service"><Icon name="truck" />{t('move.offer_service')}</Link>
       </div>
+      </div><div className="mvr">
       {q.isLoading ? <State kind="loading" /> : q.isError ? <State kind="error" text={(q.error as Error).message} /> : items.length === 0
         ? <State kind="empty" title={tab === 'journeys' ? 'No journeys match' : tab === 'requests' ? 'No requests match' : 'No services here yet'} text="Try a wider search, or post what you need and let drivers come to you." action={<Link className="btn" to={tab === 'journeys' ? '/create/request' : tab === 'requests' ? '/create/journey' : '/create/service'}>{tab === 'journeys' ? 'Post a request' : tab === 'requests' ? 'Post a journey' : 'Offer a service'}</Link>} />
         : <>{items.map((x: any) => tab === 'journeys' ? <JourneyCard key={x.id} j={x} /> : tab === 'requests' ? <RequestCard key={x.id} r={x} /> : <ServiceCard key={x.id} s={x} />)}
           {q.hasNextPage && <div style={{ textAlign: 'center', padding: 12 }}><button className="btn ghost" disabled={q.isFetchingNextPage} onClick={() => q.fetchNextPage()}>Load more</button></div>}</>}
+    </div></div>
     </main>
   );
 }
@@ -78,7 +80,7 @@ export function JourneyPage() {
   const j = q.data; const owner = j?.viewer.is_owner;
   const matches = useQuery({ queryKey: ['jmatches', id], queryFn: () => api(`/transport/journeys/${id}/matches`), enabled: !!owner && j?.status === 'open' });
   if (q.isLoading) return <main className="main"><State kind="loading" /></main>;
-  if (q.isError) return <main className="main"><State kind="empty" title="This journey isn't available" action={<Link className="btn" to="/move">Browse journeys</Link>} /></main>;
+  if (q.isError) return <main className="main"><State h1 kind="empty" title="This journey isn't available" action={<Link className="btn" to="/move">Browse journeys</Link>} /></main>;
   const pts = [j.origin, ...j.waypoints, j.destination].map((p: any) => ({ lat: p.lat, lng: p.lng, label: p.city }));
   const act = async (path: string, method = 'POST') => { try { await api(`/transport/journeys/${id}${path}`, { method }); toast('Updated'); qc.invalidateQueries(); } catch (e) { toast(errMsg(e), 'err'); } };
   return (
@@ -126,7 +128,7 @@ export function RequestPage() {
   const matches = useQuery({ queryKey: ['rmatches', id], queryFn: () => api(`/transport/requests/${id}/matches`), enabled: !!owner && r?.status === 'open' });
   const offers = useQuery({ queryKey: ['offers', 'request', id], queryFn: () => api('/offers', { query: { request_id: id, state: 'active' } }), enabled: !!me && r?.status === 'open' });
   if (q.isLoading) return <main className="main"><State kind="loading" /></main>;
-  if (q.isError) return <main className="main"><State kind="empty" title="This request isn't available" text="It may have been booked or cancelled." action={<Link className="btn" to="/move?tab=requests">Browse requests</Link>} /></main>;
+  if (q.isError) return <main className="main"><State h1 kind="empty" title="This request isn't available" text="It may have been booked or cancelled." action={<Link className="btn" to="/move?tab=requests">Browse requests</Link>} /></main>;
   const pts = [r.origin, r.destination].map((p: any) => ({ lat: p.lat, lng: p.lng, label: p.city }));
   const d = r.dimensions_cm;
   return (
@@ -146,7 +148,7 @@ export function RequestPage() {
         </div>
         {r.description && <p style={{ lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{r.description}</p>}
         {r.images.length > 0 && <div className="row" style={{ overflowX: 'auto' }}>{r.images.map((m: any) => <img key={m.id} src={m.thumb_url} alt="" style={{ width: 96, height: 96, borderRadius: 14, objectFit: 'cover' }} />)}</div>}
-        {r.linked_listing && <Link className="attach" to={`/l/${r.linked_listing.id}`}><div className="tx"><b>Moving a purchase</b><span className="muted sm">{r.linked_listing.title}</span></div><Icon name="back" /></Link>}
+        {r.linked_listing && <Link className="attach" to={`/l/${r.linked_listing.id}`}><div className="tx"><b>Moving a purchase</b><span className="muted sm">{r.linked_listing.title}</span></div><Icon name="chev" /></Link>}
         <Person u={r.requester} role="Shipper" />
         <div className="row wrap">
           {!owner && r.status === 'open' && <button className="btn" style={{ flex: 1 }} onClick={() => guard(() => setOffer(true))}>Offer to carry this</button>}
@@ -175,7 +177,7 @@ export function ServicePage() {
   const s = q.data; const owner = s?.viewer.is_owner;
   useEffect(() => { if (s && !owner) track('view', { type: 'transport_service', id: s.id }); }, [s?.id, owner]);   // eslint-disable-line react-hooks/exhaustive-deps
   if (q.isLoading) return <main className="main"><State kind="loading" /></main>;
-  if (q.isError) return <main className="main"><State kind="empty" title="This service isn't available" action={<Link className="btn" to="/move?tab=services">Browse services</Link>} /></main>;
+  if (q.isError) return <main className="main"><State h1 kind="empty" title="This service isn't available" action={<Link className="btn" to="/move?tab=services">Browse services</Link>} /></main>;
   const unit = { flat: ' flat', hourly: ' per hour', per_km: ' per km' }[s.pricing_model as string];
   return (
     <main className="main"><div style={{ padding: '0 16px 8px' }}><button className="row muted" onClick={() => nav(-1)}><Icon name="back" />Back</button></div>

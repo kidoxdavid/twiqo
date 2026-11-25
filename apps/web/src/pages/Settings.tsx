@@ -2,18 +2,19 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
+import { useAuth } from '../auth';
 import { Icon } from '../components/Icon';
 import { useToast } from '../components/Toast';
 import { State, ago, errMsg } from '../components/ui';
-import { t, useLocale } from '../i18n';
+import { t, useLocale, LanguageSwitch } from '../i18n';
 
 const Head = ({ title }: { title: string }) => { const nav = useNavigate(); return <div className="row" style={{ padding: '0 16px 8px' }}><button onClick={() => nav(-1)} aria-label={t('common.back')}><Icon name="back" /></button><h1 style={{ fontSize: 20, fontWeight: 800 }}>{title}</h1></div>; };
 
 // ------------------------------------------------------------------------------------------------ /settings
 export function SettingsHub() {
-  useLocale(); const rows: [string, string, string][] = [['/settings/profile', 'Edit profile', 'Name, photo, bio and privacy'], ['/settings/security', 'Account security', 'Password, two-step verification, sessions, your data'], ['/settings/notifications', 'Notifications & saved searches', 'Push, email and alerts'],
+  useLocale(); const { logout } = useAuth(); const nav = useNavigate(); const rows: [string, string, string][] = [['/settings/profile', 'Edit profile', 'Name, photo, bio and privacy'], ['/settings/security', 'Account security', 'Password, two-step verification, sessions, your data'], ['/settings/notifications', 'Notifications & saved searches', 'Push, email and alerts'],
     ['/settings/verification', 'Verification', 'Verify your identity and driver documents'], ['/settings/safety', 'Safety', 'Emergency contacts for deliveries'], ['/settings/payments', 'Payments & payouts', 'Cards, payouts, receipts'], ['/settings/invite', 'Invite friends', 'Earn twiqo credit'], ['/settings/pro', 'Business Pro', 'Lower fees and deeper insights'], ['/legal/terms', 'Terms, privacy & policies', 'How twiqo works and how we protect you']];
-  return <main className="main"><Head title="Settings" /><div className="col" style={{ padding: '0 16px' }}>{rows.map(([to, a, b]) => <Link key={to} to={to} className="card pad row"><div style={{ flex: 1 }}><b>{a}</b><div className="muted sm">{b}</div></div><Icon name="back" className="flip" /></Link>)}</div></main>;
+  return <main className="main"><Head title="Settings" /><div className="col" style={{ padding: '0 16px' }}>{rows.map(([to, a, b]) => <Link key={to} to={to} className="card pad row"><div style={{ flex: 1 }}><b>{a}</b><div className="muted sm">{b}</div></div><Icon name="back" className="flip" /></Link>)}<div className="card pad col" style={{ gap: 10 }}><b>{t('common.language')}</b><LanguageSwitch signedIn /></div><button className="btn soft" onClick={async () => { await logout(); nav('/login'); }}>{t('me.signout')}</button></div></main>;
 }
 
 // ------------------------------------------------------------------------------------------------ /settings/notifications
@@ -33,7 +34,7 @@ export function NotificationSettings() {
     } catch (e) { toast(errMsg(e), 'err'); } finally { setBusy(false); }
   }
   async function disablePush() { try { const reg = await navigator.serviceWorker.ready; const sub = await reg.pushManager.getSubscription(); if (sub) { await api('/push/subscribe', { method: 'DELETE', body: { endpoint: sub.endpoint } }); await sub.unsubscribe(); } toast('Push is off for this device'); qc.invalidateQueries({ queryKey: ['channels'] }); } catch (e) { toast(errMsg(e), 'err'); } }
-  if (q.isLoading) return <main className="main"><State kind="loading" /></main>; if (q.isError) return <main className="main"><State kind="error" /></main>;
+  if (q.isLoading) return <main className="main"><State kind="loading" /></main>; if (q.isError) return <main className="main"><State h1 kind="error" /></main>;
   const c = q.data;
   return <main className="main"><Head title="Notifications" /><div className="col" style={{ padding: '0 16px' }}>
     <div className="card pad col"><div className="row"><b>Push notifications</b><span className="sp" /><span className={`pill ${c.push_devices ? 't' : ''}`}>{c.push_devices ? `${c.push_devices} device${c.push_devices > 1 ? 's' : ''}` : 'Off'}</span></div>
