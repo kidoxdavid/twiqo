@@ -219,6 +219,9 @@ for (const [k, n, loc, h, a] of [['booked', 'Booking confirmed', null, 50, amara
 }
 
 // ------------------------------------------------------------------ Phase 3: circles, clips, stories
+// Sample clips are real transcoded videos, so they need ffmpeg; without it the seed still works, just without clips.
+const hasFfmpeg = (() => { try { execFileSync('ffmpeg', ['-version'], { stdio: 'ignore' }); return true; } catch { return false; } })();
+if (!hasFfmpeg) console.warn('ffmpeg not found: skipping the sample video clips (install ffmpeg to get them).');
 const mkVideo = async (owner: string, source: string, title: string, secs = 6) => {
   const id = crypto.randomUUID(); const prov = localProvider();
   execFileSync('ffmpeg', ['-y', '-v', 'error', '-t', String(secs), '-f', 'lavfi', '-i', source, '-f', 'lavfi', '-i', `sine=frequency=${300 + Math.floor(Math.random() * 300)}:duration=${secs}`, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', prov.uploadPath(id) + '.mp4']);
@@ -277,6 +280,7 @@ for (const [g, title, d, venue, host] of [[yycBuy, 'Community garage sale meetup
 // clips (real transcoded videos) tagged with a product, a journey and a service
 const clipSrc = ['gradients=s=540x960:speed=0.04', 'testsrc2=s=540x960:rate=24', 'mandelbrot=s=540x960:rate=24'];
 const clip = async (author: string, body: string, src: string, tag: [string, string], hours: number, group?: string) => {
+  if (!hasFfmpeg) return '';
   const v = await mkVideo(author, src, body.slice(0, 40)); const pl = await place('Calgary');
   const p = (await pool.query(`INSERT INTO posts(author_id,group_id,kind,body,attachment_type,attachment_id,video_id,view_count,location,created_at) VALUES ($1,$2,'video',$3,$4,$5,$6,$7,$8, now() - ($9 || ' hours')::interval) RETURNING id`,
     [author, group ?? null, body, tag[0], tag[1], v, 100 + Math.floor(Math.random() * 900), group ? null : pl.location, String(hours)])).rows[0].id as string;
@@ -286,7 +290,7 @@ const clip = async (author: string, body: string, src: string, tag: [string, str
 const clipA = await clip(amara, 'Apartment move-out sale: the sofa goes first! DM me an offer or get it delivered.', clipSrc[0], ['listing', sofa], 4);
 await clip(daniel, 'Truck is packed and the route is set: Toronto → Calgary, Nov 28. Space for your boxes!', clipSrc[1], ['journey', tor], 7, torCal);
 await clip(marcus, 'Same-day furniture delivery around Calgary — I bring the straps and help carry.', clipSrc[2], ['transport_service', svc], 11);
-for (const [t, id, u] of [['post', clipA, marcus], ['post', clipA, omar], ['post', clipA, calgaryLife]] as const) { await pool.query(`INSERT INTO reactions(user_id,target_type,target_id) VALUES ($1,$2,$3)`, [u, t, id]); await pool.query(`UPDATE posts SET like_count = like_count + 1 WHERE id=$1`, [id]); }
+for (const [t, id, u] of (clipA ? [['post', clipA, marcus], ['post', clipA, omar], ['post', clipA, calgaryLife]] as const : [])) { await pool.query(`INSERT INTO reactions(user_id,target_type,target_id) VALUES ($1,$2,$3)`, [u, t, id]); await pool.query(`UPDATE posts SET like_count = like_count + 1 WHERE id=$1`, [id]); }
 void welcome;
 
 // stories: expiry follows platform_settings story.expiry_hours (24h)
