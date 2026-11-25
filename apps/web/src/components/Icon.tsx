@@ -1,5 +1,5 @@
 const P: Record<string, string> = {
-  chev: 'M9 5l7 7-7 7', home: 'M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10', bag: 'M5 8h14l-1 12H6L5 8zM9 8a3 3 0 016 0', plus: 'M12 5v14M5 12h14',
+  chev: 'M9 5l7 7-7 7', help: 'M12 3a9 9 0 100 18 9 9 0 000-18zM9.5 9.5a2.5 2.5 0 114 2c-.8.6-1.5 1-1.5 2M12 17h.01', home: 'M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10', bag: 'M5 8h14l-1 12H6L5 8zM9 8a3 3 0 016 0', plus: 'M12 5v14M5 12h14',
   truck: 'M2 6h12v10H2zM14 9h4l3 3v4h-7M7 17.5h.01M17 17.5h.01', user: 'M12 4a4 4 0 100 8 4 4 0 000-8zM4 21c0-4 4-6 8-6s8 2 8 6',
   search: 'M11 4a7 7 0 100 14 7 7 0 000-14zM20 20l-4-4', bell: 'M6 17V11a6 6 0 0112 0v6l2 2H4l2-2zM10 21h4', chat: 'M4 5h16v11H9l-5 4V5z',
   heart: 'M12 20s-8-5-8-11a4.5 4.5 0 018-2.5A4.5 4.5 0 0120 9c0 6-8 11-8 11z', share: 'M21 3L10 14M21 3l-7 18-4-7-7-4 18-7z', save: 'M6 3h12v18l-6-4-6 4V3z',

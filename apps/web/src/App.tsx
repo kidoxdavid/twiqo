@@ -97,9 +97,8 @@ function Shell({ children }: { children: React.ReactNode }) {
           <Icon name="search" /><input aria-label={t('nav.search_aria')} placeholder={t('nav.search')} value={q} onChange={(e) => setQ(e.target.value)} />
         </form>
         <div className="row" style={{ gap: 2 }}>
-          <Link to="/market?focus=1" className="iconbtn mobsearch" aria-label="Search"><Icon name="search" /></Link>
-          <Link to="/clips" className="iconbtn deskonly" aria-label="Clips"><Icon name="film" /></Link>
-          <Link to="/search" className="iconbtn deskonly" aria-label="Find people"><Icon name="users" /></Link>
+          <Link to="/clips" className="iconbtn" aria-label="Clips"><Icon name="film" /></Link>
+          <Link to="/search" className="iconbtn" aria-label="Find people"><Icon name="users" /></Link>
           {me && <><Link to="/messages" className="iconbtn" aria-label="Messages"><Icon name="chat" />{unread.data?.messages > 0 && <span className="badge">{unread.data.messages}</span>}</Link>
             <Link to="/notifications" className="iconbtn" aria-label="Notifications"><Icon name="bell" />{unread.data?.notifications > 0 && <span className="badge">{unread.data.notifications}</span>}</Link>
             {isAdmin && <Link to="/admin" className="iconbtn" aria-label="Admin"><Icon name="gear" /></Link>}</>}

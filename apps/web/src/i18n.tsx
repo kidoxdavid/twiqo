@@ -33,6 +33,9 @@ const en: Record<string, string> = {
   'move.sub': "Send something, or earn on a trip you're already making.", 'move.tab.journeys': 'Drivers going my way', 'move.tab.requests': 'Things to move', 'move.tab.services': 'Movers for hire', 'move.search.journeys': 'Search drivers', 'move.search.requests': 'Search requests', 'move.search.services': 'Find movers', 'move.from': 'From', 'move.space_left': 'free', 'move.post_request': 'Post a request', 'move.offer_trip': 'Offer a trip', 'move.offer_service': 'Offer a service', 'move.results': 'Results',
   'deliver.title': 'Get it delivered', 'deliver.drivers': 'Drivers leaving {city}: {n}', 'deliver.none': 'No drivers listed from here yet', 'deliver.post': 'Post it and let drivers offer', 'deliver.see': 'See drivers', 'deliver.cta': 'Request a driver',
   'create.group.move': 'Move', 'create.group.sell': 'Sell', 'create.group.share': 'Share', 'create.send': 'Send something', 'create.send.d': "Post what you're moving, get driver offers",
+  'how.s1': 'Post it', 'how.s1d': 'Size, weight, route', 'how.s2': 'Pick a driver', 'how.s2d': 'Ratings and route', 'how.s3': 'Hand over with a PIN', 'how.s3d': 'Track, pay, confirm', 'how.learn': 'Learn more', 'how.link': 'How Move works', 'how.sheet_title': 'How Move works', 'how.got_it': 'Got it',
+  'how.1l': "1. Post what you're moving", 'how.2l': '2. Pick a driver you trust', 'how.3l': '3. Hand over with a PIN', 'how.driving': 'Driving somewhere?', 'how.driving_d': 'Offer your spare space and earn on trips you are already making.',
+  'how.new_title': 'New to Move?', 'how.new_text': 'See how it works in 30 seconds', 'how.new_cta': 'How it works', 'how.dismiss': 'Dismiss',
 };
 
 const fr: Record<string, string> = {
@@ -62,6 +65,9 @@ const fr: Record<string, string> = {
   'move.sub': 'Envoyez quelque chose ou gagnez sur un trajet que vous faites déjà.', 'move.tab.journeys': 'Conducteurs sur ma route', 'move.tab.requests': 'À transporter', 'move.tab.services': 'Transporteurs', 'move.search.journeys': 'Chercher un conducteur', 'move.search.requests': 'Chercher des demandes', 'move.search.services': 'Trouver un transporteur', 'move.from': 'Dès', 'move.space_left': 'libres', 'move.post_request': 'Publier une demande', 'move.offer_trip': 'Proposer un trajet', 'move.offer_service': 'Proposer un service',
   'deliver.title': 'Faites-le livrer', 'deliver.drivers': 'Conducteurs au départ de {city} : {n}', 'deliver.none': 'Aucun conducteur au départ de cette ville pour le moment', 'deliver.see': 'Voir les conducteurs', 'deliver.cta': 'Demander un conducteur',
   'create.group.move': 'Transport', 'create.group.sell': 'Vendre', 'create.group.share': 'Partager', 'create.send': 'Envoyer quelque chose',
+  'how.s1': 'Publiez', 'how.s1d': 'Taille, poids, trajet', 'how.s2': 'Choisissez', 'how.s2d': 'Évaluations et trajet', 'how.s3': 'Remise avec un NIP', 'how.s3d': 'Suivi, paiement, confirmation', 'how.learn': 'En savoir plus', 'how.link': 'Comment fonctionne Transport', 'how.sheet_title': 'Comment fonctionne Transport', 'how.got_it': 'Compris',
+  'how.1l': '1. Décrivez ce que vous transportez', 'how.2l': '2. Choisissez un conducteur de confiance', 'how.3l': '3. Remise avec un NIP', 'how.driving': 'Vous conduisez quelque part?', 'how.driving_d': 'Proposez votre espace libre et gagnez de l\'argent sur des trajets que vous faites déjà.',
+  'how.new_title': 'Nouveau sur Transport?', 'how.new_text': 'Découvrez comment ça marche en 30 secondes', 'how.new_cta': 'Comment ça marche', 'how.dismiss': 'Fermer',
 };
 const dicts: Record<Locale, Record<string, string>> = { en, fr };
 

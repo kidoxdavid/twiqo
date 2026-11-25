@@ -11,6 +11,7 @@ import { BoostButton } from '../components/payments';
 import { BookBundleDialog } from '../components/bundles';
 import { ReturnSuggestions, SaveSearchButton } from '../components/tools';
 import { t } from '../i18n';
+import { HowLink } from '../components/movehome';
 import { Avatar, Menu, ReportDialog, State, Verified, errMsg, money } from '../components/ui';
 
 type Tab = 'journeys' | 'requests' | 'services';
@@ -31,7 +32,8 @@ export function Move() {
   return (
     <main className="main mvpage">
       <div className="row" style={{ padding: '0 16px' }}><h1 className="page" style={{ padding: '6px 0 4px', flex: 1 }}>Move</h1>{me && <><Link className="btn sm soft" to="/bookings">My moves</Link><Link className="btn sm soft" to="/offers">Offers</Link></>}</div>
-      <p className="muted" style={{ padding: '0 16px 12px', fontSize: 13.5 }}>{t('move.sub')}</p>
+      <p className="muted" style={{ padding: '0 16px 8px', fontSize: 13.5 }}>{t('move.sub')}</p>
+      <div style={{ padding: '0 16px 10px' }}><HowLink /></div>
       <div className="seg" role="tablist" aria-label="Move">
         {(['journeys', 'requests', 'services'] as Tab[]).map((k) => <button key={k} role="tab" aria-selected={tab === k} className={`tab ${tab === k ? 'on' : ''}`} onClick={() => set('tab', k === 'journeys' ? '' : k)}>{t(`move.tab.${k}`)}</button>)}
       </div>

@@ -9,7 +9,7 @@ import { t, useLocale } from '../i18n';
 import { JourneyCard, RequestCard, ServiceCard } from '../components/transport';
 import { StoryTray } from '../components/stories';
 import { PeopleToFollow } from '../components/growth';
-import { ActiveMoves, DriversNearYou, HowItWorks, MoveHero, ShopStrip } from '../components/movehome';
+import { ActiveMoves, DriversNearYou, HowStrip, MoveHero, NewMemberCard, ShopStrip } from '../components/movehome';
 import { Icon } from '../components/Icon';
 
 const tabs = (): [string, string][] => [['for_you', t('home.for_you')], ['following', t('home.following')], ['nearby', t('home.nearby')], ['circles', t('home.circles')]];
@@ -30,7 +30,7 @@ export function Home() {
   const items = q.data?.pages.flatMap((p) => p.items) ?? [];
   return (
     <main className="main">
-      {me ? <><Greeting name={me.display_name} city={me.city} /><MoveHero /><ActiveMoves /><DriversNearYou /><ShopStrip /></> : <><MoveHero guest /><HowItWorks /><ShopStrip /></>}
+      {me ? <><Greeting name={me.display_name} city={me.city} /><MoveHero /><NewMemberCard /><ActiveMoves /><DriversNearYou /><ShopStrip /></> : <><MoveHero guest /><HowStrip /><ShopStrip /></>}
       <div className="secrow"><h2 className="sec">{t('home.community')}</h2><span className="shortcuts"><Link to="/clips" className="more">Clips</Link><Link to="/search" className="more">People</Link></span></div>
       <div className="tabs" role="tablist" aria-label="Feed">{tabs().map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={`tab ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}</div>
       {me && <StoryTray />}

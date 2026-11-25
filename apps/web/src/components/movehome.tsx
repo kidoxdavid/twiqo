@@ -5,7 +5,7 @@ import { api } from '../api';
 import { useAuth } from '../auth';
 import { Icon } from './Icon';
 import { CityInput, RouteLine, fmtDate } from './transport';
-import { Verified, money } from './ui';
+import { Modal, Verified, money } from './ui';
 import { t } from '../i18n';
 
 /** Where am I sending something? Sends the visitor to Move with the route filled in. */
@@ -14,7 +14,6 @@ export function MoveHero({ guest }: { guest?: boolean }) {
   const go = (e: React.FormEvent) => { e.preventDefault(); const p = new URLSearchParams(); if (from.trim()) p.set('from', from.trim()); if (to.trim()) p.set('to', to.trim()); nav(`/move${p.toString() ? `?${p}` : ''}`); };
   return (
     <section className="mv-hero" aria-labelledby="mvh">
-      {guest && <span className="mv-badge"><Icon name="truck" />{t('hero.badge')}</span>}
       <h1 id="mvh">{guest ? t('hero.guest_title') : t('hero.title')}</h1>
       <p>{guest ? t('hero.guest_text') : t('hero.text')}</p>
       <form className="col" style={{ gap: 10, marginTop: 14 }} onSubmit={go}>
@@ -27,15 +26,57 @@ export function MoveHero({ guest }: { guest?: boolean }) {
   );
 }
 
-export function HowItWorks() {
-  const steps = [[t('how.1'), t('how.1d')], [t('how.2'), t('how.2d')], [t('how.3'), t('how.3d')]];
+/** The full explanation, opened from the strip, the new-member card or the Move page. */
+export function HowSheet({ onClose }: { onClose: () => void }) {
+  const steps: [string, string, string][] = [['box', t('how.1l'), t('how.1d')], ['users', t('how.2l'), t('how.2d')], ['shield', t('how.3l'), t('how.3d')]];
   return (
-    <section style={{ padding: '0 16px' }} aria-labelledby="hiw">
-      <h2 className="sec" id="hiw" style={{ marginTop: 22 }}>{t('how.title')}</h2>
-      <ol className="steps">{steps.map(([a, b], i) => <li key={i}><span className="n">{i + 1}</span><div><b>{a}</b><small>{b}</small></div></li>)}</ol>
-      <div className="card pad row" style={{ marginTop: 18, gap: 12 }}><span className="trust"><Icon name="shield" /></span><div><b>{t('how.paid')}</b><div className="muted sm">{t('how.paid_d')}</div></div></div>
+    <Modal onClose={onClose} title={t('how.sheet_title')}>
+      <div className="hows">
+        {steps.map(([ic, a, d]) => <div className="stp" key={a}><span className="n"><Icon name={ic} /></span><div><b>{a}</b><small>{d}</small></div></div>)}
+        <div className="trustrow"><span className="tr"><Icon name="shield" /></span><div><b>{t('how.paid')}</b><small>{t('how.paid_d')}</small></div></div>
+        <h3 className="gl">{t('how.driving')}</h3>
+        <div className="drv"><span>{t('how.driving_d')}</span><Link to="/create/journey" onClick={onClose} className="btn mv-ghost"><Icon name="route" />{t('move.offer_trip')}</Link></div>
+        <button className="btn block" style={{ marginTop: 16 }} onClick={onClose}>{t('how.got_it')}</button>
+      </div>
+    </Modal>
+  );
+}
+
+/** Three short steps in one row, for visitors. */
+export function HowStrip() {
+  const [open, setOpen] = useState(false);
+  const steps: [string, string, string][] = [['box', t('how.s1'), t('how.s1d')], ['users', t('how.s2'), t('how.s2d')], ['shield', t('how.s3'), t('how.s3d')]];
+  return (
+    <section className="hows3" aria-label={t('how.title')}>
+      <ol>{steps.map(([ic, a, d], i) => <li key={a}><span className="c"><Icon name={ic} /><i>{i + 1}</i></span><b>{a}</b><small>{d}</small></li>)}</ol>
+      <div className="hiwlink"><Icon name="shield" className="sm18" />{t('how.paid')}<button type="button" onClick={() => setOpen(true)}>{t('how.learn')}<Icon name="chev" className="xs" /></button></div>
+      {open && <HowSheet onClose={() => setOpen(false)} />}
     </section>
   );
+}
+
+const DISMISS = 'twiqo.howDismissed';
+/** For new members: shown until dismissed or until they have a move of their own. */
+export function NewMemberCard() {
+  const { me } = useAuth(); const [open, setOpen] = useState(false);
+  const [gone, setGone] = useState(() => { try { return localStorage.getItem(DISMISS) === '1'; } catch { return false; } });
+  const q = useQuery({ queryKey: ['bookings', 'all-count'], queryFn: () => api('/bookings', { query: { state: 'all' } }), enabled: !!me && !gone, staleTime: 120_000 });
+  if (!me || gone || q.isLoading || (q.data?.items?.length ?? 0) > 0) return null;
+  const dismiss = () => { setGone(true); try { localStorage.setItem(DISMISS, '1'); } catch { /* storage unavailable */ } };
+  return (
+    <>
+      <div className="newcard"><span className="t"><Icon name="truck" /></span><div className="tx"><b>{t('how.new_title')}</b><small>{t('how.new_text')}</small></div>
+        <button className="go" onClick={() => setOpen(true)}>{t('how.new_cta')}</button>
+        <button className="x" onClick={dismiss} aria-label={t('how.dismiss')}><Icon name="x" /></button></div>
+      {open && <HowSheet onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+/** A permanent entry point on the Move page. */
+export function HowLink() {
+  const [open, setOpen] = useState(false);
+  return <><button type="button" className="howlink" onClick={() => setOpen(true)}><Icon name="help" />{t('how.link')}</button>{open && <HowSheet onClose={() => setOpen(false)} />}</>;
 }
 
 /** The person's live moves, so "where is my stuff?" is answered on the first screen. */
